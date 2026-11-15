@@ -1,4 +1,3 @@
-// HTTP server: the dashboard page, its JSON API, first-run setup, login and the collection schedule.
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
@@ -48,18 +47,11 @@ const learned = loadLearned(db);
 const resolve = createResolver(rules, learned);
 const root = new URL('../', import.meta.url);
 
-// ── Who may see what ─────────────────────────────────────────────────────────
-// With an account: everything needs a session. Without one, a server reachable from other machines
-// serves only the setup page, and creating the account needs the setup code printed in the server log,
-// so a stranger who finds the address first cannot claim it. On localhost alone the dashboard is open.
-
 let owner = getOwner(db);
 const local = ['127.0.0.1', 'localhost', '::1'].includes(host) && process.env.REQUIRE_LOGIN !== '1';
-// Grouped like the authenticator key, without look-alike characters; about 60 bits.
 const setupCode = owner ? null : base32Encode(randomBytes(8)).slice(0, 12);
 const formatCode = (code: string): string => code.match(/.{4}/g)!.join('-');
 
-// Everything the pages load, served from this origin only. Paths are fixed: nothing is read by request path.
 type Access = 'session' | 'signin' | 'setup';
 const STATIC: Record<string, { file: string; type: string; cache?: boolean; access: Access[] }> = {
   '/': { file: 'public/index.html', type: 'text/html; charset=utf-8', access: ['session'] },
@@ -88,10 +80,7 @@ const openTo = (access: Access): Set<string> =>
 const SIGNIN_PATHS = new Set([...openTo('signin'), '/healthz', '/icons.svg', '/api/login']);
 const SETUP_PATHS = new Set([...openTo('setup'), '/healthz', '/icons.svg', '/api/setup/start', '/api/setup/finish']);
 
-// Behind the reverse proxy the client address and protocol come from its forwarding headers.
 const app = Fastify({ logger: { level: 'warn' }, trustProxy: process.env.TRUST_PROXY === '1' });
-
-// ── Sessions ─────────────────────────────────────────────────────────────────
 
 const COOKIE = 'stashboard_session';
 const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
@@ -113,7 +102,6 @@ app.addHook('onRequest', async (request, reply) => {
   const path = request.url.split('?')[0]!;
   const api = path.startsWith('/api/');
 
-  // A page on another site must not be able to change anything here, even with the user's cookie.
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     const origin = request.headers.origin;
     if (origin && new URL(origin).host !== request.headers.host) {
@@ -122,7 +110,6 @@ app.addHook('onRequest', async (request, reply) => {
   }
 
   if (owner) {
-    // Setup is over: its pages lead to sign-in, its API is closed.
     if (path === '/setup') return reply.redirect('/login');
     if (SIGNIN_PATHS.has(path)) return;
     const token = sessionToken(request);
@@ -139,7 +126,6 @@ app.addHook('onSend', async (request, reply) => {
   if (!reply.hasHeader('Content-Security-Policy'))
     reply.header(
       'Content-Security-Policy',
-      // The chart library styles its tooltip inline; scripts are restricted to this origin.
       "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
     );
   reply.header('X-Content-Type-Options', 'nosniff');
@@ -157,9 +143,6 @@ for (const [path, { file, type, cache }] of Object.entries(STATIC)) {
 
 app.get('/healthz', async () => ({ ok: true }));
 
-// ── Icons and logos ──────────────────────────────────────────────────────────
-
-// Interface icons: one sprite built from the Lucide set, holding only the icons the pages use.
 const ICONS = [
   'refresh-cw',
   'plus',
@@ -192,21 +175,15 @@ app.get('/icons.svg', async (_request, reply) => {
 app.get<{ Params: { kind: string; key: string } }>('/logo/:kind/:key', async (request, reply) => {
   const logo = logoFile(db, request.params.kind, request.params.key);
   if (!logo) return reply.code(404).header('Cache-Control', 'no-store').send({ error: 'No logo' });
-  // Logos come from third parties. Sandboxing means that even an SVG opened directly cannot run anything here.
   reply.header('Content-Security-Policy', "sandbox; default-src 'none'; style-src 'unsafe-inline'");
   reply.type(logo.type).header('Cache-Control', 'private, max-age=604800');
   return readFileSync(logo.path);
 });
 
-// ── Attempt limiting, shared by setup and sign-in ────────────────────────────
-
-// Five wrong attempts from one address lock it out for 15 minutes. The global limit caps guessing
-// spread over many addresses; it is high enough that the owner mistyping never trips it.
 const perAddress = new AttemptLimiter(5, 15 * 60_000);
 const everyone = new AttemptLimiter(50, 15 * 60_000);
 let lastTotpStep = 0;
 
-/** Sends the lockout answer and returns true when this address has to wait. */
 function lockedOut(request: FastifyRequest, reply: FastifyReply): boolean {
   const wait = Math.max(perAddress.retryAfter(request.ip), everyone.retryAfter('all'));
   if (wait === 0) return false;
@@ -229,12 +206,8 @@ function signIn(request: FastifyRequest, reply: FastifyReply, step: number): voi
   setSessionCookie(request, reply, createSession(db, SESSION_MS), SESSION_MS / 1000);
 }
 
-// ── First-run setup ──────────────────────────────────────────────────────────
-
 const MIN_PASSWORD = 12;
 const PENDING_MS = 15 * 60_000;
-// The password and authenticator secret chosen in step one, kept in memory until a code proves
-// the authenticator works. Nothing is saved before that.
 let pending: { passwordHash: string; totpSecret: string; at: number } | null = null;
 
 function setupCodeMatches(given: unknown): boolean {
@@ -299,17 +272,13 @@ app.post<{ Body: { setupCode?: unknown; code?: unknown } }>('/api/setup/finish',
   return { ok: true };
 });
 
-// ── Sign-in ──────────────────────────────────────────────────────────────────
-
 app.post<{ Body: { password?: unknown; code?: unknown } }>('/api/login', async (request, reply) => {
   if (!owner) return reply.code(409).send({ error: 'There is no account yet. Create it first.' });
   if (lockedOut(request, reply)) return reply;
 
   const { password, code } = request.body ?? {};
-  // Both checks always run, and the answer does not say which one failed.
   const passwordOk = typeof password === 'string' && verifyPassword(password, owner.passwordHash);
   const step = typeof code === 'string' ? matchTotp(owner.totpSecret, code) : null;
-  // A code is accepted once: a step at or before the last accepted one is a replay.
   if (!passwordOk || step === null || step <= lastTotpStep) {
     failed(request, 'failed sign-in');
     return reply.code(401).send({ error: 'Wrong password or code' });
@@ -325,11 +294,8 @@ app.post('/api/logout', async (request, reply) => {
   return { ok: true };
 });
 
-// ── Collection ───────────────────────────────────────────────────────────────
-
 let collecting: Promise<void> | null = null;
 
-/** What the running collection is doing, account by account. Null when nothing runs. */
 interface Progress {
   phase: 'accounts' | 'signals';
   accounts: { id: number; state: 'waiting' | 'reading' | 'done' | 'failed'; note: string | null }[];
@@ -351,14 +317,12 @@ function track(event: ProgressEvent): void {
   else Object.assign(entry, { state: event.ok ? 'done' : 'failed', note: event.note ?? null });
 }
 
-/** Signals are recomputed when they are older than the schedule allows. */
 async function refreshSignals(): Promise<void> {
   const newest = latestSignals(db).reduce((max, s) => (s.time > max ? s.time : max), '');
   if (newest && Date.now() - Date.parse(newest) < config.schedule.signalsMinutes * 60_000) return;
   await runSignals(db, config, resolve);
 }
 
-/** Looks up categories for assets that have none. A failure is only logged; they stay in "Other" until the next run. */
 async function refreshCategories(): Promise<void> {
   try {
     if ((await fetchMissingCategories(db, config, resolve, categories)) > 0) loadLearned(db, learned);
@@ -367,10 +331,8 @@ async function refreshCategories(): Promise<void> {
   }
 }
 
-/** Fetches the logos the portfolio shows and does not have yet. Cosmetic, so a failure is only logged. */
 async function refreshLogos(): Promise<void> {
   try {
-    // Chain names and logos hardly change; once a week is plenty, and it survives restarts.
     const chainsAt = Number(getSetting(db, 'zerion_chains_at') ?? 0);
     if (config.zerion.apiKey && Date.now() - chainsAt > 7 * 24 * 60 * 60_000) {
       noteLogos(db, await fetchChains(config.zerion.apiKey));
@@ -382,7 +344,6 @@ async function refreshLogos(): Promise<void> {
   }
 }
 
-/** Starts a collection unless one is already running; either way resolves when it has finished. */
 function collect(): Promise<void> {
   collecting ??= runCollection(db, config, track)
     .then(() => {
@@ -390,7 +351,6 @@ function collect(): Promise<void> {
       return refreshSignals();
     })
     .then(() => {
-      // Logos are cosmetic: fetched in the background so they never hold up an update.
       void refreshLogos();
       void refreshCategories();
     })
@@ -411,7 +371,6 @@ else
     .then(refreshLogos)
     .catch((err: unknown) => app.log.error(err));
 
-// One copy of the database a day, taken at start and then checked hourly.
 const backup = (): void => {
   try {
     const file = backupDaily(db);
@@ -423,10 +382,6 @@ const backup = (): void => {
 backup();
 setInterval(backup, 60 * 60_000).unref();
 
-// ── API ──────────────────────────────────────────────────────────────────────
-
-// Changes whenever the page's own files do. A tab left open across an update compares it with the one it
-// started with and reloads, instead of running old code against new answers.
 const build = createHash('sha1')
   .update(['public/index.html', 'public/app.js', 'public/app.css'].map((f) => readFileSync(new URL(f, root))).join())
   .digest('hex')
@@ -481,7 +436,6 @@ app.put<{ Params: { key: string }; Body: { category?: unknown } }>(
     const { key } = request.params;
     const { category } = request.body ?? {};
     if (!key || key.length > 40) return reply.code(400).send({ error: 'No such asset' });
-    // null goes back to the automatic category.
     if (category !== null && !(typeof category === 'string' && categories.includes(category))) {
       return reply.code(400).send({ error: 'Choose one of the listed categories' });
     }
@@ -500,12 +454,10 @@ await app.listen({ host, port });
 console.log(`Stashboard is running at http://${host}:${port}`);
 if (setupCode) {
   const where = config.domain && !local ? `https://${config.domain}/setup` : `http://${host}:${port}/setup`;
-  // The marker lets the deploy script find this line in the log.
   console.log(`No account yet. Create one at ${where} with this setup code: ${formatCode(setupCode)}  [setup-code]`);
   if (local) console.log('Until then the dashboard is open on this machine only.');
 }
 
-// Docker stops the container with SIGTERM; close cleanly so the database is not cut off mid-write.
 for (const signal of ['SIGTERM', 'SIGINT'] as const) {
   process.on(signal, () => {
     void app.close().then(() => {

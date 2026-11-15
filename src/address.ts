@@ -1,12 +1,9 @@
-// Validation and normalisation of public addresses. Shared by the CLI and the future UI form.
 export const WALLET_KINDS = ['evm', 'solana', 'ton'] as const;
 export type WalletKind = (typeof WALLET_KINDS)[number];
 
 export interface ParsedAddress {
   kind: WalletKind;
-  /** As displayed and as sent to APIs. */
   address: string;
-  /** Uniqueness key: one wallet written differently (letter case in EVM, EQ/UQ in TON) is still one wallet. */
   key: string;
 }
 
@@ -23,7 +20,7 @@ function base58ByteLength(s: string): number | null {
   for (; n > 0n; n >>= 8n) bytes++;
   for (const ch of s) {
     if (ch !== '1') break;
-    bytes++; // leading '1's are zero bytes
+    bytes++;
   }
   return bytes;
 }
@@ -37,7 +34,6 @@ function crc16(data: Uint8Array): number {
   return crc;
 }
 
-/** TON: user-friendly address (48 base64 characters, checksummed) or raw `workchain:hex`. */
 function tonRaw(input: string): string | null {
   const raw = /^(-?\d+):([0-9a-fA-F]{64})$/.exec(input);
   if (raw) return `${raw[1]}:${raw[2]!.toLowerCase()}`;
@@ -61,7 +57,6 @@ function parseAs(kind: WalletKind, address: string): ParsedAddress | null {
   return raw ? { kind, address, key: raw } : null;
 }
 
-/** Parses an address; without `kind` the network is detected from the format. Throws a readable error. */
 export function parseAddress(input: string, kind?: WalletKind): ParsedAddress {
   const address = input.trim();
   for (const k of kind ? [kind] : WALLET_KINDS) {

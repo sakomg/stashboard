@@ -1,4 +1,3 @@
-// Crypto Fear & Greed index from alternative.me. It changes once a day, so it is cached.
 import { getJson } from '../http.ts';
 
 export interface FearGreed {
@@ -9,7 +8,6 @@ export interface FearGreed {
 const TTL_MS = 6 * 60 * 60 * 1000;
 let cached: { at: number; data: FearGreed } | undefined;
 
-/** Returns null when the index cannot be read; the dashboard works without it. */
 export async function fearGreed(): Promise<FearGreed | null> {
   if (cached && Date.now() - cached.at < TTL_MS) return cached.data;
   try {

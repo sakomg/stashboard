@@ -1,11 +1,7 @@
-// Login building blocks: password hashing (argon2id), TOTP (RFC 6238) and attempt limiting.
 import { argon2Sync, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-
-// ── Password ─────────────────────────────────────────────────────────────────
 
 const ARGON = { parallelism: 1, tagLength: 32, memory: 65536, passes: 3 };
 
-/** Returns `argon2id$<salt>$<hash>`, both base64url. */
 export function hashPassword(password: string): string {
   const salt = randomBytes(16);
   const hash = argon2Sync('argon2id', { message: Buffer.from(password, 'utf8'), nonce: salt, ...ARGON });
@@ -24,8 +20,6 @@ export function verifyPassword(password: string, stored: string): boolean {
   });
   return timingSafeEqual(actual, expected);
 }
-
-// ── TOTP ─────────────────────────────────────────────────────────────────────
 
 const BASE32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 const STEP_SECONDS = 30;
@@ -51,7 +45,6 @@ export function base32Decode(text: string): Buffer {
 
 export const newTotpSecret = (): string => base32Encode(randomBytes(20));
 
-/** The six-digit code for a 30-second step (SHA-1, as every authenticator app expects). */
 export function totpCode(secret: string, step: number): string {
   const counter = Buffer.alloc(8);
   counter.writeBigUInt64BE(BigInt(step));
@@ -60,10 +53,6 @@ export function totpCode(secret: string, step: number): string {
   return String((mac.readUInt32BE(offset) & 0x7fffffff) % 1_000_000).padStart(6, '0');
 }
 
-/**
- * Returns the step a code belongs to, allowing one step of clock drift either way; null if it matches none.
- * The caller remembers the step so the same code cannot be used twice.
- */
 export function matchTotp(secret: string, code: string, now = Date.now()): number | null {
   const given = Buffer.from(code.replace(/\s/g, '').padEnd(6).slice(0, 6));
   const current = Math.floor(now / 1000 / STEP_SECONDS);
@@ -78,9 +67,6 @@ export function otpauthUri(secret: string, account: string): string {
   return `otpauth://totp/Stashboard:${encodeURIComponent(account)}?secret=${secret}&issuer=Stashboard`;
 }
 
-// ── Attempt limiting ─────────────────────────────────────────────────────────
-
-/** Counts failures per key inside a sliding window and locks the key out once it reaches the limit. */
 export class AttemptLimiter {
   private readonly failures = new Map<string, number[]>();
   private readonly limit: number;
@@ -98,7 +84,6 @@ export class AttemptLimiter {
     return kept;
   }
 
-  /** Seconds until the key may try again; 0 when it is not locked out. */
   retryAfter(key: string, now = Date.now()): number {
     const recent = this.recent(key, now);
     return recent.length < this.limit ? 0 : Math.ceil((recent[0]! + this.windowMs - now) / 1000);

@@ -1,14 +1,10 @@
-// Turns per-account holdings into the merged portfolio the console and the dashboard show.
 import type { Asset } from './assets.ts';
 import type { AccountState } from './db.ts';
 
 export interface AssetRow extends Asset {
-  /** Sum over all wrappers; for merged assets (ETH + wstETH) it is an approximation. */
   quantity: number;
-  /** Price of the canonical symbol when held directly, otherwise value / quantity. */
   price: number | null;
   value: number;
-  /** Share of net worth, 0–1. */
   share: number;
 }
 

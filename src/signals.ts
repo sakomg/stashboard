@@ -1,4 +1,3 @@
-// Computes market signals and the heat score for the assets in the portfolio.
 import type { DatabaseSync } from 'node:sqlite';
 import { STOCKS_CATEGORY, type Asset } from './assets.ts';
 import type { Config } from './config.ts';
@@ -12,17 +11,13 @@ const MIN_VALUE_USD = 1;
 const NO_SIGNALS = new Set(['Stablecoins']);
 
 export interface Pair {
-  /** Where candles come from. */
   candles: { market: 'spot' | 'futures'; symbol: string } | null;
-  /** Perpetual contract for funding and open interest. */
   perp: string | null;
 }
 
-/** Finds the Binance markets of an asset. Tokenized stocks trade on spot with a B suffix (NVDAB). */
 export function findPair(asset: Asset, markets: Markets): Pair {
   const stock = asset.category === STOCKS_CATEGORY;
   const spot = [`${asset.key}USDT`, ...(stock ? [`${asset.key}BUSDT`] : [])].find((s) => markets.spot.has(s));
-  // Stocks are scored on price action alone: their perpetuals follow a different market.
   const perp = stock ? undefined : [`${asset.key}USDT`, `1000${asset.key}USDT`].find((s) => markets.futures.has(s));
   const candles = spot
     ? { market: 'spot' as const, symbol: spot }
@@ -49,13 +44,11 @@ async function readings(pair: Pair): Promise<Readings> {
     result.funding = await funding8hPct(pair.perp);
     const growth = await openInterestChange7dPct(pair.perp);
     const weekAgo = daily.at(-8);
-    // Rising open interest signals leverage piling in only while price rises too; otherwise it reads as neutral.
     if (growth !== null && last && weekAgo) result.oiGrowth = last > weekAgo ? growth : 0;
   }
   return result;
 }
 
-/** Refreshes signals for every asset worth more than a dollar. One asset failing does not stop the rest. */
 export async function runSignals(
   db: DatabaseSync,
   config: Config,

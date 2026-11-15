@@ -1,7 +1,3 @@
-// Wallet management from the console: a stand-in until the UI form (stage 2), and for servers without a UI.
-//   npm run wallets                            list
-//   npm run wallets -- add <address> [label]   the network is detected from the address format
-//   npm run wallets -- rm <id>
 import { addWallet, listWallets, openDb, removeWallet } from './db.ts';
 
 const [cmd = 'list', ...args] = process.argv.slice(2);

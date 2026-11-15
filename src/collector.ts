@@ -1,4 +1,3 @@
-// One collection run: reads every account and stores the result as a snapshot.
 import type { DatabaseSync } from 'node:sqlite';
 import type { Config } from './config.ts';
 import { ensureExchangeAccount, finishSnapshot, listAccounts, saveOutcome, startSnapshot, type Account } from './db.ts';
@@ -9,7 +8,6 @@ import { collectTon } from './sources/ton.ts';
 import { collectZerion } from './sources/zerion.ts';
 import type { CollectResult, Holding } from './types.ts';
 
-/** What a run is doing, for a page that wants to show it. */
 export type ProgressEvent =
   | { type: 'start'; accounts: Account[] }
   | { type: 'reading'; accountId: number }
@@ -34,7 +32,6 @@ function collectAccount(db: DatabaseSync, config: Config, account: Account, noti
   }
 }
 
-/** An EVM address is read twice: Zerion for chains and protocols, Lighter for what sits on its exchange. */
 async function collectEvm(
   db: DatabaseSync,
   apiKey: string,
@@ -50,10 +47,6 @@ async function collectEvm(
   };
 }
 
-/**
- * Holdings that come from an earlier answer keep their quantity but take today's price, when this run read
- * the same token somewhere else. A wrapped token (WETH, WBTC) takes the price of what it wraps.
- */
 export function repriceEarlierReads(holdings: Holding[]): Holding[] {
   const prices = new Map<string, number>();
   for (const h of holdings) {
@@ -70,7 +63,6 @@ export function repriceEarlierReads(holdings: Holding[]): Holding[] {
   });
 }
 
-/** Collects all accounts. A failing account is recorded as an error and does not stop the others. */
 export async function runCollection(db: DatabaseSync, config: Config, notify: Notify = () => {}): Promise<number> {
   if (config.binance.apiKey && config.binance.apiSecret) ensureExchangeAccount(db, 'binance', 'Binance');
 
@@ -90,7 +82,6 @@ export async function runCollection(db: DatabaseSync, config: Config, notify: No
     }
   }
 
-  // Prices are settled across all accounts before anything is stored.
   const repriced = repriceEarlierReads(results.flatMap((r) => r.result?.holdings ?? []));
   const snapshotId = startSnapshot(db);
   let next = 0;

@@ -14,7 +14,6 @@ import {
 } from '../src/auth.ts';
 import { backupDaily, createSession, deleteSession, openDb, sessionValid } from '../src/db.ts';
 
-// RFC 6238 test secret: the ASCII string "12345678901234567890".
 const SECRET = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
 
 test('TOTP matches the RFC 6238 test vectors', () => {
@@ -34,7 +33,7 @@ test('a code is accepted one step either side of now and nowhere else', () => {
   assert.equal(matchTotp(SECRET, totpCode(SECRET, step + 1), now), step + 1);
   assert.equal(matchTotp(SECRET, totpCode(SECRET, step - 2), now), null);
   assert.equal(matchTotp(SECRET, '', now), null);
-  assert.equal(matchTotp(SECRET, '0818041', now), step); // only six digits are read
+  assert.equal(matchTotp(SECRET, '0818041', now), step);
 });
 
 test('password hashes verify and differ per hash', () => {
@@ -65,7 +64,6 @@ test('sessions expire and can be ended', () => {
   assert.equal(sessionValid(db, token, 500), true);
   assert.equal(sessionValid(db, token, 1500), false);
   assert.equal(sessionValid(db, 'made-up', 500), false);
-  // The token itself is not in the database.
   assert.equal(
     (db.prepare('SELECT COUNT(*) AS n FROM sessions WHERE token_hash = ?').get(token) as { n: number }).n,
     0,

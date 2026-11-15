@@ -26,15 +26,14 @@ function position(symbol: string, type: string, value: number, protocol: string 
   };
 }
 
-/** Answers Zerion requests: plain tokens, DeFi positions, or a refusal for either. */
-function fakeZerion({ simple = 200, complex = 200, remaining = 200 } = {}) {
+function fakeZerion({ simple = 200, complex = 200, remaining = 200, limit = 300 } = {}) {
   globalThis.fetch = (async (url: string | URL) => {
     const filter = new URL(url).searchParams.get('filter[positions]') ?? 'chains';
     calls.push(filter);
     const status = filter === 'only_complex' ? complex : filter === 'only_simple' ? simple : 200;
     const headers = {
       'ratelimit-org-tier': 'demo',
-      'ratelimit-org-day-limit': '300',
+      'ratelimit-org-day-limit': String(limit),
       'ratelimit-org-day-remaining': String(remaining),
       'ratelimit-org-day-reset': '3600',
     };
@@ -75,10 +74,19 @@ test('an EVM wallet is read as tokens and DeFi positions, then reused instead of
   assert.deepEqual(calls, [], 'a second update minutes later costs nothing');
   assert.ok(again.holdings.every((h) => h.readAt));
 
-  // An hour later the tokens are read again; DeFi positions wait for their own, longer interval.
   calls = [];
   await collectZerion(db, 'key', ADDRESS, 'evm', { now: Date.now() + 60 * 60_000 });
   assert.deepEqual(calls, ['only_simple']);
+});
+
+test('a key with a large allowance reads DeFi positions on every hourly update', async () => {
+  const db = freshDb();
+  fakeZerion({ limit: 2000 });
+  await collectZerion(db, 'key', ADDRESS, 'evm');
+  calls = [];
+  await collectZerion(db, 'key', ADDRESS, 'evm', { now: Date.now() + 60 * 60_000 });
+  assert.deepEqual(calls, ['only_simple', 'only_complex']);
+  assert.equal(zerionQuota().defiEveryMinutes, 55);
 });
 
 test('a refused DeFi read keeps the earlier positions, says so, and is not repeated', async () => {

@@ -23,7 +23,6 @@ async function post(path, body) {
   return data;
 }
 
-/** Runs a form's request with its button disabled, showing any error under the form. */
 async function submit(form, request) {
   const button = form.querySelector('button[type=submit]');
   show(form, null);

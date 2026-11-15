@@ -29,7 +29,6 @@ function seeded() {
   saveOutcome(db, first, b.id, { status: 'ok', holdings: [holding('USDC', 500, 1)], warnings: [] });
   finishSnapshot(db, first);
 
-  // The second wallet fails; the first one's ETH has gone up.
   const second = startSnapshot(db);
   saveOutcome(db, second, a.id, { status: 'ok', holdings: [holding('WETH', 1, 2200)], warnings: [] });
   saveOutcome(db, second, b.id, { status: 'error', error: 'down' });
@@ -60,6 +59,5 @@ test('portfolio view merges accounts, flags the stale one and hides full address
   );
   assert.equal(view.sources[0]!.address, '0x5290…9EE7');
   assert.equal(view.assets[0]!.key, 'ETH');
-  // No snapshot is a day old yet, so there is nothing to compare with.
   assert.deepEqual(view.changes, { d1: null, d7: null, d30: null });
 });

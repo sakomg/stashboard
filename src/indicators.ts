@@ -1,4 +1,3 @@
-/** Wilder's RSI over closing prices, oldest first; the value TradingView shows. Null until there is enough data. */
 export function rsi(closes: number[], period = 14): number | null {
   if (closes.length < period + 1) return null;
   let gain = 0;
@@ -19,7 +18,6 @@ export function rsi(closes: number[], period = 14): number | null {
   return 100 - 100 / (1 + gain / loss);
 }
 
-/** Simple moving average of the last `period` values; null until there are that many. */
 export function sma(values: number[], period: number): number | null {
   if (values.length < period) return null;
   let sum = 0;

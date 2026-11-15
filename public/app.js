@@ -1,9 +1,5 @@
-// Dashboard client. No build step: plain ES module, DOM built by hand.
-// Token names and symbols come from public chains and can contain anything, so nothing here uses innerHTML.
-
 const $ = (id) => document.getElementById(id);
 
-/** h('td', { class: 'num' }, 'text', childNode) */
 function h(tag, props = {}, ...children) {
   const el = document.createElement(tag);
   for (const [key, value] of Object.entries(props)) {
@@ -17,11 +13,8 @@ function h(tag, props = {}, ...children) {
   return el;
 }
 
-// ── Icons and logos ──────────────────────────────────────────────────────────
-
 const SVG = 'http://www.w3.org/2000/svg';
 
-/** An interface icon from the sprite. Decorative: the control that holds it carries the label. */
 function icon(name) {
   const svg = document.createElementNS(SVG, 'svg');
   svg.setAttribute('class', 'icon');
@@ -32,11 +25,9 @@ function icon(name) {
   return svg;
 }
 
-/** A button that shows only an icon; the label is read out and shown on hover. */
 const iconButton = (name, label, onclick, cls = '') =>
   h('button', { class: `icon-button ${cls}`, type: 'button', 'aria-label': label, title: label, onclick }, icon(name));
 
-/** The first letters of a name, shown where there is no logo. */
 function monogram(label) {
   return h(
     'span',
@@ -48,7 +39,6 @@ function monogram(label) {
   );
 }
 
-/** A logo the server has stored, or a monogram when it has none or the image fails to load. */
 function logo(kind, key, label = key) {
   const version = state.logos.get(`${kind}/${key}`);
   if (!version) return monogram(label);
@@ -64,21 +54,17 @@ function logo(kind, key, label = key) {
   return img;
 }
 
-// Accounts and the two non-EVM venues are drawn with the logo of their native coin.
 const KIND_TOKEN = { binance: 'BNB', evm: 'ETH', solana: 'SOL', ton: 'TON' };
 const CHAIN_TOKEN = { binance: 'BNB', ton: 'TON' };
 const kindLogo = (kind) => logo('token', KIND_TOKEN[kind], KINDS[kind]);
 const chainLogo = (id) =>
   CHAIN_TOKEN[id] ? logo('token', CHAIN_TOKEN[id], chainName(id)) : logo('chain', id, chainName(id));
 
-// ── Formatting ───────────────────────────────────────────────────────────────
-
 const usd = (n) =>
   `${n < 0 ? '−' : ''}$${Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const usdRound = (n) => `${n < 0 ? '−' : ''}$${Math.abs(n).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 const quantity = (n) => n.toLocaleString('en-US', { maximumSignificantDigits: 6 });
 const price = (n) => (n == null ? '—' : `$${n.toLocaleString('en-US', { maximumSignificantDigits: 5 })}`);
-// Rounds first, so a tiny negative number does not print as "-0.000".
 const fixed = (n, digits) =>
   (Number(n.toFixed(digits)) === 0 ? (0).toFixed(digits) : n.toFixed(digits)).replace('-', '−');
 const percent = (n) => `${(n * 100).toFixed(1)}%`;
@@ -121,10 +107,6 @@ const chainName = (id) =>
   state.chainNames[id] ??
   id.replace(/(^|-)(\w)/g, (_, hyphen, c) => (hyphen ? ' ' : '') + c.toUpperCase());
 
-// ── Colour ───────────────────────────────────────────────────────────────────
-// Eight categorical hues validated for this dark surface, used in this fixed order; a ninth group is "Other".
-// Colour follows the group, not its rank: a category keeps its hue whatever its size.
-
 const PALETTE = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#0ca30c', '#9085e9', '#e66767'];
 const OTHER_COLOR = '#6b7480';
 const CATEGORY_ORDER = ['L1', 'BTC', 'Stablecoins', 'Memes', 'DeFi', 'Stocks', 'ETH', 'L2'];
@@ -137,9 +119,6 @@ function colorOf(dimension, name) {
   return map.get(name);
 }
 
-// ── State ────────────────────────────────────────────────────────────────────
-
-// [id, label, group of a holding, logo of a group given one of its holdings]
 const DIMENSIONS = [
   ['category', 'Category', (x) => x.category, null],
   ['asset', 'Asset', (x) => x.asset, (x) => logo('token', x.asset)],
@@ -168,7 +147,6 @@ const state = {
   renaming: null,
   updating: false,
   view: 'overview',
-  /** What the running collection is doing, account by account, as /api/progress reports it. */
   progress: null,
 };
 
@@ -179,7 +157,6 @@ async function api(path, options) {
   } catch {
     throw new Error('The server did not answer. Check the connection.');
   }
-  // The session ended or was never there: the sign-in page is the only useful place to be.
   if (response.status === 401) {
     location.replace('/login');
     return new Promise(() => {});
@@ -188,8 +165,6 @@ async function api(path, options) {
   if (!response.ok) throw new Error(body.error ?? `Request failed (${response.status})`);
   return body;
 }
-
-// ── Summary ──────────────────────────────────────────────────────────────────
 
 function renderSummary() {
   const { data } = state;
@@ -212,7 +187,6 @@ function renderSummary() {
 const busy = () => state.updating || state.data?.collecting || state.progress !== null;
 const labelOf = (id) => state.data?.sources.find((s) => s.id === id)?.label ?? 'an account';
 
-/** The line under the net worth and the account chips: what is happening right now. */
 function renderUpdating() {
   const { data, progress } = state;
   const button = $('collect');
@@ -234,7 +208,6 @@ function renderUpdating() {
   renderSources();
 }
 
-// Older than two scheduled updates: worth a quiet mark on the chip.
 const isOld = (s) =>
   s.oldestRead && Date.now() - Date.parse(s.oldestRead) > 2 * state.data.collectEveryMinutes * 60_000;
 
@@ -243,7 +216,6 @@ function renderSources() {
   $('sources').replaceChildren(
     ...state.data.sources.map((s) => {
       const step = live.get(s.id);
-      // While an update runs, the chips show how far it has got; otherwise, anything that needs attention.
       const mark = step
         ? {
             waiting: ['waiting', null, 'Waiting to be read'],
@@ -279,7 +251,6 @@ function renderSources() {
 const joinNames = (names) =>
   names.length <= 2 ? names.join(' and ') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
 
-/** What went wrong, said once per cause rather than once per account. */
 function renderNotices() {
   const groups = new Map();
   const add = (key, source, text) => {
@@ -288,7 +259,6 @@ function renderNotices() {
   };
   for (const s of state.data.sources) {
     if (s.stale) add(`error\n${s.error}`, s, s.error ?? '');
-    // Allowance notes from a source are worth showing; routine warnings (unpriced spam) are not.
     for (const w of s.warnings) if (/allowance|rate limiting|left out/i.test(w)) add(`warn\n${w}`, s, w);
   }
   $('notices').replaceChildren(
@@ -319,13 +289,10 @@ function renderNotices() {
   );
 }
 
-// ── Allocation ───────────────────────────────────────────────────────────────
-
 function groups(dimension) {
   const [, , keyOf, logoOf] = DIMENSIONS.find(([id]) => id === dimension);
   const totals = new Map();
   const samples = new Map();
-  // Debts are left out: a strip can only divide up what is held.
   for (const x of state.data.holdings) {
     if (x.value <= 0) continue;
     const key = keyOf(x);
@@ -335,7 +302,6 @@ function groups(dimension) {
   const sorted = [...totals].sort((a, b) => b[1] - a[1]);
   const total = sorted.reduce((s, [, v]) => s + v, 0);
 
-  // Keep what has a colour of its own and is wide enough to see; the rest folds into "Other".
   const shown = [];
   let other = 0;
   for (const [name, value] of sorted) {
@@ -350,7 +316,6 @@ function groups(dimension) {
       other += value;
     }
   }
-  // Dust worth less than a twentieth of a percent would only add an empty row.
   if (other / total >= 0.0005) shown.push({ name: 'Other', value: other });
   return shown.map((r) => ({
     ...r,
@@ -435,8 +400,6 @@ function renderAllocation() {
   );
 }
 
-// ── History ──────────────────────────────────────────────────────────────────
-
 let chart;
 
 async function renderHistory() {
@@ -467,9 +430,7 @@ async function renderHistory() {
   chart.setOption(
     {
       animation: false,
-      // A font list the canvas that measures labels resolves the same way as the SVG that draws them.
       textStyle: { fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif", color: token('--slate') },
-      // The labels are measured before the page font settles; a few pixels to spare keep "$" from being cut.
       grid: { left: 10, right: 8, top: 44, bottom: 0, containLabel: true },
       legend: {
         top: 0,
@@ -504,7 +465,6 @@ async function renderHistory() {
         type: 'line',
         stack: 'total',
         showSymbol: false,
-        // A surface-coloured edge keeps neighbouring bands apart without relying on hue alone.
         lineStyle: { width: 2, color: token('--ink') },
         areaStyle: { opacity: 1, color: colorOf('category', name) },
         itemStyle: { color: colorOf('category', name) },
@@ -519,11 +479,8 @@ async function renderHistory() {
 
 window.addEventListener('resize', () => chart?.resize());
 
-// ── Positions ────────────────────────────────────────────────────────────────
-
 const reading = (a, name) => a.signal?.components.find((c) => c.name === name)?.value ?? null;
 
-// [sort key, label, class, value to sort by]
 const COLUMNS = [
   ['key', 'Asset', '', (a) => a.key],
   ['quantity', 'Quantity', 'optional', (a) => a.quantity],
@@ -546,7 +503,6 @@ const READINGS = {
   oiGrowth: ['Open interest over 7 days', (v) => `${v > 0 ? '+' : '−'}${Math.abs(v).toFixed(0)}%`],
 };
 
-/** The heat score with its zone spelled out, so the colour is never the only cue. */
 function heatBadge(signal) {
   if (!signal) return dash();
   return h(
@@ -603,7 +559,6 @@ function renderPositions() {
     ? `Hide positions under $${DUST_USD}`
     : `Show ${dust.length} positions under $${DUST_USD}`;
 
-  // Bars compare positions with each other, so the largest one fills the track.
   const largest = Math.max(...visible.map((a) => a.share), 0);
   const body = table.tBodies[0];
   body.replaceChildren();
@@ -687,7 +642,6 @@ function renderPositions() {
   }
 }
 
-/** Where one asset is held: every account, chain and protocol it sits in. */
 function placesRow(asset) {
   const places = state.data.holdings.filter((x) => x.asset === asset).sort((a, b) => b.value - a.value);
   return h(
@@ -748,11 +702,8 @@ $('dust-toggle').addEventListener('click', () => {
   renderPositions();
 });
 
-// ── Signals ──────────────────────────────────────────────────────────────────
-
 function renderSignals() {
   const scored = state.data.assets.filter((a) => a.signal && Math.abs(a.value) >= DUST_USD);
-  // Largest holdings first: an overheated 10% position matters more than an overheated 0.5% one.
   const list = (zone) => scored.filter((a) => a.signal.zone === zone).sort((a, b) => b.share - a.share);
   const column = (title, zone, empty, fired) => {
     const assets = list(zone);
@@ -804,9 +755,6 @@ function renderSignals() {
     : 'Signals appear a few minutes after the first update.';
 }
 
-// ── DeFi ─────────────────────────────────────────────────────────────────────
-
-/** "Read 2 h ago" for positions that come from an earlier answer of the source. */
 function readNote(items) {
   const oldest = items.reduce((min, x) => (x.readAt && (!min || x.readAt < min) ? x.readAt : min), null);
   if (!oldest || Date.now() - Date.parse(oldest) < 30 * 60_000) return null;
@@ -878,8 +826,6 @@ function renderDefi() {
     );
   }
 }
-
-// ── Wallets ──────────────────────────────────────────────────────────────────
 
 function accountStatus(s) {
   if (s.status === null) return ['muted', 'Not read yet'];
@@ -962,15 +908,12 @@ function renderAccounts() {
     input.select();
   }
 
-  // The free Zerion key is the tightest limit in the system; say how much of it is left.
   const z = state.data.zerion;
   $('quota').textContent =
     z?.dayLimit != null
-      ? `EVM and Solana wallets are read through Zerion. Its ${z.tier ?? 'free'} key allows ${z.dayLimit} requests a day; ${z.dayRemaining ?? '?'} are left${z.dayResetsAt ? `, renewing in ${Math.max(1, Math.ceil((z.dayResetsAt - Date.now()) / 3_600_000))} h` : ''}. To stay within it, token balances are read at most every 10 minutes per wallet and DeFi positions every 3 hours.`
+      ? `EVM and Solana wallets are read through Zerion. Its ${z.tier ?? 'free'} key allows ${z.dayLimit} requests a day; ${z.dayRemaining ?? '?'} are left${z.dayResetsAt ? `, renewing in ${Math.max(1, Math.ceil((z.dayResetsAt - Date.now()) / 3_600_000))} h` : ''}. To stay within it, token balances are read at most every ${z.balancesEveryMinutes} minutes per wallet and DeFi positions every ${z.defiEveryMinutes >= 120 ? `${z.defiEveryMinutes / 60} hours` : 'hour'}.`
       : '';
 }
-
-// ── Views ────────────────────────────────────────────────────────────────────
 
 const VIEWS = ['overview', 'positions', 'signals', 'defi', 'accounts'];
 const tabs = () => [...document.querySelectorAll('[role="tab"]')];
@@ -984,7 +927,6 @@ function showView(id, focus = false) {
     if (on && focus) tab.focus();
   }
   for (const view of VIEWS) $(`view-${view}`).hidden = view !== state.view;
-  // A chart drawn while hidden has no size; give it one now that it shows.
   if (state.view === 'overview') chart?.resize();
 }
 
@@ -1010,10 +952,8 @@ for (const tab of tabs()) {
   tab.addEventListener('click', () => {
     if (location.hash !== `#${tab.dataset.view}`) location.hash = tab.dataset.view;
     showView(tab.dataset.view);
-    // Deep in a long view, the next one should open at its start, under the tab bar.
     if ($('views').classList.contains('stuck')) $('views').scrollIntoView();
   });
-  // Arrow keys move between tabs, as in any tab list.
   tab.addEventListener('keydown', (e) => {
     const list = tabs();
     const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
@@ -1027,12 +967,9 @@ for (const tab of tabs()) {
 window.addEventListener('hashchange', () => showView(location.hash.slice(1)));
 showView(location.hash.slice(1));
 
-// Once the net worth scrolls away, the tab bar carries a small copy of it.
 new IntersectionObserver(([entry]) => $('views').classList.toggle('stuck', !entry.isIntersecting), {
   rootMargin: '-60px 0px 0px 0px',
 }).observe($('net-worth'));
-
-// ── Dialogs ──────────────────────────────────────────────────────────────────
 
 function setError(id, message) {
   const el = $(id);
@@ -1042,13 +979,11 @@ function setError(id, message) {
 
 for (const dialog of document.querySelectorAll('dialog')) {
   for (const button of dialog.querySelectorAll('[data-close]')) button.addEventListener('click', () => dialog.close());
-  // A click on the backdrop lands on the dialog element itself.
   dialog.addEventListener('click', (event) => {
     if (event.target === dialog) dialog.close();
   });
 }
 
-/** Runs a dialog's request with its buttons disabled; an error stays in the dialog. */
 async function submitDialog(form, errorId, request) {
   const buttons = [...form.querySelectorAll('button')];
   setError(errorId, null);
@@ -1110,7 +1045,7 @@ $('add-wallet').addEventListener('submit', async (event) => {
       body: JSON.stringify({ address: form.address.value.trim(), label: form.label.value.trim() }),
     }),
   );
-  if (added) await update(); // read the new wallet straight away
+  if (added) await update();
 });
 
 let removing = null;
@@ -1160,7 +1095,6 @@ function openCategory(asset) {
       ),
     ),
   );
-  // Going back to automatic only means something once a category was chosen by hand.
   $('category-auto').hidden = asset.source !== 'manual';
   $('category-dialog').showModal();
 }
@@ -1181,8 +1115,6 @@ $('category-form').addEventListener('submit', (event) => {
 });
 $('category-auto').addEventListener('click', () => saveCategory(null));
 
-// ── Tooltip and banner ───────────────────────────────────────────────────────
-
 function showTip(event, title, text) {
   const tip = $('tip');
   tip.replaceChildren(h('b', {}, title), text);
@@ -1194,7 +1126,6 @@ function showTip(event, title, text) {
 
 const hideTip = () => ($('tip').hidden = true);
 
-/** A failure of the page itself, as opposed to one account being out of date. */
 function showBanner(err) {
   const banner = $('banner');
   banner.replaceChildren(
@@ -1210,11 +1141,8 @@ function showBanner(err) {
   if (!state.data) $('updated').textContent = 'Not loaded';
 }
 
-// ── Loading ──────────────────────────────────────────────────────────────────
-
 let progressTimer;
 
-/** While a collection runs, ask what it is doing every second. */
 function watchProgress() {
   if (progressTimer) return;
   const tick = async () => {
@@ -1228,9 +1156,7 @@ function watchProgress() {
         await load();
         return;
       }
-    } catch {
-      // A missed tick is harmless; the next one tries again.
-    }
+    } catch {}
     progressTimer = setTimeout(tick, 1000);
   };
   progressTimer = setTimeout(tick, 300);
@@ -1239,7 +1165,6 @@ function watchProgress() {
 async function load() {
   try {
     const data = await api('/api/portfolio');
-    // The server was updated while this tab was open: its code no longer matches the answers. Start over.
     state.build ??= data.build;
     if (data.build !== state.build) {
       location.reload();
@@ -1288,7 +1213,6 @@ async function update() {
   state.progress = null;
   await load();
   if (failure) showBanner(failure);
-  // Logos and categories of newly seen tokens are fetched after the update; pick them up once they are in.
   else setTimeout(load, 20000);
 }
 

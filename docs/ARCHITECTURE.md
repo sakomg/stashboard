@@ -1,0 +1,304 @@
+# How Stashboard works
+
+This is the reference for anyone changing the code. The code itself carries no comments: the reasons behind
+it live here, next to the user-facing [README](../README.md).
+
+## Code map
+
+| Path                            | Role                                                                                |
+| ------------------------------- | ----------------------------------------------------------------------------------- |
+| `src/server.ts`                 | HTTP server: pages, JSON API, first-run setup, sign-in, collection schedule         |
+| `src/collector.ts`              | One collection run over every account, with progress events                         |
+| `src/sources/binance.ts`        | Binance account, every wallet a read-only key can see                               |
+| `src/sources/zerion.ts`         | EVM and Solana wallets through Zerion, with its allowance and a per-wallet cache    |
+| `src/sources/lighter.ts`        | Lighter and Lighter on Robinhood Chain, by EVM address                              |
+| `src/sources/ton.ts`            | TON and whitelisted jettons through TonAPI                                          |
+| `src/sources/market.ts`         | Binance public market data: candles, funding, open interest                         |
+| `src/sources/feargreed.ts`      | Crypto Fear & Greed index from alternative.me                                       |
+| `src/assets.ts`                 | Resolver: merges wrappers into one asset and gives it a category                    |
+| `src/categories.ts`             | Categories looked up from CoinGecko tags, and categories chosen by hand             |
+| `src/portfolio.ts`              | Per-account holdings merged into the portfolio                                      |
+| `src/view.ts`                   | What the page needs: current portfolio, history, wanted logos                       |
+| `src/signals.ts`, `src/heat.ts` | Market readings per asset and the heat score built from them                        |
+| `src/indicators.ts`             | RSI and simple moving average                                                       |
+| `src/logos.ts`                  | Logo download, verification, storage and the index the page reads                   |
+| `src/auth.ts`                   | Password hashing, TOTP and attempt limiting                                         |
+| `src/db.ts`                     | SQLite schema, migrations and every query                                           |
+| `src/http.ts`                   | JSON over HTTP with timeouts and safe error text                                    |
+| `src/address.ts`                | Address validation and network detection                                            |
+| `src/qr.ts`                     | QR code as SVG for the authenticator link                                           |
+| `src/check.ts`                  | `npm run check`: one request per source to prove the keys                           |
+| `src/collect.ts`                | `npm run collect`: collect once and print, `--show` prints only, `--signals` scores |
+| `src/wallets.ts`                | `npm run wallets`: list, `add <address> [label]`, `rm <id>`                         |
+| `src/auth-reset.ts`             | `npm run auth:reset`: remove the account so it can be set up again                  |
+| `public/`                       | The page: plain HTML, CSS and ES modules, no build step                             |
+
+## Collection
+
+A run reads the accounts one after another. An account that fails is recorded as an error and the others go
+on; the failed one keeps showing its last good balances, marked out of date.
+
+Nothing is stored until every account has been read. Then holdings that come from an earlier answer of a
+source (see Zerion below) take this run's price for the same symbol, or for the token a `W`-wrapper wraps
+(WETH takes ETH's price), keeping their quantity. Only then is the snapshot written, so the page never sees a
+half-finished run.
+
+An EVM address is read twice: by Zerion for chains and protocols, and by Lighter for what sits on its
+exchange, which wallet indexers cannot see.
+
+While a run is going, the collector reports each account as waiting, being read, waiting on a source, done
+or failed. The server keeps that state and serves it at `/api/progress`; after the accounts it reports the
+signals phase.
+
+After the balances, signals are recomputed if they are older than `schedule.signalsMinutes`. Logos and
+categories of newly seen assets are fetched in the background: they are cosmetic and never hold up an update.
+
+The schedule runs every `schedule.balancesMinutes` (at least 5). On start, a run happens only if the last
+snapshot is older than that, so a restart or a deploy does not trigger a collection by itself.
+
+### History
+
+The history chart sums every account's value per category at every snapshot. An account that failed in a
+snapshot keeps its previous value there, so a source being down does not show as a drop in net worth. Long
+ranges are thinned evenly to 240 points, always keeping the most recent one. The 24-hour, 7-day and 30-day
+changes compare with the snapshot at or before that time and stay empty until history reaches that far.
+
+## Sources
+
+### Binance
+
+The key must be read-only; the check fails if it can trade or withdraw. Every wallet is read separately, and
+a wallet the account never opened answers with an error that must not hide the wallets that work. Public
+endpoints in the check also reveal whether Binance blocks the server's region.
+
+Prices come from the spot tickers, through USDT or the nearest liquid quote. Fiat and some stablecoins are
+quoted the other way round (USDTTRY) and are inverted.
+
+A flexible Earn position also appears in Spot as a receipt token, `LD` plus the asset (`LDUSDT`). The prefix
+alone proves nothing, since LDO is a real token, so a balance counts as a receipt only when Earn lists that
+asset, or, if Earn could not be read, when the token has no market of its own.
+
+Futures are counted at margin balance: wallet balance plus unrealised PnL, per collateral asset. Binance's own
+valuation of every wallet is kept as a cross-check, and `npm run collect` prints it next to the collected sum.
+
+### Zerion
+
+Zerion's key reports its allowance in response headers (`ratelimit-org-*`): about one request a second, a
+daily allowance, and a quarter of it for reads of positions in protocols (`only_complex` or `no_filter`).
+When that quarter is used up, those reads return 429 while plain reads keep working. Zerion may also refuse
+repeated requests for the same wallet in a short time.
+
+To stay inside it:
+
+- Plain tokens (`only_simple`) and positions in protocols (`only_complex`) are separate requests, each kept
+  per wallet in the `zerion_cache` table. Plain tokens are reused for 10 minutes, so adding a wallet, a second
+  click or a restart does not re-read every other wallet. Positions in protocols are reused for 55 minutes
+  on a key allowing 1,000 or more requests a day, so every hourly run reads them, and for 3 hours on a
+  smaller key.
+- Requests are at least 1.1 seconds apart. A 429 is retried after 2, 5 and 10 seconds. A read of positions
+  in protocols refused twice in a row is the quarter being used up, not a burst, so no more such reads are
+  sent until the daily allowance renews (at least an hour).
+- Nothing is sent while the day is down to its last 5 requests, so a manual update late in the day still has
+  room once it renews.
+- When Zerion refuses, the last answer is used and the account carries a warning saying how old it is. If
+  nothing was kept yet, positions in protocols fall back to those stored by the last good collection, without
+  Lighter, which is read separately. An old position is better than a missing one.
+- `npm run check`, which every deploy runs, spends one request on the chain list instead of reading wallets,
+  and prints the allowance left. The chain list for logos and names is fetched once a week.
+
+Zerion reports only plain tokens and staking for Solana, so Solana wallets make one request.
+
+Tokens Zerion cannot price are almost always airdropped spam: they are counted in the warnings, not listed.
+
+A lending deposit shows up twice: as the position in the protocol and as the receipt token the protocol
+handed out (`aEthWETH` for WETH lent on Aave). The receipt is dropped when the deposit it stands for is
+listed on the same chain; a receipt without a listed deposit is kept, so the money is counted either way.
+
+### Lighter
+
+Lighter is a perpetuals exchange on its own rollup. Its public API finds the account of an EVM address
+without a key. There are two separate exchanges: the main one, funded from Ethereum with USDC, and one on
+Robinhood Chain with USDG. An address that never used one answers with code 21100, which means no account,
+not a failure.
+
+Each account becomes one holding worth its equity (collateral plus unrealised PnL), in the stablecoin that
+backs it and of type futures, the same way Binance futures wallets are counted. Open positions are listed in
+the account's warnings; they are not exposure in the portfolio.
+
+### TonAPI
+
+Anyone can send any jetton to any wallet, so only whitelisted jettons count; the rest is mostly spam. TonAPI
+answers without a key at a much lower rate, which is not enough for scheduled collection.
+
+TonAPI has no image for the native coin, and a lookup by ticker finds an unrelated token that shares it
+(Tokamak Network), so the TON logo is named explicitly.
+
+### Market data and Fear & Greed
+
+Candles include the one still in progress. Funding is averaged over the last three days and expressed per 8
+hours; summing first makes it independent of the contract's funding interval (8, 4 or 1 hours). Open
+interest change is measured in contracts over seven days; some contracts have no history, which is a missing
+reading rather than a failure.
+
+The Fear & Greed index changes once a day and is cached; the page works without it.
+
+## Assets and categories
+
+The resolver turns a symbol as a source spells it into a canonical asset:
+
+1. Tokenized stocks are recognised by suffix: `NVDAx`, `NVDAB` and `NVDAon` are NVDA.
+2. An Aave deposit receipt is the token that was lent: the market prefix (`aEth`, `aArb`, `aBas`, …) is
+   removed, so `aEthWETH` becomes WETH and then ETH.
+3. Aliases from `assets.json` are matched by exact spelling first, then in upper case, because wrappers
+   differ by case (stETH, cbBTC) and plain tickers do not.
+
+The category is the one chosen by hand on the page, then the one in `assets.json`, then one looked up, and
+otherwise "Other".
+
+Lookups run after a collection for assets in "Other" worth at least a dollar, at most 25 per run, 2.5 seconds
+apart to stay within CoinGecko's free rate. Several coins can share a ticker; the one with the largest market
+cap is taken, which is right for anything worth holding and can be corrected by hand. The coin's tags are
+mapped in order, first match winning, so the more specific reading comes first: Memes, Stablecoins, Stocks,
+L2, L1, DeFi (exchanges, lending, derivatives, staking, launchpads, bridges, oracles, marketplaces, RWA), and
+L1 for a smart-contract platform not tagged as a layer outright. A miss is retried after a day; a 429 stops
+the run and leaves the rest for the next one.
+
+In the merged portfolio, the quantity of an asset held through different wrappers is a sum and therefore an
+approximation (ETH plus wstETH). Its price is that of the canonical symbol when held directly, otherwise
+value divided by quantity.
+
+## Signals and heat
+
+The thresholds and weights are in the README. In addition:
+
+- RSI is Wilder's, the value TradingView shows.
+- Tokenized stocks trade on Binance spot with a `B` suffix (NVDAB) and are scored on price action alone,
+  since their perpetuals follow a different market. An asset without a spot market takes candles from its
+  perpetual.
+- Rising open interest counts as leverage piling in only while the price rises too; otherwise it reads as
+  neutral.
+- Stablecoins and assets under a dollar are not scored. One asset failing does not stop the rest.
+
+## Logos
+
+Sources name a logo URL for what they return; the server downloads each image once, stores it in
+`DATA_DIR/logos` and serves it from its own address. The browser never asks a third party, so nobody outside
+learns what the portfolio holds, and the repository ships no brand assets.
+
+For each wanted logo the candidates are: the address its source named, then CoinGecko by symbol (a tokenized
+stock by its wrapper ticker, `NVDAx`), then the logo of a wrapper (WETH's for ETH). Hosts often label images
+as generic binary data, so an image is recognised by its first bytes (PNG, JPEG, GIF, WebP, SVG) and must be
+under 512 KB. A download has 8 seconds and one retry; a failure is retried six hours later. Six run at a time.
+
+When a source names a different address for a logo, the stored image is dropped and fetched again. The
+address on record stays the one the source named even when a fallback supplied the image, so the same hint
+arriving again is not taken for a new one. The page asks for each logo under a version that changes with the
+image, because browsers keep logos for a week. Logos are served with a sandbox policy, so even an SVG opened
+directly cannot run anything.
+
+Accounts are drawn with the logo of their native coin: Binance with BNB, EVM with ETH, Solana with SOL, TON
+with TON. Interface icons come from Lucide; the server builds one sprite, `/icons.svg`, with only the icons
+the pages use.
+
+## Security
+
+- **Access.** With an account, every page and API call needs a session; only the sign-in page and its assets
+  are open. Without one, a server reachable from other machines serves only the setup page, and creating the
+  account needs the setup code printed in the server log, so a stranger who finds the address first cannot
+  claim it. On localhost alone the dashboard is open, unless `REQUIRE_LOGIN=1`.
+- **Setup.** The setup code is 12 characters from a 32-character alphabet without look-alikes, about 60
+  bits, printed with a `[setup-code]` marker that `deploy.sh` looks for. The password and authenticator
+  secret chosen in the first step stay in memory until a code proves the authenticator works; nothing is
+  saved before that.
+- **Password.** argon2id with 64 MiB of memory, 3 passes and a 32-byte tag, stored as
+  `argon2id$<salt>$<hash>` in base64url.
+- **Authenticator.** TOTP per RFC 6238: SHA-1, six digits, 30-second steps, one step of clock drift either
+  way. A code is accepted once: a step at or before the last accepted one is a replay.
+- **Attempts.** Five wrong attempts from one address lock it out for 15 minutes. A global limit of 50 caps
+  guessing spread over many addresses and is high enough that the owner mistyping never trips it. Password
+  and code are both always checked, and the answer does not say which one failed.
+- **Sessions.** A random token in an `HttpOnly`, `SameSite=Strict` cookie, valid 30 days. Only its hash is
+  stored, so a copy of the database cannot be used to sign in.
+- **Requests.** A request that changes something must come from this origin, so a page on another site
+  cannot act with the owner's cookie. Behind the reverse proxy, the client address and protocol come from
+  its forwarding headers (`TRUST_PROXY=1`).
+- **Content.** The content security policy allows scripts only from this origin; inline styles are allowed
+  because the chart library styles its tooltip inline. Static files come from a fixed list; nothing is read
+  by request path. The page builds every element by hand and never uses `innerHTML`: token names and
+  symbols come from public chains and can contain anything.
+- **Secrets in errors.** HTTP error text carries only the host and the response body, never the query string
+  or headers, which can contain keys and signatures.
+- **Addresses.** Full wallet addresses stay on the server; the page gets a shortened form.
+- **Shutdown.** On SIGTERM the server closes cleanly, so the database is not cut off mid-write.
+
+## The page
+
+No build step: plain HTML, CSS and ES modules. ECharts and the font are served from `node_modules`.
+
+- **Views.** Overview, Positions, Signals, DeFi and Accounts share one tab bar; the view lives in the URL
+  hash. The bar sticks to the top and shows the net worth once the large figure scrolls away. Arrow keys move
+  between tabs. Switching from deep in a long view opens the next one at its start. The history chart is
+  resized when the overview is shown, because a chart drawn while hidden has no size.
+- **Progress.** While an update runs, the page asks `/api/progress` every second and shows each account's
+  state on its chip and the account being read under the net worth. Logos and categories of new tokens arrive
+  after an update, so the page reloads its data 20 seconds later.
+- **Updates of the server.** `/api/portfolio` carries a stamp of the page's own files. A tab left open across
+  a deploy sees the stamp change and reloads, instead of running old code against new answers.
+- **Notices.** Problems are grouped by cause, one notice per cause rather than per account. Only allowance
+  notes and failures are shown; routine warnings such as unpriced spam stay in the Accounts view. A chip
+  gets a clock when some of its balances are older than two scheduled updates.
+- **Colour.** Eight categorical hues validated for the dark surface are used in a fixed order, and a ninth
+  group is "Other". Colour follows the group, not its rank, so a category keeps its hue whatever its size.
+  The allocation strip folds groups under 0.5% into "Other" and leaves debts out, since a strip can only
+  divide up what is held. Bands in the history chart get a surface-coloured edge, so neighbours stay apart
+  without relying on hue. The heat badge spells out its zone, so colour is never the only cue.
+- **Chart labels.** The chart measures axis labels on a canvas and draws them in SVG. Both get the same
+  system font list, plus 10 pixels to spare, or the first character of a wide label is cut off.
+- **Ordering.** Signals list the largest holdings first: an overheated 10% position matters more than an
+  overheated 0.5% one. Positions under a dollar are hidden until asked for; share bars are scaled to the
+  largest position.
+- **QR code.** Dark on light whatever the page theme, because phone cameras read inverted codes poorly.
+
+## Database
+
+One SQLite file, `DATA_DIR/stashboard.db`. Each migration in `src/db.ts` upgrades the schema by one version,
+and `PRAGMA user_version` records how many have run.
+
+| Table               | Holds                                                                         |
+| ------------------- | ----------------------------------------------------------------------------- |
+| `accounts`          | Wallets and the exchange; the exchange is an account like any wallet          |
+| `snapshots`         | One row per collection run                                                    |
+| `snapshot_accounts` | Each account's result in a run: ok with warnings and reported total, or error |
+| `holdings`          | Positions per account and run; `read_at` when it comes from an earlier answer |
+| `signals`           | Market readings and heat score per asset, with the Binance market used        |
+| `sessions`          | Hashes of session tokens and their expiry                                     |
+| `settings`          | The owner account, and when the Zerion chain list was last fetched            |
+| `logos`             | Where each logo comes from, its stored file, and when it was last tried       |
+| `asset_categories`  | Categories chosen by hand or looked up, with the coin's tags                  |
+| `zerion_cache`      | The last Zerion answer per wallet and kind of read                            |
+
+Removing a wallet removes its history with it. Once a day, at start and then checked hourly, the database is
+copied with `VACUUM INTO`, which takes a consistent copy while it is in use; the newest 14 copies are kept.
+
+## Deploy and CI
+
+CI checks formatting, types and tests on every pull request and push to `main`. Production is deployed only
+when a pull request into `main` is merged: the deploy job runs on the merged pull request, checks out its
+merge commit and runs the checks first. A commit pushed straight to `main` is checked but not deployed.
+
+`deploy.sh`:
+
+- removes the old sources on the server first, so files deleted from the repository do not linger;
+- uploads `config.json` and a `.env` naming the domain when run from a machine that has them; from CI, which
+  has neither, the copy already on the server is kept;
+- makes secrets readable only by the `node` user (uid 1000) inside the container;
+- runs the key check in a throwaway container first. A failing source is reported but does not stop the
+  deploy, since a third-party outage must not block shipping a fix. The check gets `/dev/null` as input,
+  because the deploy script itself arrives over standard input and the container must not read the rest of it;
+- prints the setup code while no account exists.
+
+The image runs TypeScript directly on Node 24, so there is no build step; the config is mounted from the
+host, and other entry points run the same way (`docker compose run --rm stashboard src/check.ts`). The app
+publishes no port: only Caddy reaches it on the compose network. The image is built on the server, so a
+Watchtower running there is told to leave it alone. Caddy obtains and renews the HTTPS certificate, which
+needs ports 80 and 443 reachable from the internet.

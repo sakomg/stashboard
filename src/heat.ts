@@ -1,18 +1,14 @@
-// Heat score: how stretched an asset looks, 0 (cold) to 100 (overheated).
 import type { Config } from './config.ts';
 
 export type ComponentName = 'rsiDaily' | 'rsiWeekly' | 'funding' | 'ma200' | 'oiGrowth';
 export type Zone = 'cold' | 'neutral' | 'warm' | 'overheated';
 
-/** Raw readings; null means the reading is not available for this asset. */
 export type Readings = Record<ComponentName, number | null>;
 
 export interface Component {
   name: ComponentName;
   value: number;
-  /** 0–100: 50 at the neutral reading, 80 at the configured overheated threshold. */
   score: number;
-  /** Weight after rescaling over the components that are available, 0–1. */
   weight: number;
 }
 
@@ -22,7 +18,6 @@ export interface Heat {
   components: Component[];
 }
 
-// What "nothing unusual" looks like for each reading. Funding's resting rate on Binance is 0.01% per 8 hours.
 const NEUTRAL: Record<ComponentName, number> = { rsiDaily: 50, rsiWeekly: 50, funding: 0.01, ma200: 0, oiGrowth: 0 };
 
 const THRESHOLD: Record<ComponentName, keyof Config['heat']['overheated']> = {
@@ -36,7 +31,6 @@ const THRESHOLD: Record<ComponentName, keyof Config['heat']['overheated']> = {
 export const HOT_SCORE = 80;
 export const COLD_SCORE = 30;
 
-/** A straight line through (neutral, 50) and (overheated threshold, 80), clamped to 0–100. */
 function componentScore(name: ComponentName, value: number, heat: Config['heat']): number {
   const neutral = NEUTRAL[name];
   const span = heat.overheated[THRESHOLD[name]] - neutral;
@@ -51,7 +45,6 @@ export function zoneOf(score: number, zones: Config['heat']['zones']): Zone {
   return 'cold';
 }
 
-/** Weighted average over the readings that exist; weights of missing ones are spread over the rest. */
 export function heatScore(readings: Readings, heat: Config['heat']): Heat | null {
   const available = (Object.keys(readings) as ComponentName[]).filter(
     (n) => readings[n] !== null && heat.weights[n] > 0,

@@ -1,4 +1,3 @@
-// Binance: every wallet of the account that a read-only key can see.
 import { createHmac } from 'node:crypto';
 import type { Config } from '../config.ts';
 import { getJson, postJson } from '../http.ts';
@@ -23,7 +22,6 @@ export async function binanceSigned<T>(
   return options.method === 'POST' ? postJson<T>(url, headers) : getJson<T>(url, headers);
 }
 
-/** USD price of an asset from the spot tickers, through USDT or the nearest liquid quote. */
 export function priceFrom(tickers: Map<string, number>, asset: string): number | null {
   if (asset === 'USDT') return 1;
   const direct = tickers.get(`${asset}USDT`);
@@ -33,7 +31,6 @@ export function priceFrom(tickers: Map<string, number>, asset: string): number |
     const quoteUsd = tickers.get(`${quote}USDT`);
     if (cross && quoteUsd) return cross * quoteUsd;
   }
-  // Fiat and some stablecoins are only quoted the other way round (USDTTRY).
   const inverse = tickers.get(`USDT${asset}`);
   return inverse ? 1 / inverse : null;
 }
@@ -60,7 +57,6 @@ export async function collectBinance(keys: Keys): Promise<CollectResult> {
   const warnings: string[] = [];
   const balances: Balance[] = [];
 
-  // A wallet the account never opened answers with an error; that must not hide the wallets that work.
   const optional = async (wallet: string, read: () => Promise<Balance[]>): Promise<void> => {
     try {
       balances.push(...(await read()));
@@ -97,9 +93,6 @@ export async function collectBinance(keys: Keys): Promise<CollectResult> {
   const tickerRows = await getJson<{ symbol: string; price: string }[]>(`${SPOT}/api/v3/ticker/price`);
   const tickers = new Map(tickerRows.map((t) => [t.symbol, Number(t.price)]));
 
-  // Spot. A flexible Earn position also shows up here as a receipt token: LD + asset (LDUSDT).
-  // The prefix alone proves nothing (LDO is a real token), so a balance is treated as a receipt only when
-  // Earn lists that asset, or, if Earn could not be read, when the token has no market of its own.
   const spot = await binanceSigned<{ balances: { asset: string; free: string; locked: string }[] }>(
     keys,
     '/api/v3/account',
@@ -129,7 +122,6 @@ export async function collectBinance(keys: Keys): Promise<CollectResult> {
     }));
   });
 
-  // Futures: margin balance = wallet balance + unrealised PnL, per collateral asset.
   for (const [wallet, base, path] of [
     ['USDⓈ-M Futures', USD_M, '/fapi/v3/account'],
     ['COIN-M Futures', COIN_M, '/dapi/v1/account'],
@@ -170,7 +162,6 @@ export async function collectBinance(keys: Keys): Promise<CollectResult> {
     });
   }
 
-  // Binance's own valuation of every wallet, to cross-check the sum above.
   let reportedTotal: number | undefined;
   try {
     const wallets = await binanceSigned<{ balance: string }[]>(keys, '/sapi/v1/asset/wallet/balance', {

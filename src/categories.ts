@@ -1,5 +1,3 @@
-// Categories for assets that assets.json does not mention. CoinGecko tags every coin; the tags are mapped
-// onto the dashboard's own categories and remembered. A category chosen by hand on the page wins over both.
 import { setTimeout as sleep } from 'node:timers/promises';
 import type { DatabaseSync } from 'node:sqlite';
 import { OTHER_CATEGORY, STOCKS_CATEGORY, type Asset, type AssetRules, type Learned } from './assets.ts';
@@ -8,13 +6,11 @@ import { currentState } from './db.ts';
 import { getJson, HttpError } from './http.ts';
 
 const API = 'https://api.coingecko.com/api/v3';
-// The free key allows about 30 calls a minute; categories are not urgent.
 const PAUSE_MS = 2500;
 const RETRY_MS = 24 * 60 * 60 * 1000;
 const MIN_VALUE_USD = 1;
 const MAX_PER_RUN = 25;
 
-// First match wins, so the more specific reading comes first: a meme coin on a layer 2 is a meme coin.
 const RULES: [category: string, test: (tag: string) => boolean][] = [
   ['Memes', (t) => t !== 'IP Meme' && /(^| )meme$/i.test(t)],
   ['Stablecoins', (t) => /stablecoin/i.test(t)],
@@ -28,11 +24,9 @@ const RULES: [category: string, test: (tag: string) => boolean][] = [
         t,
       ),
   ],
-  // A chain's own coin that is not tagged as a layer 1 or 2 outright.
   ['L1', (t) => t === 'Smart Contract Platform'],
 ];
 
-/** The dashboard category for a coin's CoinGecko tags, or null when none of them says enough. */
 export function categoryFromTags(tags: string[], known: string[]): string | null {
   for (const [category, test] of RULES) {
     if (known.includes(category) && tags.some(test)) return category;
@@ -40,12 +34,10 @@ export function categoryFromTags(tags: string[], known: string[]): string | null
   return null;
 }
 
-/** Every category an asset can be given, in the order the page lists them. */
 export const categoryNames = (rules: AssetRules): string[] => [
   ...new Set([...Object.keys(rules.categories), STOCKS_CATEGORY, OTHER_CATEGORY]),
 ];
 
-/** Fills the resolver's memory from the database. The same object is updated in place, so the resolver sees it. */
 export function loadLearned(db: DatabaseSync, into: Learned = { manual: new Map(), auto: new Map() }): Learned {
   into.manual.clear();
   into.auto.clear();
@@ -61,7 +53,6 @@ export function loadLearned(db: DatabaseSync, into: Learned = { manual: new Map(
   return into;
 }
 
-/** Sets the category chosen by hand, or clears it with null so the automatic one applies again. */
 export function setManualCategory(db: DatabaseSync, key: string, category: string | null): void {
   db.prepare(
     `INSERT INTO asset_categories (key, manual) VALUES (?, ?)
@@ -75,11 +66,6 @@ interface MarketRow {
   market_cap: number | null;
 }
 
-/**
- * Looks up assets that are still uncategorised. Several coins can share a ticker; the largest one is taken,
- * which is right for anything worth holding and can be corrected by hand when it is not.
- * Returns how many assets got a category.
- */
 export async function fetchMissingCategories(
   db: DatabaseSync,
   config: Config,
@@ -145,7 +131,6 @@ export async function fetchMissingCategories(
         );
         tags = (detail.categories ?? []).filter((t): t is string => typeof t === 'string');
       } catch (err) {
-        // Out of calls for now: stop and leave the rest for the next run.
         if (err instanceof HttpError && err.status === 429) break;
         if (!(err instanceof HttpError)) throw err;
       }

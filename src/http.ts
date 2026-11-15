@@ -23,7 +23,6 @@ async function request<T>(
 ): Promise<{ data: T; headers: Headers }> {
   const host = new URL(url).host;
   let res: Response | undefined;
-  // Only connection failures are retried, and every request here is a read, so a repeat is safe.
   for (let attempt = 1; !res; attempt++) {
     try {
       res = await fetch(url, {
@@ -49,10 +48,6 @@ async function request<T>(
   }
 }
 
-/**
- * GET with a timeout, JSON response. Error text carries only the host and the response body:
- * query strings and headers can contain keys and signatures.
- */
 export function getJson<T = unknown>(
   url: string | URL,
   headers: Record<string, string> = {},
@@ -61,7 +56,6 @@ export function getJson<T = unknown>(
   return request<T>('GET', url, headers, timeoutMs).then((r) => r.data);
 }
 
-/** GET that also returns the response headers, for APIs that report their rate limits there. */
 export function getJsonWithHeaders<T = unknown>(
   url: string | URL,
   headers: Record<string, string> = {},
@@ -70,7 +64,6 @@ export function getJsonWithHeaders<T = unknown>(
   return request<T>('GET', url, headers, timeoutMs);
 }
 
-/** POST without a body (parameters in the query string), JSON response. */
 export function postJson<T = unknown>(
   url: string | URL,
   headers: Record<string, string> = {},

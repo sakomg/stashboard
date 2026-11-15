@@ -1,5 +1,3 @@
-// Stage 0: verifies every API key in config.json and every wallet in the database.
-// Run: npm run check (locally) or ./deploy.sh user@host (from the server's IP).
 import { loadConfig, type Config } from './config.ts';
 import { listWallets, openDb, type Wallet } from './db.ts';
 import { getJson } from './http.ts';
@@ -27,10 +25,7 @@ async function step(source: string, fn: () => Promise<void>): Promise<void> {
   }
 }
 
-// ── Binance ──────────────────────────────────────────────────────────────────
-
 async function checkBinance(cfg: Config['binance']): Promise<void> {
-  // Public endpoints also show whether Binance blocks this machine's region.
   await step('Binance pub', async () => {
     await getJson('https://api.binance.com/api/v3/ping');
     await getJson('https://fapi.binance.com/fapi/v1/ping');
@@ -58,12 +53,8 @@ async function checkBinance(cfg: Config['binance']): Promise<void> {
   });
 }
 
-// ── Zerion (EVM + Solana) ────────────────────────────────────────────────────
-
 async function checkZerion(cfg: Config['zerion'], wallets: Wallet[]): Promise<void> {
   if (!cfg.apiKey) return report('skip', 'Zerion', 'key is not set');
-  // One cheap request proves the key. Wallets are not read here: on a free key every read counts against a
-  // small daily allowance, and a deploy should not spend it.
   await step('Zerion', async () => {
     const chains = await fetchChains(cfg.apiKey);
     const q = zerionQuota();
@@ -79,11 +70,8 @@ async function checkZerion(cfg: Config['zerion'], wallets: Wallet[]): Promise<vo
   });
 }
 
-// ── TonAPI ───────────────────────────────────────────────────────────────────
-
 async function checkTon(cfg: Config['tonapi'], ton: Wallet[]): Promise<void> {
   if (ton.length === 0) return report('skip', 'TonAPI', 'no TON wallets');
-  // TonAPI also answers without a key, but with a tight rate limit; scheduled collection needs the key.
   if (!cfg.apiKey) report('warn', 'TonAPI', 'key is not set, requests go without it');
   const headers: Record<string, string> = cfg.apiKey ? { authorization: `Bearer ${cfg.apiKey}` } : {};
 
@@ -99,8 +87,6 @@ async function checkTon(cfg: Config['tonapi'], ton: Wallet[]): Promise<void> {
     });
   }
 }
-
-// ── CoinGecko, Fear & Greed ──────────────────────────────────────────────────
 
 async function checkCoingecko(cfg: Config['coingecko']): Promise<void> {
   if (!cfg.apiKey) return report('skip', 'CoinGecko', 'key is not set');
@@ -123,8 +109,6 @@ async function checkFearGreed(): Promise<void> {
     report('ok', 'Fear&Greed', `${d.value} (${d.value_classification})`);
   });
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 let config: Config;
 try {

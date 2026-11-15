@@ -61,11 +61,9 @@ test('a new source address makes a failed logo worth trying again', () => {
   const before = logoIndex(db).available['token/ARB'];
   assert.ok(before);
 
-  // A different address also drops the stored image, so a wrong logo gets replaced.
   noteLogos(db, [{ kind: 'token', key: 'ARB', url: 'https://cdn.example/new.png' }]);
   assert.deepEqual(logoIndex(db).available, {});
 
-  // Once the new image is in, the page is told to ask for it under a new address.
   db.prepare("UPDATE logos SET file = 'new.png', media_type = 'image/png'").run();
   assert.notEqual(logoIndex(db).available['token/ARB'], before);
   assert.equal((db.prepare('SELECT tried_at FROM logos').get() as { tried_at: string | null }).tried_at, null);

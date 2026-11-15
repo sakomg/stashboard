@@ -1,9 +1,3 @@
-// Zerion API (free tier): wallet tokens and DeFi positions for EVM chains and Solana.
-//
-// The free key is small: about one request a second and a few hundred a day for the whole key, of which
-// reads of DeFi positions may use only a quarter. So every answer is kept per wallet and reused for a while,
-// DeFi positions are read less often than token balances, and the allowance Zerion reports in its response
-// headers is respected before asking at all. When Zerion says no, the last answer is used and says how old it is.
 import type { DatabaseSync } from 'node:sqlite';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { receiptUnderlying } from '../assets.ts';
@@ -13,7 +7,6 @@ import type { CollectResult, Holding, HoldingType, LogoHint } from '../types.ts'
 
 export interface ZerionPosition {
   chain: string;
-  /** wallet | deposit | loan | staked | locked | reward | ... */
   type: string;
   protocol: string | null;
   symbol: string;
@@ -21,7 +14,6 @@ export interface ZerionPosition {
   price: number | null;
   icon: string | null;
   protocolIcon: string | null;
-  /** USD; null when Zerion has no price for the token. */
   value: number | null;
 }
 
@@ -41,23 +33,23 @@ interface ApiPage {
   }[];
 }
 
-/** Zerion refused to answer because an allowance is used up; retrying now will not help. */
 export class ZerionLimitError extends Error {}
 
-/** The allowance as Zerion last reported it. Times are milliseconds since the epoch. */
 export interface ZerionQuota {
   tier: string | null;
   dayLimit: number | null;
   dayRemaining: number | null;
   dayResetsAt: number | null;
-  /** Reads of DeFi positions are refused until then. */
   defiBlockedUntil: number;
 }
 
 const quota: ZerionQuota = { tier: null, dayLimit: null, dayRemaining: null, dayResetsAt: null, defiBlockedUntil: 0 };
-export const zerionQuota = (): ZerionQuota => ({ ...quota });
+export const zerionQuota = (): ZerionQuota & { balancesEveryMinutes: number; defiEveryMinutes: number } => ({
+  ...quota,
+  balancesEveryMinutes: reuseMs('only_simple') / 60_000,
+  defiEveryMinutes: reuseMs('only_complex') / 60_000,
+});
 
-/** For tests: forget what Zerion reported. */
 export function resetZerionQuota(): void {
   Object.assign(quota, { tier: null, dayLimit: null, dayRemaining: null, dayResetsAt: null, defiBlockedUntil: 0 });
 }
@@ -79,16 +71,12 @@ const inHours = (until: number, now: number): string => {
   return `in about ${hours} h`;
 };
 
-// Requests are spaced a little over a second apart; a refused one is retried after a growing pause.
 export const zerionTiming = { minIntervalMs: 1100, retryPausesMs: [2000, 5000, 10000] };
-/** Requests kept back from the daily allowance, so a manual update late in the day still works. */
 const DAY_RESERVE = 5;
 let lastRequestAt = 0;
 
 export interface ZerionCall {
-  /** Reads of DeFi positions count against a smaller allowance. */
   defi?: boolean;
-  /** Told when a request has to wait, so the page can say why an update is slow. */
   onWait?: (note: string) => void;
 }
 
@@ -113,7 +101,6 @@ async function zerionGet<T>(url: string, apiKey: string, call: ZerionCall = {}):
     } catch (err) {
       if (err instanceof HttpError) noteQuota(err.headers, Date.now());
       if (!(err instanceof HttpError) || err.status !== 429) throw err;
-      // A DeFi read refused twice in a row is the DeFi allowance, not a burst: stop until the day renews.
       if (call.defi && attempt >= 1) {
         quota.defiBlockedUntil = Math.max(quota.dayResetsAt ?? 0, Date.now() + 60 * 60_000);
         throw new ZerionLimitError(
@@ -133,7 +120,6 @@ async function zerionGet<T>(url: string, apiKey: string, call: ZerionCall = {}):
 
 export type PositionFilter = 'only_simple' | 'only_complex';
 
-/** Positions of one wallet: plain tokens (only_simple) or positions in protocols (only_complex). */
 export async function fetchPositions(
   apiKey: string,
   address: string,
@@ -176,11 +162,6 @@ const TYPES: Record<string, HoldingType> = {
   margin: 'margin',
 };
 
-/**
- * A lending deposit shows up twice: as the position in the protocol and as the receipt token the protocol
- * handed out (aEthWETH for WETH lent on Aave). They are the same money, so the receipt is dropped when the
- * deposit it stands for is listed on the same chain. A receipt with no listed deposit is kept.
- */
 export function withoutDepositReceipts(positions: ZerionPosition[]): ZerionPosition[] {
   const deposited = new Set(
     positions.filter((p) => p.type === 'deposit').map((p) => `${p.chain}\n${p.symbol.toLowerCase()}`),
@@ -191,13 +172,12 @@ export function withoutDepositReceipts(positions: ZerionPosition[]): ZerionPosit
   });
 }
 
-/** How long an answer is reused before the wallet is asked again. */
-export const REUSE_MS: Record<PositionFilter, number> = {
-  // Long enough that adding a wallet, a deploy or a second click does not re-read every other wallet.
-  only_simple: 10 * 60_000,
-  // Positions in protocols change rarely and their reads are the scarce ones.
-  only_complex: 3 * 60 * 60_000,
-};
+export const LARGE_KEY_DAILY_LIMIT = 1000;
+
+export function reuseMs(part: PositionFilter, dayLimit = quota.dayLimit): number {
+  if (part === 'only_simple') return 10 * 60_000;
+  return dayLimit !== null && dayLimit >= LARGE_KEY_DAILY_LIMIT ? 55 * 60_000 : 3 * 60 * 60_000;
+}
 
 const PART_NAMES: Record<PositionFilter, string> = { only_simple: 'Token balances', only_complex: 'DeFi positions' };
 
@@ -222,10 +202,6 @@ function writeCache(db: DatabaseSync, address: string, part: PositionFilter, at:
   );
 }
 
-/**
- * The DeFi positions stored for this wallet by the last good collection, shaped like a Zerion answer.
- * Used once, when Zerion refuses before anything was kept: an old position beats a missing one.
- */
 export function lastStoredDefi(db: DatabaseSync, address: string): Cached | null {
   const last = db
     .prepare(
@@ -278,14 +254,13 @@ export async function collectZerion(
   kind: 'evm' | 'solana',
   { now = Date.now(), onWait }: ZerionOptions = {},
 ): Promise<CollectResult> {
-  // Zerion reports only plain tokens and staking for Solana, so there is nothing more to ask for there.
   const parts: PositionFilter[] = kind === 'evm' ? ['only_simple', 'only_complex'] : ['only_simple'];
   const warnings: string[] = [];
   const read: { positions: ZerionPosition[]; readAt: string | null }[] = [];
 
   for (const part of parts) {
     const cached = readCache(db, address, part);
-    if (cached && now - cached.at < REUSE_MS[part]) {
+    if (cached && now - cached.at < reuseMs(part)) {
       read.push({ positions: cached.positions, readAt: new Date(cached.at).toISOString() });
       continue;
     }
@@ -300,7 +275,6 @@ export async function collectZerion(
         warnings.push(`${PART_NAMES[part]} are from ${ago(now - earlier.at)} ago. ${err.message}.`);
         read.push({ positions: earlier.positions, readAt: new Date(earlier.at).toISOString() });
       } else if (part === 'only_complex') {
-        // Token balances alone still give most of the picture; say plainly what is missing.
         warnings.push(`DeFi positions could not be read yet and are left out. ${err.message}.`);
       } else {
         throw err;
@@ -316,7 +290,6 @@ export async function collectZerion(
   const logos: LogoHint[] = [];
   let unpriced = 0;
   for (const p of positions) {
-    // Tokens Zerion cannot price are almost always airdropped spam, so they are counted but not listed.
     if (!p.value) {
       unpriced++;
       continue;
@@ -339,7 +312,6 @@ export async function collectZerion(
   return { holdings, logos, warnings };
 }
 
-/** Names and logos of every chain Zerion knows. */
 export async function fetchChains(apiKey: string): Promise<LogoHint[]> {
   const page = await zerionGet<{
     data: { id: string; attributes: { name?: string; icon?: { url?: string } | null } }[];

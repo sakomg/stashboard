@@ -1,4 +1,3 @@
-// Binance public market data (no key): candles, funding and open interest.
 import { getJson, HttpError } from '../http.ts';
 
 const SPOT = 'https://api.binance.com';
@@ -18,7 +17,6 @@ export async function listMarkets(): Promise<Markets> {
   return { spot: new Set(spot.map((s) => s.symbol)), futures: new Set(futures.map((s) => s.symbol)) };
 }
 
-/** Closing prices, oldest first, including the candle still in progress. */
 export async function closes(
   market: 'spot' | 'futures',
   symbol: string,
@@ -30,18 +28,15 @@ export async function closes(
   return rows.map((r) => Number(r[4]));
 }
 
-/** Average funding rate over the last three days, as a percentage per 8 hours. */
 export async function funding8hPct(symbol: string, now = Date.now()): Promise<number | null> {
   const rows = await getJson<{ fundingRate: string }[]>(
     `${FUTURES}/fapi/v1/fundingRate?symbol=${symbol}&startTime=${now - 3 * DAY_MS}&limit=1000`,
   );
   if (rows.length === 0) return null;
-  // Summing first makes this independent of the contract's funding interval (8, 4 or 1 hours).
   const total = rows.reduce((s, r) => s + Number(r.fundingRate), 0);
   return (total / 9) * 100;
 }
 
-/** Change in open interest (in contracts) over the last seven days, as a percentage. */
 export async function openInterestChange7dPct(symbol: string): Promise<number | null> {
   try {
     const rows = await getJson<{ sumOpenInterest: string }[]>(
@@ -52,7 +47,6 @@ export async function openInterestChange7dPct(symbol: string): Promise<number | 
     if (rows.length < 8 || !first || !last) return null;
     return (last / first - 1) * 100;
   } catch (err) {
-    // Binance has no open interest history for some contracts; that is a missing reading, not a failure.
     if (err instanceof HttpError && err.status === 400) return null;
     throw err;
   }
