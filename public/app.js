@@ -615,36 +615,44 @@ function placesRow(asset) {
       'td',
       { colspan: COLUMNS.length },
       h(
-        'table',
-        {},
+        'div',
+        { class: 'places-card' },
         h(
-          'thead',
+          'table',
           {},
-          h('tr', {}, ...['Account', 'Where', 'Held as', 'Quantity', 'Value'].map((t) => h('th', { scope: 'col' }, t))),
-        ),
-        h(
-          'tbody',
-          {},
-          ...places.map((x) =>
+          h(
+            'thead',
+            {},
             h(
               'tr',
               {},
-              h('td', {}, h('span', { class: 'name' }, kindLogo(x.kind), h('span', {}, x.account))),
+              ...['Account', 'Where', 'Held as', 'Quantity', 'Value'].map((t) => h('th', { scope: 'col' }, t)),
+            ),
+          ),
+          h(
+            'tbody',
+            {},
+            ...places.map((x) =>
               h(
-                'td',
+                'tr',
                 {},
-                x.kind === 'binance'
-                  ? x.protocol
-                  : h(
-                      'span',
-                      { class: 'name' },
-                      chainLogo(x.chain),
-                      h('span', {}, [chainName(x.chain), x.protocol].filter(Boolean).join(', ')),
-                    ),
+                h('td', {}, h('span', { class: 'name' }, kindLogo(x.kind), h('span', {}, x.account))),
+                h(
+                  'td',
+                  {},
+                  x.kind === 'binance'
+                    ? x.protocol
+                    : h(
+                        'span',
+                        { class: 'name' },
+                        chainLogo(x.chain),
+                        h('span', {}, [chainName(x.chain), x.protocol].filter(Boolean).join(', ')),
+                      ),
+                ),
+                h('td', {}, `${TYPES[x.type] ?? x.type}${x.symbol !== asset ? ` (${x.symbol})` : ''}`),
+                h('td', { class: 'num' }, quantity(x.quantity)),
+                h('td', { class: 'num' }, usd(x.value)),
               ),
-              h('td', {}, `${TYPES[x.type] ?? x.type}${x.symbol !== asset ? ` (${x.symbol})` : ''}`),
-              h('td', { class: 'num' }, quantity(x.quantity)),
-              h('td', { class: 'num' }, usd(x.value)),
             ),
           ),
         ),

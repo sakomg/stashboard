@@ -660,36 +660,51 @@ tr[aria-expanded='true'] .chevron {
   background: var(--bone);
 }
 
-.places td {
-  padding: 0 0 14px 26px;
+/* Where one asset is held: a card under its row, lined up with the asset name. */
+
+.places > td {
+  padding: 8px 0 16px 28px;
   border-bottom: 1px solid var(--line);
 }
 
-.places table {
+.places-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
   background: var(--surface);
-  border-radius: 10px;
+  overflow-x: auto;
 }
 
-.places th,
-.places td td {
-  padding: 8px 14px;
+.places-card table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.places-card th,
+.places-card td {
+  padding: 9px 16px;
   border-bottom: 0;
   font-size: 13.5px;
+  text-align: right;
+  white-space: nowrap;
 }
 
-.places th:first-child,
-.places td td:first-child {
-  padding-left: 14px;
+.places-card th {
+  padding-top: 11px;
+  font-size: 12.5px;
 }
 
-.places th:last-child,
-.places td td:last-child {
-  padding-right: 14px;
+.places-card tbody td {
+  border-top: 1px solid var(--line);
 }
 
-.places th:nth-child(-n + 3),
-.places td td:nth-child(-n + 3) {
+.places-card th:nth-child(-n + 3),
+.places-card td:nth-child(-n + 3) {
   text-align: left;
+}
+
+.places-card .logo {
+  width: 18px;
+  height: 18px;
 }
 
 /* ── Heat and signals ────────────────────────────────────── */
@@ -1137,6 +1152,27 @@ input::placeholder {
 
   .share-cell {
     display: inline;
+  }
+
+  .places > td {
+    padding-left: 0;
+  }
+
+  /* Account, place and value fit a phone; how it is held and the quantity do not. */
+  .places-card th:nth-child(3),
+  .places-card td:nth-child(3),
+  .places-card th:nth-child(4),
+  .places-card td:nth-child(4) {
+    display: none;
+  }
+
+  .places-card td:nth-child(2) .name {
+    white-space: normal;
+  }
+
+  .places-card th,
+  .places-card td {
+    padding: 8px 10px;
   }
 
   th,
