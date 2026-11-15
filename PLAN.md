@@ -62,7 +62,7 @@ Debts (an Aave loan) are stored with a negative value: the portfolio total is ne
 ### Asset merging
 
 One asset in several places counts as one: USDT on Binance + on Arbitrum + on TON = USDT.
-`assets.yaml` defines which contracts and symbols belong to a canonical asset and what to group
+`assets.json` defines which contracts and symbols belong to a canonical asset and what to group
 (WETH, stETH, aWETH inside ETH, expandable). An LP position is split into its tokens.
 Unknown tokens with a price are shown as is; without a price or under $1 they are hidden as dust/spam.
 

@@ -1,9 +1,9 @@
 // Stage 0: verifies every API key in config.json and every wallet in the database.
 // Run: npm run check (locally) or ./deploy.sh user@host (from the server's IP).
-import { createHmac } from 'node:crypto';
 import { loadConfig, type Config } from './config.ts';
 import { listWallets, openDb, type Wallet } from './db.ts';
 import { getJson } from './http.ts';
+import { binanceSigned } from './sources/binance.ts';
 import { fetchPositions } from './sources/zerion.ts';
 
 type Status = 'ok' | 'warn' | 'fail' | 'skip';
@@ -28,12 +28,6 @@ async function step(source: string, fn: () => Promise<void>): Promise<void> {
 }
 
 // ── Binance ──────────────────────────────────────────────────────────────────
-
-async function binanceSigned<T>(cfg: Config['binance'], path: string): Promise<T> {
-  const query = `timestamp=${Date.now()}&recvWindow=10000`;
-  const signature = createHmac('sha256', cfg.apiSecret).update(query).digest('hex');
-  return getJson<T>(`https://api.binance.com${path}?${query}&signature=${signature}`, { 'X-MBX-APIKEY': cfg.apiKey });
-}
 
 async function checkBinance(cfg: Config['binance']): Promise<void> {
   // Public endpoints also show whether Binance blocks this machine's region.

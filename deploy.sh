@@ -9,7 +9,7 @@ PORT="${SSH_PORT:-22}"
 cd "$(dirname "$0")"
 
 # config.json holds the keys. Run locally, it is uploaded; run from CI (no local copy), the one already on the server is kept.
-FILES=(src package.json Dockerfile docker-compose.yml .dockerignore)
+FILES=(src package.json assets.json Dockerfile docker-compose.yml .dockerignore)
 if [[ -f config.json ]]; then
   FILES+=(config.json)
 elif ! ssh -p "$PORT" "$HOST" "test -f '$REMOTE_DIR/config.json'"; then
