@@ -28,6 +28,8 @@ export function portfolioView(db: DatabaseSync, resolve: (symbol: string) => Ass
 
   return {
     logos: logoIndex(db),
+    historySince:
+      (db.prepare('SELECT MIN(started_at) AS since FROM snapshots').get() as { since: string | null }).since ?? null,
     updatedAt: states.reduce<string | null>(
       (max, s) => (s.collectedAt && (!max || s.collectedAt > max) ? s.collectedAt : max),
       null,

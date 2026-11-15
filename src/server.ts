@@ -164,6 +164,7 @@ const ICONS = [
   'external-link',
   'circle-user',
   'settings',
+  'landmark',
   'eye',
   'eye-off',
   'share-2',
@@ -429,6 +430,8 @@ function collect(): Promise<void> {
     });
   return collecting;
 }
+
+void fearGreed();
 
 const intervalMs = Math.max(config.schedule.balancesMinutes, 5) * 60_000;
 setInterval(collect, intervalMs).unref();
