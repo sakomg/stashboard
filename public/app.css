@@ -393,8 +393,7 @@ main > .summary {
   align-items: center;
   margin: 0 -28px;
   padding: 0 28px;
-  background: color-mix(in srgb, var(--ink) 92%, transparent);
-  backdrop-filter: blur(8px);
+  background: var(--ink);
   border-bottom: 1px solid var(--line);
 }
 
@@ -486,7 +485,6 @@ main > .summary {
 }
 
 .view {
-  min-height: calc(100dvh - 60px);
   padding-top: 28px;
 }
 
