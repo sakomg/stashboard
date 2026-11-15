@@ -7,7 +7,7 @@ Stashboard pulls balances from Binance, EVM chains, Solana and TON into one net-
 portfolio is allocated, keeps its history, and scores every position from cold to overheated so you can see
 what to trim and what to leave alone.
 
-> **Status:** early development. Collection works from the console; the dashboard is next.
+> **Status:** early development. The dashboard runs locally; signals, login and hosting are next.
 > See [PLAN.md](PLAN.md).
 
 ## Principles
@@ -38,8 +38,15 @@ npm install
 cp config.example.json config.json    # then fill in the API keys
 npm run wallets -- add <address> [label]
 npm run check
-npm run collect
+npm start                             # dashboard at http://127.0.0.1:8787
 ```
+
+The dashboard collects on start and then on a schedule (`schedule.balancesMinutes` in `config.json`). Wallets
+can be added, renamed and removed on the page itself.
+
+> The server has no login yet and listens on localhost only. Do not expose it to a network until login lands.
+
+### Console
 
 `npm run wallets` lists, adds and removes wallets; the network (EVM, Solana or TON) is detected from the
 address format. `npm run check` calls every source once and reports which keys and wallets work.

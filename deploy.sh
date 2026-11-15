@@ -9,7 +9,7 @@ PORT="${SSH_PORT:-22}"
 cd "$(dirname "$0")"
 
 # config.json holds the keys. Run locally, it is uploaded; run from CI (no local copy), the one already on the server is kept.
-FILES=(src package.json assets.json Dockerfile docker-compose.yml .dockerignore)
+FILES=(src public assets package.json package-lock.json assets.json Dockerfile docker-compose.yml .dockerignore)
 if [[ -f config.json ]]; then
   FILES+=(config.json)
 elif ! ssh -p "$PORT" "$HOST" "test -f '$REMOTE_DIR/config.json'"; then
@@ -20,7 +20,7 @@ fi
 echo "→ Copying to $HOST:$REMOTE_DIR (port $PORT)"
 ssh -p "$PORT" "$HOST" "mkdir -p '$REMOTE_DIR'"
 # Drop the old sources first so files deleted from the repository do not linger on the server.
-ssh -p "$PORT" "$HOST" "rm -rf '$REMOTE_DIR/src'"
+ssh -p "$PORT" "$HOST" "cd '$REMOTE_DIR' 2>/dev/null && rm -rf src public assets"
 scp -q -r -P "$PORT" "${FILES[@]}" "$HOST:$REMOTE_DIR/"
 
 echo "→ Building and running the check"
