@@ -5,7 +5,8 @@ import Fastify from 'fastify';
 import { createResolver, loadAssetRules } from './assets.ts';
 import { runCollection } from './collector.ts';
 import { loadConfig } from './config.ts';
-import { addWallet, listSnapshots, openDb, removeWallet, renameWallet } from './db.ts';
+import { addWallet, latestSignals, listSnapshots, openDb, removeWallet, renameWallet } from './db.ts';
+import { runSignals } from './signals.ts';
 import { fearGreed } from './sources/feargreed.ts';
 import { historyView, portfolioView } from './view.ts';
 
@@ -56,10 +57,17 @@ for (const [path, { file, type, cache }] of Object.entries(STATIC)) {
 
 let collecting: Promise<void> | null = null;
 
+/** Signals are recomputed when they are older than the schedule allows. */
+async function refreshSignals(): Promise<void> {
+  const newest = latestSignals(db).reduce((max, s) => (s.time > max ? s.time : max), '');
+  if (newest && Date.now() - Date.parse(newest) < config.schedule.signalsMinutes * 60_000) return;
+  await runSignals(db, config, resolve);
+}
+
 /** Starts a collection unless one is already running; either way resolves when it has finished. */
 function collect(): Promise<void> {
   collecting ??= runCollection(db, config)
-    .then(() => undefined)
+    .then(refreshSignals)
     .catch((err: unknown) => app.log.error(err))
     .finally(() => {
       collecting = null;
@@ -71,6 +79,7 @@ const intervalMs = Math.max(config.schedule.balancesMinutes, 5) * 60_000;
 setInterval(collect, intervalMs).unref();
 const lastSnapshot = listSnapshots(db).at(-1);
 if (!lastSnapshot || Date.now() - Date.parse(lastSnapshot.startedAt) > intervalMs) void collect();
+else void refreshSignals().catch((err: unknown) => app.log.error(err));
 
 // ── API ──────────────────────────────────────────────────────────────────────
 

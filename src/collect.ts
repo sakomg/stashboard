@@ -6,6 +6,7 @@ import { runCollection } from './collector.ts';
 import { loadConfig } from './config.ts';
 import { currentState, openDb, type AccountState } from './db.ts';
 import { buildPortfolio } from './portfolio.ts';
+import { runSignals } from './signals.ts';
 
 const DUST_USD = 1;
 
@@ -83,7 +84,42 @@ function printAssets(states: AccountState[]): void {
   console.log(`\nNet worth: ${usd(netWorth)}`);
 }
 
+const READING_LABELS = {
+  rsiDaily: 'RSI 1d',
+  rsiWeekly: 'RSI 1w',
+  funding: 'Funding %/8h',
+  ma200: 'vs 200d %',
+  oiGrowth: 'OI 7d %',
+} as const;
+
+/** npm run collect -- --signals: recompute signals for the stored portfolio and print them. */
+async function printSignals(db: ReturnType<typeof openDb>): Promise<void> {
+  const rows = await runSignals(db, loadConfig(), createResolver(loadAssetRules()));
+  const names = Object.keys(READING_LABELS) as (keyof typeof READING_LABELS)[];
+  console.log('Signals');
+  table(
+    ['Asset', 'Market', 'Heat', 'Zone', ...names.map((n) => READING_LABELS[n])],
+    rows
+      .sort((a, b) => b.score - a.score)
+      .map((r) => [
+        r.asset,
+        r.pair,
+        r.score.toFixed(0),
+        r.zone,
+        ...names.map((n) => {
+          const c = r.components.find((x) => x.name === n);
+          return c ? c.value.toFixed(n === 'funding' ? 4 : 1) : '—';
+        }),
+      ]),
+    [2, 4, 5, 6, 7, 8],
+  );
+}
+
 const db = openDb();
+if (process.argv.includes('--signals')) {
+  await printSignals(db);
+  process.exit(0);
+}
 if (!process.argv.includes('--show')) {
   let config;
   try {
