@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { parseAddress, WALLET_KINDS, type WalletKind } from './address.ts';
+import type { Heat } from './heat.ts';
 import type { Holding, HoldingType } from './types.ts';
 
 export type AccountKind = WalletKind | 'binance';
@@ -55,6 +56,15 @@ const MIGRATIONS = [
      value_usd   REAL NOT NULL
    );
    CREATE INDEX holdings_by_snapshot ON holdings (snapshot_id, account_id);`,
+  `CREATE TABLE signals (
+     asset      TEXT NOT NULL,
+     time       TEXT NOT NULL,
+     pair       TEXT NOT NULL,
+     score      REAL NOT NULL,
+     zone       TEXT NOT NULL,
+     components TEXT NOT NULL,
+     PRIMARY KEY (asset, time)
+   );`,
 ];
 
 export function openDb(dir = process.env.DATA_DIR ?? 'data'): DatabaseSync {
@@ -271,4 +281,38 @@ export function snapshotValues(db: DatabaseSync): SnapshotValue[] {
         ORDER BY sa.snapshot_id`,
     )
     .all() as unknown as SnapshotValue[];
+}
+
+// ── Signals ──────────────────────────────────────────────────────────────────
+
+export interface SignalRow extends Heat {
+  asset: string;
+  time: string;
+  /** Binance market the candles came from. */
+  pair: string;
+}
+
+export function saveSignals(db: DatabaseSync, rows: SignalRow[]): void {
+  const insert = db.prepare(
+    'INSERT OR REPLACE INTO signals (asset, time, pair, score, zone, components) VALUES (?, ?, ?, ?, ?, ?)',
+  );
+  db.exec('BEGIN');
+  try {
+    for (const r of rows) insert.run(r.asset, r.time, r.pair, r.score, r.zone, JSON.stringify(r.components));
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+}
+
+/** The most recent signal of every asset. */
+export function latestSignals(db: DatabaseSync): SignalRow[] {
+  const rows = db
+    .prepare(
+      `SELECT asset, time, pair, score, zone, components FROM signals s
+        WHERE time = (SELECT MAX(time) FROM signals WHERE asset = s.asset)`,
+    )
+    .all() as unknown as (Omit<SignalRow, 'components'> & { components: string })[];
+  return rows.map((r) => ({ ...r, components: JSON.parse(r.components) as SignalRow['components'] }));
 }

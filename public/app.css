@@ -521,6 +521,90 @@ tr[aria-expanded='true'] .chevron {
   text-align: left;
 }
 
+/* ── Heat and signals ────────────────────────────────────── */
+
+:root {
+  --overheated: #ff7a52;
+}
+
+.heat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 9px 2px 8px;
+  border-radius: 999px;
+  font-size: 13px;
+  white-space: nowrap;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.heat b {
+  font-weight: 600;
+}
+
+.heat::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  align-self: center;
+  background: var(--bone);
+}
+
+.heat.cold::before {
+  background: var(--teal);
+}
+
+.heat.warm::before {
+  background: var(--amber);
+}
+
+.heat.overheated {
+  box-shadow: inset 0 0 0 1px var(--overheated);
+}
+
+.heat.overheated::before {
+  background: var(--overheated);
+}
+
+.signals {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px 56px;
+}
+
+.signals h3 {
+  margin: 0 0 4px;
+  font: 400 13px/1.4 var(--body);
+  color: var(--slate);
+}
+
+.signals li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 16px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.signals .who {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.signals li p {
+  grid-column: 1 / -1;
+  font-size: 13px;
+}
+
+.signals-note {
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--slate);
+  max-width: 78ch;
+}
+
 /* ── DeFi ────────────────────────────────────────────────── */
 
 .protocol {
@@ -673,6 +757,7 @@ input::placeholder {
   }
 
   .allocation,
+  .signals,
   .protocol,
   .add-wallet {
     grid-template-columns: minmax(0, 1fr);

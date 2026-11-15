@@ -7,7 +7,7 @@ Stashboard pulls balances from Binance, EVM chains, Solana and TON into one net-
 portfolio is allocated, keeps its history, and scores every position from cold to overheated so you can see
 what to trim and what to leave alone.
 
-> **Status:** early development. The dashboard runs locally; signals, login and hosting are next.
+> **Status:** early development. The dashboard and signals run locally; login and hosting are next.
 > See [PLAN.md](PLAN.md).
 
 ## Principles
@@ -55,6 +55,26 @@ address format. `npm run check` calls every source once and reports which keys a
 value per source, merged assets, categories and net worth. For Binance it also prints the exchange's own
 valuation next to the collected sum. `npm run collect -- --show` prints the stored portfolio without calling
 any API. If a source fails, its last good data is shown and marked, and the command exits with an error.
+
+### Heat score
+
+Every asset with a Binance market gets a heat score from 0 (cold) to 100 (overheated). It blends five
+readings, each scored 50 at its neutral value and 80 at its overheated threshold:
+
+| Reading                                 | Weight | Neutral | Overheated |
+| --------------------------------------- | ------ | ------- | ---------- |
+| Daily RSI(14)                           | 30%    | 50      | 70         |
+| Weekly RSI(14)                          | 25%    | 50      | 75         |
+| Funding rate, 3-day average, per 8 h    | 20%    | 0.01%   | 0.03%      |
+| Price against its 200-day average       | 15%    | 0%      | +50%       |
+| Open interest over 7 days, price rising | 10%    | 0%      | +30%       |
+
+Under 30 is cold, 30–60 neutral, 60–80 warm, 80 and above overheated. A reading that does not exist for an
+asset (no perpetual, a short price history) hands its weight to the others; tokenized stocks use RSI and the
+average only. Weights, thresholds and zones are set under `heat` in `config.json`. Signals refresh every
+`schedule.signalsMinutes`; `npm run collect -- --signals` recomputes and prints them.
+
+This is a description of market conditions, not advice to buy or sell.
 
 ### Asset rules
 

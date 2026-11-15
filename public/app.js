@@ -24,6 +24,9 @@ const usd = (n) =>
 const usdRound = (n) => `${n < 0 ? '−' : ''}$${Math.abs(n).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 const quantity = (n) => n.toLocaleString('en-US', { maximumSignificantDigits: 6 });
 const price = (n) => (n == null ? '—' : `$${n.toLocaleString('en-US', { maximumSignificantDigits: 5 })}`);
+// Rounds first, so a tiny negative number does not print as "-0.000".
+const fixed = (n, digits) =>
+  (Number(n.toFixed(digits)) === 0 ? (0).toFixed(digits) : n.toFixed(digits)).replace('-', '−');
 const percent = (n) => `${(n * 100).toFixed(1)}%`;
 
 function change(n) {
@@ -346,15 +349,41 @@ window.addEventListener('resize', () => chart?.resize());
 
 // ── Positions ────────────────────────────────────────────────────────────────
 
+const reading = (a, name) => a.signal?.components.find((c) => c.name === name)?.value ?? null;
+
+// [sort key, label, class, value to sort by]
 const COLUMNS = [
-  ['key', 'Asset', ''],
-  ['quantity', 'Quantity', 'optional'],
-  ['price', 'Price', 'optional'],
-  ['value', 'Value', ''],
-  ['share', 'Share', ''],
-  ['change1d', '24 h', ''],
-  ['change7d', '7 d', 'optional'],
+  ['key', 'Asset', '', (a) => a.key],
+  ['quantity', 'Quantity', 'optional', (a) => a.quantity],
+  ['price', 'Price', 'optional', (a) => a.price],
+  ['value', 'Value', '', (a) => a.value],
+  ['share', 'Share', '', (a) => a.share],
+  ['change1d', '24 h', '', (a) => a.change1d],
+  ['change7d', '7 d', 'optional', (a) => a.change7d],
+  ['rsi', 'RSI', 'optional', (a) => reading(a, 'rsiDaily')],
+  ['funding', 'Funding', 'optional', (a) => reading(a, 'funding')],
+  ['heat', 'Heat', '', (a) => a.signal?.score ?? null],
 ];
+
+const ZONES = { cold: 'Cold', neutral: 'Neutral', warm: 'Warm', overheated: 'Overheated' };
+const READINGS = {
+  rsiDaily: ['Daily RSI', (v) => v.toFixed(0)],
+  rsiWeekly: ['Weekly RSI', (v) => v.toFixed(0)],
+  funding: ['Funding', (v) => `${fixed(v, 4)}% per 8 h`],
+  ma200: ['Price against its 200-day average', (v) => `${v > 0 ? '+' : '−'}${Math.abs(v).toFixed(0)}%`],
+  oiGrowth: ['Open interest over 7 days', (v) => `${v > 0 ? '+' : '−'}${Math.abs(v).toFixed(0)}%`],
+};
+
+/** The heat score with its zone spelled out, so the colour is never the only cue. */
+function heatBadge(signal) {
+  if (!signal) return h('span', { class: 'muted' }, '—');
+  return h(
+    'span',
+    { class: `heat ${signal.zone}`, title: `Heat ${signal.score.toFixed(0)} of 100, from ${signal.pair}` },
+    h('b', { class: 'num' }, signal.score.toFixed(0)),
+    ZONES[signal.zone],
+  );
+}
 
 function renderPositions() {
   const { data, sort } = state;
@@ -391,7 +420,8 @@ function renderPositions() {
   const dust = data.assets.filter((a) => Math.abs(a.value) < DUST_USD);
   const visible = state.showDust ? data.assets : data.assets.filter((a) => Math.abs(a.value) >= DUST_USD);
   const sorted = [...visible].sort((a, b) => {
-    const [x, y] = [a[sort.key], b[sort.key]];
+    const valueOf = COLUMNS.find(([key]) => key === sort.key)[3];
+    const [x, y] = [valueOf(a), valueOf(b)];
     const order = typeof x === 'string' ? x.localeCompare(y) : (x ?? -Infinity) - (y ?? -Infinity);
     return sort.descending ? -order : order;
   });
@@ -448,6 +478,13 @@ function renderPositions() {
         ),
         h('td', {}, change(a.change1d)),
         h('td', { class: 'optional' }, change(a.change7d)),
+        h('td', { class: 'num optional' }, reading(a, 'rsiDaily')?.toFixed(0) ?? h('span', { class: 'muted' }, '—')),
+        h(
+          'td',
+          { class: 'num optional' },
+          reading(a, 'funding') === null ? h('span', { class: 'muted' }, '—') : `${fixed(reading(a, 'funding'), 3)}%`,
+        ),
+        h('td', {}, heatBadge(a.signal)),
       ),
     );
     if (open) body.append(placesRow(a.key));
@@ -502,6 +539,56 @@ $('dust-toggle').addEventListener('click', () => {
   state.showDust = !state.showDust;
   renderPositions();
 });
+
+// ── Signals ──────────────────────────────────────────────────────────────────
+
+function renderSignals() {
+  const scored = state.data.assets.filter((a) => a.signal && Math.abs(a.value) >= DUST_USD);
+  // Largest holdings first: an overheated 10% position matters more than an overheated 0.5% one.
+  const list = (zone) => scored.filter((a) => a.signal.zone === zone).sort((a, b) => b.share - a.share);
+  const column = (title, zone, empty, fired) => {
+    const assets = list(zone);
+    return h(
+      'div',
+      {},
+      h('h3', {}, title),
+      assets.length === 0
+        ? h('p', { class: 'muted' }, empty)
+        : h(
+            'ul',
+            {},
+            ...assets.map((a) => {
+              const reasons = a.signal.components.filter(fired).map((c) => {
+                const [label, format] = READINGS[c.name];
+                return `${label} ${format(c.value)}`;
+              });
+              return h(
+                'li',
+                {},
+                h('span', { class: 'who' }, h('b', {}, a.key), h('span', { class: 'num muted' }, percent(a.share))),
+                heatBadge(a.signal),
+                h(
+                  'p',
+                  { class: 'muted' },
+                  reasons.length
+                    ? reasons.join('; ')
+                    : 'No single reading stands out; the score is the sum of small ones.',
+                ),
+              );
+            }),
+          ),
+    );
+  };
+
+  $('signals').replaceChildren(
+    column('Overheated', 'overheated', 'Nothing in the portfolio is overheated.', (c) => c.score >= 80),
+    column('Cold', 'cold', 'Nothing in the portfolio is cold.', (c) => c.score <= 30),
+  );
+  const newest = scored.reduce((max, a) => (a.signal.time > max ? a.signal.time : max), '');
+  $('signals-note').textContent = newest
+    ? `Heat runs from 0 (cold) to 100 (overheated) and blends RSI, funding, distance from the 200-day average and open interest. Updated ${ago(newest)}.`
+    : 'Signals appear after the first update.';
+}
 
 // ── DeFi ─────────────────────────────────────────────────────────────────────
 
@@ -669,6 +756,7 @@ async function load() {
   renderHeader();
   renderAllocation();
   renderPositions();
+  renderSignals();
   renderDefi();
   renderWallets();
   await renderHistory();

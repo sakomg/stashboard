@@ -1,7 +1,7 @@
 // Shapes stored data into what the dashboard needs: the current portfolio and its history.
 import type { DatabaseSync } from 'node:sqlite';
 import type { Asset } from './assets.ts';
-import { currentState, listSnapshots, snapshotAt, snapshotValues } from './db.ts';
+import { currentState, latestSignals, listSnapshots, snapshotAt, snapshotValues } from './db.ts';
 import { buildPortfolio } from './portfolio.ts';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -22,6 +22,8 @@ export function portfolioView(db: DatabaseSync, resolve: (symbol: string) => Ass
   const priceThen = (p: typeof d1, key: string): number | undefined =>
     p?.assets.find((a) => a.key === key)?.price ?? undefined;
 
+  const signals = new Map(latestSignals(db).map((s) => [s.asset, s]));
+
   return {
     updatedAt: states.reduce<string | null>(
       (max, s) => (s.collectedAt && (!max || s.collectedAt > max) ? s.collectedAt : max),
@@ -37,6 +39,7 @@ export function portfolioView(db: DatabaseSync, resolve: (symbol: string) => Ass
       ...a,
       change1d: a.price === null ? null : ratio(a.price, priceThen(d1, a.key)),
       change7d: a.price === null ? null : ratio(a.price, priceThen(d7, a.key)),
+      signal: signals.get(a.key) ?? null,
     })),
     sources: states.map((s) => ({
       id: s.account.id,
