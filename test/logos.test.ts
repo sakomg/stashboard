@@ -40,11 +40,11 @@ test('logo hints are remembered, and only https sources are accepted', () => {
 test('nothing is offered to the page until its file is stored', () => {
   const db = freshDb();
   noteLogos(db, [{ kind: 'chain', key: 'arbitrum', url: 'https://cdn.example/a.png', name: 'Arbitrum One' }]);
-  assert.deepEqual(logoIndex(db), { available: [], chains: { arbitrum: 'Arbitrum One' } });
+  assert.deepEqual(logoIndex(db), { available: {}, chains: { arbitrum: 'Arbitrum One' } });
   assert.equal(logoFile(db, 'chain', 'arbitrum'), null);
 
   db.prepare("UPDATE logos SET file = 'abc.png', media_type = 'image/png' WHERE key = 'arbitrum'").run();
-  assert.deepEqual(logoIndex(db).available, ['chain/arbitrum']);
+  assert.deepEqual(Object.keys(logoIndex(db).available), ['chain/arbitrum']);
   assert.equal(logoFile(db, 'chain', 'arbitrum')?.type, 'image/png');
 });
 
@@ -56,7 +56,18 @@ test('a new source address makes a failed logo worth trying again', () => {
   noteLogos(db, [{ kind: 'token', key: 'ARB', url: 'https://cdn.example/old.png' }]);
   assert.equal((db.prepare('SELECT tried_at FROM logos').get() as { tried_at: string | null }).tried_at !== null, true);
 
+  db.prepare("UPDATE logos SET file = 'old.png', media_type = 'image/png'").run();
+  noteLogos(db, [{ kind: 'token', key: 'ARB', url: 'https://cdn.example/old.png' }]);
+  const before = logoIndex(db).available['token/ARB'];
+  assert.ok(before);
+
+  // A different address also drops the stored image, so a wrong logo gets replaced.
   noteLogos(db, [{ kind: 'token', key: 'ARB', url: 'https://cdn.example/new.png' }]);
+  assert.deepEqual(logoIndex(db).available, {});
+
+  // Once the new image is in, the page is told to ask for it under a new address.
+  db.prepare("UPDATE logos SET file = 'new.png', media_type = 'image/png'").run();
+  assert.notEqual(logoIndex(db).available['token/ARB'], before);
   assert.equal((db.prepare('SELECT tried_at FROM logos').get() as { tried_at: string | null }).tried_at, null);
 });
 

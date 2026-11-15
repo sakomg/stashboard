@@ -50,10 +50,11 @@ function monogram(label) {
 
 /** A logo the server has stored, or a monogram when it has none or the image fails to load. */
 function logo(kind, key, label = key) {
-  if (!state.logos.has(`${kind}/${key}`)) return monogram(label);
+  const version = state.logos.get(`${kind}/${key}`);
+  if (!version) return monogram(label);
   const img = h('img', {
     class: 'logo',
-    src: `/logo/${kind}/${encodeURIComponent(key)}`,
+    src: `/logo/${kind}/${encodeURIComponent(key)}?v=${version}`,
     alt: '',
     width: 20,
     height: 20,
@@ -156,7 +157,7 @@ const DUST_USD = 1;
 
 const state = {
   data: null,
-  logos: new Set(),
+  logos: new Map(),
   chainNames: {},
   dimension: 'category',
   period: '30',
@@ -982,7 +983,7 @@ async function load() {
   try {
     const data = await api('/api/portfolio');
     state.data = data;
-    state.logos = new Set(data.logos.available);
+    state.logos = new Map(Object.entries(data.logos.available));
     state.chainNames = data.logos.chains;
     $('banner').hidden = true;
 
