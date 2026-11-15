@@ -356,8 +356,9 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
 - **Views.** Overview, Positions, Signals, DeFi and Accounts share one tab bar; the view lives in the URL
   hash. The bar sticks to the top and shows the net worth at its right end once the large figure scrolls away. The
   tabs never move: the figure takes space only on the right, so a tab cannot slide from under the pointer when
-  the bar sticks or unsticks. Every view is at least a screen tall, so switching to a short one neither yanks
-  the page up nor unsticks the bar. Arrow keys move
+  the bar sticks or unsticks. The bar is opaque, so nothing shows through it. A short view stays as
+  short as its content: switching to it from deep in a long one may unstick the bar, which is harmless now that
+  the tabs do not move. Arrow keys move
   between tabs. Switching from deep in a long view opens the next one at its start. The history chart is
   resized when the overview is shown, because a chart drawn while hidden has no size.
 - **Progress.** While an update runs, the page asks `/api/progress` every second and shows each account's
