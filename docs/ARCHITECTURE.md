@@ -5,33 +5,35 @@ it live here, next to the user-facing [README](../README.md).
 
 ## Code map
 
-| Path                            | Role                                                                                |
-| ------------------------------- | ----------------------------------------------------------------------------------- |
-| `src/server.ts`                 | HTTP server: pages, JSON API, first-run setup, sign-in, collection schedule         |
-| `src/collector.ts`              | One collection run over every account, with progress events                         |
-| `src/sources/binance.ts`        | Binance account, every wallet a read-only key can see                               |
-| `src/sources/zerion.ts`         | EVM and Solana wallets through Zerion, with its allowance and a per-wallet cache    |
-| `src/sources/lighter.ts`        | Lighter and Lighter on Robinhood Chain, by EVM address                              |
-| `src/sources/ton.ts`            | TON and whitelisted jettons through TonAPI                                          |
-| `src/sources/market.ts`         | Binance public market data: candles, funding, open interest                         |
-| `src/sources/feargreed.ts`      | Crypto Fear & Greed index from alternative.me                                       |
-| `src/assets.ts`                 | Resolver: merges wrappers into one asset and gives it a category                    |
-| `src/categories.ts`             | Categories looked up from CoinGecko tags, and categories chosen by hand             |
-| `src/portfolio.ts`              | Per-account holdings merged into the portfolio                                      |
-| `src/view.ts`                   | What the page needs: current portfolio, history, wanted logos                       |
-| `src/signals.ts`, `src/heat.ts` | Market readings per asset and the heat score built from them                        |
-| `src/indicators.ts`             | RSI and simple moving average                                                       |
-| `src/logos.ts`                  | Logo download, verification, storage and the index the page reads                   |
-| `src/auth.ts`                   | Password hashing, TOTP and attempt limiting                                         |
-| `src/db.ts`                     | SQLite schema, migrations and every query                                           |
-| `src/http.ts`                   | JSON over HTTP with timeouts and safe error text                                    |
-| `src/address.ts`                | Address validation and network detection                                            |
-| `src/qr.ts`                     | QR code as SVG for the authenticator link                                           |
-| `src/check.ts`                  | `npm run check`: one request per source to prove the keys                           |
-| `src/collect.ts`                | `npm run collect`: collect once and print, `--show` prints only, `--signals` scores |
-| `src/wallets.ts`                | `npm run wallets`: list, `add <address> [label]`, `rm <id>`                         |
-| `src/auth-reset.ts`             | `npm run auth:reset`: remove the account so it can be set up again                  |
-| `public/`                       | The page: plain HTML, CSS and ES modules, no build step                             |
+| Path                                   | Role                                                                                |
+| -------------------------------------- | ----------------------------------------------------------------------------------- |
+| `src/server.ts`                        | HTTP server: pages, JSON API, first-run setup, sign-in, collection schedule         |
+| `src/collector.ts`                     | One collection run over every account, with progress events                         |
+| `src/sources/binance.ts`               | Binance account, every wallet a read-only key can see                               |
+| `src/sources/zerion.ts`                | EVM and Solana wallets through Zerion, with its allowance and a per-wallet cache    |
+| `src/sources/lighter.ts`               | Lighter and Lighter on Robinhood Chain, by EVM address                              |
+| `src/sources/ton.ts`                   | TON and whitelisted jettons through TonAPI                                          |
+| `src/sources/market.ts`                | Binance public market data: candles, funding, open interest                         |
+| `src/sources/feargreed.ts`             | Crypto Fear & Greed index from alternative.me                                       |
+| `src/assets.ts`                        | Resolver: merges wrappers into one asset and gives it a category                    |
+| `src/categories.ts`                    | Categories looked up from CoinGecko tags, and categories chosen by hand             |
+| `src/portfolio.ts`                     | Per-account holdings merged into the portfolio                                      |
+| `src/view.ts`                          | What the page needs: current portfolio, history, wanted logos                       |
+| `src/signals.ts`, `src/heat.ts`        | Market readings per asset and the heat score built from them                        |
+| `src/indicators.ts`                    | RSI and simple moving average                                                       |
+| `src/shares.ts`                        | Shared links: checking what the page sends, storing, expiring, turning off          |
+| `src/logos.ts`                         | Logo download, verification, storage and the index the page reads                   |
+| `src/auth.ts`                          | Password hashing, TOTP and attempt limiting                                         |
+| `src/db.ts`                            | SQLite schema, migrations and every query                                           |
+| `src/http.ts`                          | JSON over HTTP with timeouts and safe error text                                    |
+| `src/address.ts`                       | Address validation and network detection                                            |
+| `src/qr.ts`                            | QR code as SVG for the authenticator link                                           |
+| `src/check.ts`                         | `npm run check`: one request per source to prove the keys                           |
+| `src/collect.ts`                       | `npm run collect`: collect once and print, `--show` prints only, `--signals` scores |
+| `src/wallets.ts`                       | `npm run wallets`: list, `add <address> [label]`, `rm <id>`                         |
+| `src/auth-reset.ts`                    | `npm run auth:reset`: remove the account so it can be set up again                  |
+| `public/`                              | The page: plain HTML, CSS and ES modules, no build step                             |
+| `public/share.html`, `public/share.js` | The public page a shared link opens                                                 |
 
 ## Collection
 
@@ -55,6 +57,15 @@ categories of newly seen assets are fetched in the background: they are cosmetic
 
 The schedule runs every `schedule.balancesMinutes` (at least 5). On start, a run happens only if the last
 snapshot is older than that, so a restart or a deploy does not trigger a collection by itself.
+
+### Manual updates
+
+An update asked for on the page is refused while one runs, for a minute after the last one finished, and,
+when there are EVM or Solana wallets, while Zerion's daily allowance is used up. The server answers 429 with
+the reason and when updates are possible again; `/api/portfolio` and `/api/progress` carry the same answer, so
+the page disables its update button, says why on hover (and under the net worth when the wait is long), and
+enables it again by itself when the time comes. The scheduled updates are not affected. Adding a wallet
+starts a collection on the server, so a new wallet is read straight away even inside the minute.
 
 ### History
 
@@ -200,6 +211,24 @@ Accounts are drawn with the logo of their native coin: Binance with BNB, EVM wit
 with TON. Interface icons come from Lucide; the server builds one sprite, `/icons.svg`, with only the icons
 the pages use.
 
+## Sharing
+
+The share card is drawn on a canvas in the browser, 1200 × 675 at twice that resolution, from the same
+groups the allocation strip shows, grouped by any dimension. The logo, the font and every token logo come
+from this origin, so the canvas stays exportable. It can be copied as an image (the clipboard gets the image
+as a pending promise, which Safari requires), downloaded, or handed to the system share sheet where the
+browser can share files.
+
+A link is a snapshot, frozen when it is made. The page sends the groups; the server checks and caps them
+(a title of 80 characters, at most 12 rows, shares between 0 and 1, colours as `#rrggbb`, logos only of a
+known kind) and keeps amounts only when they were asked for, whatever else the request carries. The token is
+16 random bytes in base64url. A link lasts 1, 7 or 30 days, can be turned off in the account panel, and
+expired links are deleted the next time the list is read.
+
+Without a session, only this is served: the page at `/s/<token>`, its data at `/api/shared/<token>`, logos
+at `/s/<token>/logo/<kind>/<key>` for logos that link's rows name, and the files that page needs (`share.js`,
+`app.css`, the logo, the font and the icon sprite). A dead link answers 404 with a plain message.
+
 ## Security
 
 - **Access.** With an account, every page and API call needs a session; only the sign-in page and its assets
@@ -219,6 +248,8 @@ the pages use.
   and code are both always checked, and the answer does not say which one failed.
 - **Sessions.** A random token in an `HttpOnly`, `SameSite=Strict` cookie, valid 30 days. Only its hash is
   stored, so a copy of the database cannot be used to sign in.
+- **Shared links.** See Sharing above for exactly what a link opens without a session. Links carry no
+  amounts unless the owner adds them, and every logo request is checked against the link's own rows.
 - **Requests.** A request that changes something must come from this origin, so a page on another site
   cannot act with the owner's cookie. Behind the reverse proxy, the client address and protocol come from
   its forwarding headers (`TRUST_PROXY=1`).
@@ -234,6 +265,16 @@ the pages use.
 ## The page
 
 No build step: plain HTML, CSS and ES modules. ECharts and the font are served from `node_modules`.
+
+- **Account panel.** The person icon in the header opens a panel from the right with the privacy switch,
+  the shared links (copy, open, turn off), the update schedule and whether an update is possible now, the
+  Zerion allowance, and the session with sign-out.
+- **Hidden amounts.** One setting for the account, stored on the server (`hide_amounts` in `settings`), so
+  it holds on every device. It turns dollar amounts and quantities into dots: the net worth, account chips,
+  allocation legend and tooltips, history axis and tooltip, positions, where-held rows, DeFi and accounts.
+  Shares, changes, prices and heat stay. The eye next to the net worth flips the same setting. It is about a
+  screen being seen, not a security boundary: the API still returns amounts to a signed-in owner. The share
+  dialog starts with amounts off while they are hidden.
 
 - **Views.** Overview, Positions, Signals, DeFi and Accounts share one tab bar; the view lives in the URL
   hash. The bar sticks to the top and shows the net worth once the large figure scrolls away. Arrow keys move
@@ -272,9 +313,10 @@ and `PRAGMA user_version` records how many have run.
 | `holdings`          | Positions per account and run; `read_at` when it comes from an earlier answer |
 | `signals`           | Market readings and heat score per asset, with the Binance market used        |
 | `sessions`          | Hashes of session tokens and their expiry                                     |
-| `settings`          | The owner account, and when the Zerion chain list was last fetched            |
+| `settings`          | The owner account, hidden amounts, and when the Zerion chain list was fetched |
 | `logos`             | Where each logo comes from, its stored file, and when it was last tried       |
 | `asset_categories`  | Categories chosen by hand or looked up, with the coin's tags                  |
+| `shares`            | Shared links: token, when made, when they expire, and the frozen snapshot     |
 | `zerion_cache`      | The last Zerion answer per wallet and kind of read                            |
 
 Removing a wallet removes its history with it. Once a day, at start and then checked hourly, the database is

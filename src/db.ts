@@ -100,6 +100,12 @@ const MIGRATIONS = [
      PRIMARY KEY (address, part)
    );
    ALTER TABLE holdings ADD COLUMN read_at TEXT;`,
+  `CREATE TABLE shares (
+     token      TEXT PRIMARY KEY,
+     created_at TEXT NOT NULL,
+     expires_at TEXT NOT NULL,
+     payload    TEXT NOT NULL
+   );`,
 ];
 
 export function openDb(dir = process.env.DATA_DIR ?? 'data'): DatabaseSync {

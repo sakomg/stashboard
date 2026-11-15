@@ -1449,3 +1449,303 @@ input::placeholder {
     opacity: 0.5;
   }
 }
+
+.worth-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.icon-button.small {
+  width: 28px;
+  height: 28px;
+}
+
+.icon-button[aria-pressed='true'] {
+  color: var(--amber);
+}
+
+.head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.account-button .icon {
+  width: 22px;
+  height: 22px;
+}
+
+.drawer {
+  width: min(420px, 100vw);
+  height: 100dvh;
+  max-height: none;
+  max-width: none;
+  margin: 0 0 0 auto;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--bone);
+  box-shadow: -24px 0 64px rgb(0 0 0 / 0.45);
+}
+
+.drawer[open] {
+  animation: drawer-in 0.18s ease-out;
+}
+
+@keyframes drawer-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+
+.drawer::backdrop {
+  background: rgb(5 8 12 / 0.6);
+}
+
+.drawer-body {
+  min-height: 100%;
+  padding: 18px 24px 32px;
+}
+
+.drawer header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 -8px 8px 0;
+}
+
+.drawer section {
+  padding: 20px 0;
+  border-top: 1px solid var(--line);
+}
+
+.drawer h3 {
+  margin: 0 0 12px;
+  font: 600 15px/1.3 var(--display);
+  color: var(--bone);
+}
+
+.drawer section > .muted {
+  font-size: 13.5px;
+  margin-bottom: 12px;
+}
+
+.switch {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  cursor: pointer;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.switch .track {
+  position: relative;
+  width: 40px;
+  height: 24px;
+  margin-top: 1px;
+  border-radius: 999px;
+  background: var(--raised);
+  box-shadow: inset 0 0 0 1px var(--line);
+  transition: background 0.15s;
+}
+
+.switch .track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--slate);
+  transition:
+    transform 0.15s,
+    background 0.15s;
+}
+
+.switch input:checked + .track {
+  background: var(--amber);
+}
+
+.switch input:checked + .track::after {
+  transform: translateX(16px);
+  background: var(--ink);
+}
+
+.switch input:focus-visible + .track {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+.switch small {
+  display: block;
+  margin-top: 3px;
+  font-size: 13px;
+  color: var(--slate);
+}
+
+.links li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 13.5px;
+}
+
+.links li + li {
+  border-top: 1px solid var(--line);
+}
+
+.links small {
+  display: block;
+  font-size: 12.5px;
+  color: var(--slate);
+}
+
+.links .actions {
+  display: flex;
+  gap: 2px;
+}
+
+.panel-facts {
+  display: grid;
+  gap: 10px;
+  font-size: 13.5px;
+}
+
+.panel-facts div {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.panel-facts dt {
+  color: var(--slate);
+}
+
+.share-dialog {
+  width: min(760px, calc(100vw - 32px));
+}
+
+.share-preview canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px var(--line);
+  background: var(--ink);
+}
+
+.dialog form > * {
+  min-width: 0;
+}
+
+.share-options .segmented {
+  min-width: 0;
+}
+
+.share-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.check input {
+  width: auto;
+  margin: 0;
+  accent-color: var(--amber);
+}
+
+.share-status {
+  min-height: 20px;
+  font-size: 13px;
+  color: var(--slate);
+  overflow-wrap: anywhere;
+}
+
+.share-status a {
+  color: var(--bone);
+}
+
+.share-dialog footer {
+  flex-wrap: wrap;
+}
+
+.share-dialog .spacer {
+  flex: 1;
+}
+
+select {
+  font: inherit;
+  color: inherit;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 8px 10px;
+}
+
+.shared-page main {
+  max-width: 760px;
+}
+
+.shared h1 {
+  font: 600 clamp(30px, 6vw, 44px) / 1.1 var(--display);
+  letter-spacing: -0.02em;
+  margin: 24px 0 8px;
+}
+
+.shared .strip {
+  margin: 28px 0 20px;
+}
+
+.shared .legend {
+  columns: 1;
+}
+
+.shared-total {
+  margin-top: 6px;
+  font: 500 20px/1.3 var(--display);
+}
+
+@media (max-width: 760px) {
+  .share-options .segmented {
+    flex: 1 1 100%;
+  }
+
+  .head-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .share-dialog footer .button,
+  .share-dialog footer select {
+    flex: 1 1 auto;
+  }
+
+  .share-dialog .spacer {
+    display: none;
+  }
+}

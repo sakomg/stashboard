@@ -60,6 +60,10 @@ const kindLogo = (kind) => logo('token', KIND_TOKEN[kind], KINDS[kind]);
 const chainLogo = (id) =>
   CHAIN_TOKEN[id] ? logo('token', CHAIN_TOKEN[id], chainName(id)) : logo('chain', id, chainName(id));
 
+const MASK = '•••••';
+const money = (n) => (state.hideAmounts ? `$${MASK}` : usd(n));
+const moneyRound = (n) => (state.hideAmounts ? `$${MASK}` : usdRound(n));
+const units = (n) => (state.hideAmounts ? MASK.slice(0, 3) : quantity(n));
 const usd = (n) =>
   `${n < 0 ? '−' : ''}$${Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const usdRound = (n) => `${n < 0 ? '−' : ''}$${Math.abs(n).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
@@ -121,9 +125,14 @@ function colorOf(dimension, name) {
 
 const DIMENSIONS = [
   ['category', 'Category', (x) => x.category, null],
-  ['asset', 'Asset', (x) => x.asset, (x) => logo('token', x.asset)],
-  ['chain', 'Chain', (x) => chainName(x.chain), (x) => chainLogo(x.chain)],
-  ['venue', 'Account', (x) => x.account, (x) => kindLogo(x.kind)],
+  ['asset', 'Asset', (x) => x.asset, (x) => ({ kind: 'token', key: x.asset })],
+  [
+    'chain',
+    'Chain',
+    (x) => chainName(x.chain),
+    (x) => (CHAIN_TOKEN[x.chain] ? { kind: 'token', key: CHAIN_TOKEN[x.chain] } : { kind: 'chain', key: x.chain }),
+  ],
+  ['venue', 'Account', (x) => x.account, (x) => ({ kind: 'token', key: KIND_TOKEN[x.kind] })],
   ['place', 'Kind', (x) => (x.kind === 'binance' ? 'Exchange' : x.protocol ? 'DeFi' : 'Wallet'), null],
 ];
 const PERIODS = [
@@ -146,6 +155,8 @@ const state = {
   showDust: false,
   renaming: null,
   updating: false,
+  hideAmounts: false,
+  shareDimension: 'category',
   view: 'overview',
   progress: null,
 };
@@ -162,15 +173,27 @@ async function api(path, options) {
     return new Promise(() => {});
   }
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error ?? `Request failed (${response.status})`);
+  if (!response.ok) {
+    throw Object.assign(new Error(body.error ?? `Request failed (${response.status})`), { status: response.status });
+  }
   return body;
 }
 
 function renderSummary() {
   const { data } = state;
   const [whole, cents] = usd(data.netWorth).split('.');
-  $('net-worth').replaceChildren(whole, h('span', { class: 'cents' }, `.${cents}`));
-  $('views-worth').textContent = usdRound(data.netWorth);
+  $('net-worth').replaceChildren(
+    ...(state.hideAmounts
+      ? ['$', h('span', { class: 'cents' }, MASK)]
+      : [whole, h('span', { class: 'cents' }, `.${cents}`)]),
+  );
+  const privacy = $('privacy');
+  const label = state.hideAmounts ? 'Show amounts' : 'Hide amounts';
+  privacy.setAttribute('aria-pressed', String(state.hideAmounts));
+  privacy.setAttribute('aria-label', label);
+  privacy.title = label;
+  privacy.querySelector('use').setAttribute('href', `/icons.svg#${state.hideAmounts ? 'eye-off' : 'eye'}`);
+  $('views-worth').textContent = moneyRound(data.netWorth);
 
   const fact = (label, ...value) => h('div', {}, h('dt', {}, label), h('dd', {}, ...value));
   $('facts').replaceChildren(
@@ -179,20 +202,34 @@ function renderSummary() {
     fact('30 days', change(data.changes.d30)),
     data.fearGreed && fact('Fear & Greed', String(data.fearGreed.value), h('small', {}, data.fearGreed.label)),
   );
-  $('sign-out').hidden = !data.loginEnabled;
   renderUpdating();
   renderNotices();
 }
 
 const busy = () => state.updating || state.data?.collecting || state.progress !== null;
+let gateTimer;
+
+const inMinutes = (at) => {
+  const minutes = Math.max(1, Math.ceil((at - Date.now()) / 60_000));
+  return minutes < 90 ? `${minutes} min` : `${Math.ceil(minutes / 60)} h`;
+};
 const labelOf = (id) => state.data?.sources.find((s) => s.id === id)?.label ?? 'an account';
 
 function renderUpdating() {
   const { data, progress } = state;
+  const gate = data.update ?? { allowed: true };
   const button = $('collect');
-  button.disabled = busy();
+  button.disabled = busy() || !gate.allowed;
   button.classList.toggle('spinning', busy());
-  button.title = busy() ? 'Updating…' : `Update now. Updates on its own every ${data.collectEveryMinutes} min.`;
+  button.title = busy()
+    ? 'Updating…'
+    : gate.allowed
+      ? `Update now. Updates on its own every ${data.collectEveryMinutes} min.`
+      : `${gate.reason}${gate.availableAt ? `. Available again in ${inMinutes(gate.availableAt)}` : ''}.`;
+  clearTimeout(gateTimer);
+  if (!busy() && !gate.allowed && gate.availableAt && gate.availableAt - Date.now() < 15 * 60_000) {
+    gateTimer = setTimeout(load, Math.max(1000, gate.availableAt - Date.now() + 500));
+  }
 
   let line;
   if (progress?.phase === 'signals') line = 'Updating signals…';
@@ -203,7 +240,10 @@ function renderUpdating() {
       ? `${current.note ? `${labelOf(current.id)}: ${current.note}` : `Reading ${labelOf(current.id)}`} · ${done} of ${progress.accounts.length}`
       : `Updating · ${done} of ${progress.accounts.length}`;
   } else if (busy()) line = 'Updating…';
-  else line = data.updatedAt ? `Updated ${ago(data.updatedAt)}` : 'Not updated yet';
+  else {
+    line = data.updatedAt ? `Updated ${ago(data.updatedAt)}` : 'Not updated yet';
+    if (!gate.allowed && gate.availableAt && gate.availableAt - Date.now() > 10 * 60_000) line += ` · ${gate.reason}`;
+  }
   $('updated').textContent = line;
   renderSources();
 }
@@ -234,13 +274,13 @@ function renderSources() {
         'li',
         {
           class: mark?.[0] ?? '',
-          title: mark ? mark[2] : `${usd(s.value)}, updated ${ago(s.collectedAt)}`,
+          title: mark ? mark[2] : `${money(s.value)}, updated ${ago(s.collectedAt)}`,
         },
         kindLogo(s.kind),
         h('span', { class: 'chip-label' }, s.label),
         (!mark || mark[0] === 'aged' || mark[0] === 'done' || mark[0] === 'waiting') &&
           s.status !== null &&
-          h('span', { class: 'num muted' }, usdRound(s.value)),
+          h('span', { class: 'num muted' }, moneyRound(s.value)),
         mark?.[1] && icon(mark[1]),
         mark && h('span', { class: 'sr-only' }, mark[2]),
       );
@@ -322,6 +362,7 @@ function groups(dimension) {
     share: r.value / total,
     color: colorOf(dimension, r.name),
     logo: logoOf && r.name !== 'Other' && samples.has(r.name) ? logoOf(samples.get(r.name)) : null,
+    total,
   }));
 }
 
@@ -355,7 +396,7 @@ function renderAllocation() {
         style: { flex: `${r.share} 1 0`, background: r.color },
         onmousemove: (e) => {
           focus(i);
-          showTip(e, r.name, `${usd(r.value)}, ${percent(r.share)}`);
+          showTip(e, r.name, `${money(r.value)}, ${percent(r.share)}`);
         },
         onmouseleave: () => {
           focus(null);
@@ -372,8 +413,8 @@ function renderAllocation() {
         'li',
         { onmouseenter: () => focus(i), onmouseleave: () => focus(null) },
         h('span', { class: 'swatch', style: { background: r.color } }),
-        h('span', { class: 'name' }, r.logo, h('span', {}, r.name)),
-        h('span', { class: 'num' }, usd(r.value)),
+        h('span', { class: 'name' }, r.logo && logo(r.logo.kind, r.logo.key, r.name), h('span', {}, r.name)),
+        h('span', { class: 'num' }, money(r.value)),
         h('span', { class: 'num share' }, percent(r.share)),
       ),
     ),
@@ -445,7 +486,7 @@ async function renderHistory() {
         backgroundColor: token('--raised'),
         borderColor: token('--line'),
         textStyle: { color: token('--bone'), fontSize: 13 },
-        valueFormatter: (v) => usd(v),
+        valueFormatter: (v) => money(v),
         axisPointer: { lineStyle: { color: token('--dim') } },
       },
       xAxis: {
@@ -457,7 +498,7 @@ async function renderHistory() {
       },
       yAxis: {
         type: 'value',
-        axisLabel: { color: token('--slate'), formatter: (v) => usdRound(v) },
+        axisLabel: { color: token('--slate'), formatter: (v) => (state.hideAmounts ? '' : usdRound(v)) },
         splitLine: { lineStyle: { color: token('--line') } },
       },
       series: names.map((name) => ({
@@ -611,9 +652,9 @@ function renderPositions() {
             ),
           ),
         ),
-        h('td', { class: 'num optional' }, quantity(a.quantity)),
+        h('td', { class: 'num optional' }, units(a.quantity)),
         h('td', { class: 'num optional' }, price(a.price)),
-        h('td', { class: 'num' }, usd(a.value)),
+        h('td', { class: 'num' }, money(a.value)),
         h(
           'td',
           {},
@@ -686,8 +727,8 @@ function placesRow(asset) {
                       ),
                 ),
                 h('td', {}, `${TYPES[x.type] ?? x.type}${x.symbol !== asset ? ` (${x.symbol})` : ''}`),
-                h('td', { class: 'num' }, quantity(x.quantity)),
-                h('td', { class: 'num' }, usd(x.value)),
+                h('td', { class: 'num' }, units(x.quantity)),
+                h('td', { class: 'num' }, money(x.value)),
               ),
             ),
           ),
@@ -794,7 +835,7 @@ function renderDefi() {
             chainLogo(items[0].chain),
             h('span', {}, `${chainName(items[0].chain)}, ${[...new Set(items.map((x) => x.account))].join(', ')}`),
           ),
-          h('p', { class: 'total num' }, usd(net)),
+          h('p', { class: 'total num' }, money(net)),
           readNote(items),
         ),
         h(
@@ -808,8 +849,8 @@ function renderDefi() {
                 {},
                 h('span', { class: 'kind' }, TYPES[x.type] ?? x.type),
                 h('span', { class: 'name' }, logo('token', x.asset, x.symbol), h('span', {}, x.symbol)),
-                h('span', { class: 'num muted' }, quantity(x.quantity)),
-                h('span', { class: 'num' }, usd(x.value)),
+                h('span', { class: 'num muted' }, units(x.quantity)),
+                h('span', { class: 'num' }, money(x.value)),
               ),
             ),
         ),
@@ -853,7 +894,7 @@ function renderAccounts() {
           h('span', { class: 'label name' }, kindLogo(w.kind), h('span', {}, w.label)),
           h('span', { class: 'kind muted' }, exchange ? 'Exchange' : KINDS[w.kind]),
           h('span', { class: 'address num muted' }, exchange ? 'Read-only API key' : w.address),
-          h('span', { class: 'num' }, w.status === null ? '—' : usd(w.value)),
+          h('span', { class: 'num' }, w.status === null ? '—' : money(w.value)),
           h(
             'span',
             { class: 'actions' },
@@ -907,12 +948,6 @@ function renderAccounts() {
     input.focus();
     input.select();
   }
-
-  const z = state.data.zerion;
-  $('quota').textContent =
-    z?.dayLimit != null
-      ? `EVM and Solana wallets are read through Zerion. Its ${z.tier ?? 'free'} key allows ${z.dayLimit} requests a day; ${z.dayRemaining ?? '?'} are left${z.dayResetsAt ? `, renewing in ${Math.max(1, Math.ceil((z.dayResetsAt - Date.now()) / 3_600_000))} h` : ''}. To stay within it, token balances are read at most every ${z.balancesEveryMinutes} minutes per wallet and DeFi positions every ${z.defiEveryMinutes >= 120 ? `${z.defiEveryMinutes / 60} hours` : 'hour'}.`
-      : '';
 }
 
 const VIEWS = ['overview', 'positions', 'signals', 'defi', 'accounts'];
@@ -1045,7 +1080,7 @@ $('add-wallet').addEventListener('submit', async (event) => {
       body: JSON.stringify({ address: form.address.value.trim(), label: form.label.value.trim() }),
     }),
   );
-  if (added) await update();
+  if (added) await load();
 });
 
 let removing = null;
@@ -1115,6 +1150,407 @@ $('category-form').addEventListener('submit', (event) => {
 });
 $('category-auto').addEventListener('click', () => saveCategory(null));
 
+async function setHideAmounts(hide) {
+  state.hideAmounts = hide;
+  $('hide-amounts').checked = hide;
+  await renderAll();
+  try {
+    await api('/api/preferences', { method: 'PUT', body: JSON.stringify({ hideAmounts: hide }) });
+  } catch (err) {
+    showBanner(err);
+  }
+}
+
+$('privacy').addEventListener('click', () => setHideAmounts(!state.hideAmounts));
+$('hide-amounts').addEventListener('change', (event) => setHideAmounts(event.target.checked));
+
+const shareUrl = (token) => `${location.origin}/s/${token}`;
+
+function timeLeft(iso) {
+  const hours = Math.max(1, Math.round((Date.parse(iso) - Date.now()) / 3_600_000));
+  return hours < 48 ? `${hours} h` : `${Math.round(hours / 24)} days`;
+}
+
+async function renderShareLinks() {
+  const list = $('share-links');
+  let links;
+  try {
+    links = await api('/api/shares');
+  } catch (err) {
+    list.replaceChildren(h('li', { class: 'muted' }, err.message));
+    return;
+  }
+  if (links.length === 0) {
+    list.replaceChildren(h('li', { class: 'muted' }, 'No shared links. Create one with Share in Allocation.'));
+    return;
+  }
+  list.replaceChildren(
+    ...links.map((link) =>
+      h(
+        'li',
+        {},
+        h(
+          'div',
+          {},
+          h('b', {}, link.title),
+          h(
+            'small',
+            {},
+            `${link.withAmounts ? 'With amounts' : 'Shares only'}, works for ${timeLeft(link.expiresAt)} more`,
+          ),
+        ),
+        h(
+          'span',
+          { class: 'actions' },
+          iconButton('copy', `Copy the link to ${link.title}`, async (event) => {
+            const button = event.currentTarget;
+            try {
+              await navigator.clipboard.writeText(shareUrl(link.token));
+              button.title = 'Copied';
+            } catch {
+              window.open(shareUrl(link.token), '_blank', 'noopener');
+            }
+          }),
+          h(
+            'a',
+            {
+              class: 'icon-button',
+              href: shareUrl(link.token),
+              target: '_blank',
+              rel: 'noopener',
+              'aria-label': `Open ${link.title}`,
+              title: 'Open',
+            },
+            icon('link'),
+          ),
+          iconButton('trash-2', `Turn off the link to ${link.title}`, async () => {
+            try {
+              await api(`/api/shares/${link.token}`, { method: 'DELETE' });
+            } catch (err) {
+              showBanner(err);
+            }
+            renderShareLinks();
+          }),
+        ),
+      ),
+    ),
+  );
+}
+
+function renderAccountPanel() {
+  const { data } = state;
+  const z = data.zerion;
+  const gate = data.update ?? { allowed: true };
+  $('hide-amounts').checked = state.hideAmounts;
+  const fact = (term, ...description) => h('div', {}, h('dt', {}, term), h('dd', {}, ...description));
+  const every = (minutes) => (minutes >= 120 ? `${minutes / 60} h` : `${minutes} min`);
+  $('update-facts').replaceChildren(
+    ...[
+      fact('On its own', `Every ${every(data.collectEveryMinutes)}`),
+      fact('Last update', data.updatedAt ? ago(data.updatedAt) : 'Not yet'),
+      fact(
+        'Update now',
+        gate.allowed
+          ? 'Available'
+          : `${gate.reason}${gate.availableAt ? `; available again in ${inMinutes(gate.availableAt)}` : ''}`,
+      ),
+      z?.dayLimit != null &&
+        fact(
+          'Zerion',
+          `${z.dayRemaining ?? '?'} of ${z.dayLimit} requests left today${z.dayResetsAt ? `, renews in ${inMinutes(z.dayResetsAt)}` : ''}. Balances are read every ${every(z.balancesEveryMinutes)} at most, DeFi positions every ${every(z.defiEveryMinutes)}.`,
+        ),
+    ].filter(Boolean),
+  );
+  $('session-text').textContent = data.loginEnabled
+    ? 'Signed in on this device. A session lasts 30 days.'
+    : 'Sign-in is off: this dashboard is open on this machine only.';
+  $('sign-out').hidden = !data.loginEnabled;
+}
+
+$('open-account').addEventListener('click', () => {
+  renderAccountPanel();
+  renderShareLinks();
+  $('account').showModal();
+});
+
+const SHARE_WIDTH = 1200;
+const SHARE_HEIGHT = 675;
+const SHARE_SCALE = 2;
+let shareTicket = 0;
+let shareBlob = null;
+
+const shareTitle = (dimension) => `Allocation by ${DIMENSIONS.find(([id]) => id === dimension)[1].toLowerCase()}`;
+const shareFileName = () => `stashboard-${state.shareDimension}-${new Date().toISOString().slice(0, 10)}.png`;
+const longDate = (date) => date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+function loadImage(src) {
+  return new Promise((resolve) => {
+    if (!src) return resolve(null);
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+function logoSource(spec) {
+  const version = spec && state.logos.get(`${spec.kind}/${spec.key}`);
+  return version ? `/logo/${spec.kind}/${encodeURIComponent(spec.key)}?v=${version}` : null;
+}
+
+function fitText(ctx, text, width) {
+  if (ctx.measureText(text).width <= width) return text;
+  let cut = text;
+  while (cut.length > 1 && ctx.measureText(`${cut}…`).width > width) cut = cut.slice(0, -1);
+  return `${cut}…`;
+}
+
+async function drawShareCard({ title, rows, withAmounts }) {
+  const ticket = ++shareTicket;
+  const css = getComputedStyle(document.documentElement);
+  const token = (name) => css.getPropertyValue(name).trim();
+  const display = '"Bricolage Grotesque", system-ui, sans-serif';
+  const body = "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
+  await Promise.all([document.fonts.load(`600 52px ${display}`), document.fonts.load(`650 28px ${display}`)]).catch(
+    () => {},
+  );
+  const [mark, ...logos] = await Promise.all([
+    loadImage('/logo.svg'),
+    ...rows.map((r) => loadImage(logoSource(r.logo))),
+  ]);
+  if (ticket !== shareTicket) return;
+
+  const canvas = $('share-canvas');
+  canvas.width = SHARE_WIDTH * SHARE_SCALE;
+  canvas.height = SHARE_HEIGHT * SHARE_SCALE;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(SHARE_SCALE, 0, 0, SHARE_SCALE, 0, 0);
+  const pad = 64;
+  const inner = SHARE_WIDTH - 2 * pad;
+
+  ctx.fillStyle = token('--ink');
+  ctx.fillRect(0, 0, SHARE_WIDTH, SHARE_HEIGHT);
+
+  if (mark) ctx.drawImage(mark, pad, 50, 36, 36);
+  ctx.font = `650 28px ${display}`;
+  ctx.fillStyle = token('--amber');
+  ctx.fillText('stash', pad + 48, 78);
+  ctx.fillStyle = token('--slate');
+  ctx.fillText('board', pad + 49 + ctx.measureText('stash').width, 78);
+  ctx.font = `400 22px ${body}`;
+  ctx.textAlign = 'right';
+  ctx.fillText(longDate(new Date()), SHARE_WIDTH - pad, 78);
+  ctx.textAlign = 'left';
+
+  ctx.font = `600 52px ${display}`;
+  ctx.fillStyle = token('--bone');
+  ctx.fillText(title, pad, 168);
+  let top = 210;
+  if (withAmounts) {
+    ctx.font = `400 24px ${body}`;
+    ctx.fillStyle = token('--slate');
+    ctx.fillText(`Total held ${usd(rows[0]?.total ?? 0)}`, pad, 210);
+    top = 236;
+  }
+
+  const height = 64;
+  const gap = 4;
+  const usable = inner - gap * (rows.length - 1);
+  let before = 0;
+  rows.forEach((r, i) => {
+    const x = pad + before * usable + i * gap;
+    const width = i === rows.length - 1 ? pad + inner - x : Math.max(3, r.share * usable);
+    before += r.share;
+    const left = i === 0 ? height / 2 : 6;
+    const right = i === rows.length - 1 ? height / 2 : 6;
+    ctx.fillStyle = r.color;
+    ctx.beginPath();
+    ctx.roundRect(x, top, width, height, [left, right, right, left]);
+    ctx.fill();
+  });
+
+  const columnGap = 64;
+  const columnWidth = (inner - columnGap) / 2;
+  const perColumn = Math.max(1, Math.ceil(rows.length / 2));
+  const legendTop = top + height + 64;
+  rows.forEach((r, i) => {
+    const column = i < perColumn ? 0 : 1;
+    const x = pad + column * (columnWidth + columnGap);
+    const y = legendTop + (i - column * perColumn) * 54;
+    const end = x + columnWidth;
+
+    ctx.fillStyle = r.color;
+    ctx.beginPath();
+    ctx.roundRect(x, y - 17, 16, 16, 4);
+    ctx.fill();
+
+    let nameX = x + 32;
+    if (r.logo) {
+      const img = logos[i];
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(nameX + 15, y - 9, 15, 0, Math.PI * 2);
+      ctx.clip();
+      if (img) ctx.drawImage(img, nameX, y - 24, 30, 30);
+      else {
+        ctx.fillStyle = token('--raised');
+        ctx.fillRect(nameX, y - 24, 30, 30);
+        ctx.fillStyle = token('--slate');
+        ctx.font = `600 12px ${body}`;
+        ctx.textAlign = 'center';
+        ctx.fillText(
+          r.name
+            .replace(/[^\p{L}\p{N}]/gu, '')
+            .slice(0, 2)
+            .toUpperCase(),
+          nameX + 15,
+          y - 4,
+        );
+        ctx.textAlign = 'left';
+      }
+      ctx.restore();
+      nameX += 42;
+    }
+
+    ctx.textAlign = 'right';
+    ctx.font = `600 26px ${display}`;
+    ctx.fillStyle = token('--bone');
+    const share = percent(r.share);
+    ctx.fillText(share, end, y);
+    let nameEnd = end - ctx.measureText(share).width - 20;
+    if (withAmounts) {
+      ctx.font = `400 22px ${body}`;
+      ctx.fillStyle = token('--slate');
+      const value = usd(r.value);
+      ctx.fillText(value, nameEnd, y);
+      nameEnd -= ctx.measureText(value).width + 20;
+    }
+    ctx.textAlign = 'left';
+    ctx.font = `500 26px ${body}`;
+    ctx.fillStyle = token('--bone');
+    ctx.fillText(fitText(ctx, r.name, nameEnd - nameX), nameX, y);
+  });
+
+  canvas.setAttribute('aria-label', `${title}: ${rows.map((r) => `${r.name} ${percent(r.share)}`).join(', ')}`);
+  shareBlob = new Promise((resolve, reject) =>
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('The image could not be made'))), 'image/png'),
+  );
+}
+
+function shareStatus(...content) {
+  $('share-status').replaceChildren(...content);
+}
+
+function renderShare() {
+  segmented('share-dimension', DIMENSIONS, state.shareDimension, (id) => {
+    state.shareDimension = id;
+    renderShare();
+  });
+  shareStatus();
+  setError('share-error', null);
+  return drawShareCard({
+    title: shareTitle(state.shareDimension),
+    rows: groups(state.shareDimension),
+    withAmounts: $('share-amounts').checked,
+  });
+}
+
+function canShareFiles() {
+  try {
+    return Boolean(navigator.canShare?.({ files: [new File([''], 'x.png', { type: 'image/png' })] }));
+  } catch {
+    return false;
+  }
+}
+
+$('open-share').addEventListener('click', () => {
+  state.shareDimension = state.dimension;
+  $('share-amounts').checked = !state.hideAmounts;
+  $('share-native').hidden = !canShareFiles();
+  $('share-dialog').showModal();
+  renderShare();
+});
+
+$('share-amounts').addEventListener('change', renderShare);
+
+$('share-copy').addEventListener('click', async () => {
+  setError('share-error', null);
+  try {
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': shareBlob })]);
+    shareStatus('Image copied. Paste it into a message.');
+  } catch {
+    setError('share-error', 'This browser cannot copy images. Download the image instead.');
+  }
+});
+
+$('share-download').addEventListener('click', async () => {
+  setError('share-error', null);
+  try {
+    const url = URL.createObjectURL(await shareBlob);
+    const link = h('a', { href: url, download: shareFileName() });
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    shareStatus('Image downloaded.');
+  } catch (err) {
+    setError('share-error', err.message);
+  }
+});
+
+$('share-native').addEventListener('click', async () => {
+  setError('share-error', null);
+  try {
+    const file = new File([await shareBlob], shareFileName(), { type: 'image/png' });
+    await navigator.share({ files: [file], title: shareTitle(state.shareDimension) });
+  } catch (err) {
+    if (err.name !== 'AbortError') setError('share-error', err.message);
+  }
+});
+
+$('share-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  setError('share-error', null);
+  const withAmounts = $('share-amounts').checked;
+  const rows = groups(state.shareDimension);
+  const button = event.submitter;
+  button.disabled = true;
+  try {
+    const { token } = await api('/api/shares', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: shareTitle(state.shareDimension),
+        days: Number($('share-days').value),
+        showAmounts: withAmounts,
+        total: withAmounts ? (rows[0]?.total ?? null) : null,
+        rows: rows.map((r) => ({
+          name: r.name,
+          share: r.share,
+          value: withAmounts ? r.value : null,
+          color: r.color,
+          logo: r.logo && logoSource(r.logo) ? r.logo : null,
+        })),
+      }),
+    });
+    const url = shareUrl(token);
+    let copied = true;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      copied = false;
+    }
+    shareStatus(
+      copied ? 'Link copied: ' : 'Link: ',
+      h('a', { href: url, target: '_blank', rel: 'noopener' }, url),
+      `. It works for ${$('share-days').selectedOptions[0].textContent} and can be turned off in Account.`,
+    );
+  } catch (err) {
+    setError('share-error', err.message);
+  } finally {
+    button.disabled = false;
+  }
+});
+
 function showTip(event, title, text) {
   const tip = $('tip');
   tip.replaceChildren(h('b', {}, title), text);
@@ -1147,8 +1583,9 @@ function watchProgress() {
   if (progressTimer) return;
   const tick = async () => {
     try {
-      const { collecting, progress } = await api('/api/progress');
+      const { collecting, progress, update: gate } = await api('/api/progress');
       state.progress = progress;
+      if (state.data) state.data.update = gate;
       if (state.data) renderUpdating();
       if (!collecting && !state.updating) {
         progressTimer = null;
@@ -1162,6 +1599,19 @@ function watchProgress() {
   progressTimer = setTimeout(tick, 300);
 }
 
+async function renderAll() {
+  renderSummary();
+  renderAccounts();
+  renderCounts();
+  renderPositions();
+  renderSignals();
+  renderDefi();
+  if (state.data.holdings.length > 0) {
+    renderAllocation();
+    await renderHistory();
+  }
+}
+
 async function load() {
   try {
     const data = await api('/api/portfolio');
@@ -1171,6 +1621,7 @@ async function load() {
       return;
     }
     state.data = data;
+    state.hideAmounts = data.preferences.hideAmounts;
     state.progress = data.progress ?? state.progress;
     state.logos = new Map(Object.entries(data.logos.available));
     state.chainNames = data.logos.chains;
@@ -1182,16 +1633,8 @@ async function load() {
     $('content').hidden = noAccounts;
     $('overview-empty').hidden = !noBalances;
     $('overview-content').hidden = noBalances;
-    renderSummary();
-    renderAccounts();
-    renderCounts();
-    renderPositions();
-    renderSignals();
-    renderDefi();
-    if (!noBalances) {
-      renderAllocation();
-      await renderHistory();
-    }
+    await renderAll();
+    if ($('account').open) renderAccountPanel();
     if (data.collecting) watchProgress();
   } catch (err) {
     showBanner(err);
@@ -1207,7 +1650,7 @@ async function update() {
   try {
     await api('/api/collect', { method: 'POST', body: '{}' });
   } catch (err) {
-    failure = err;
+    if (err.status !== 429) failure = err;
   }
   state.updating = false;
   state.progress = null;

@@ -3,7 +3,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
-import { repriceEarlierReads } from '../src/collector.ts';
+import { repriceEarlierReads, updateGate } from '../src/collector.ts';
 import { addWallet, finishSnapshot, openDb, saveOutcome, startSnapshot } from '../src/db.ts';
 import { collectZerion, resetZerionQuota, zerionQuota, zerionTiming } from '../src/sources/zerion.ts';
 import type { Holding } from '../src/types.ts';
@@ -165,4 +165,23 @@ test('positions from an earlier read take the price this run found for the same 
     repriced.map((h) => h.value),
     [4000, 4000, -4000, 10],
   );
+});
+
+test('updates are refused while one runs, right after one, or when Zerion has nothing left today', () => {
+  const now = Date.now();
+  const base = { running: false, lastFinishedAt: 0, zerionWallets: 2, zerionUsedUp: false, zerionRenewsAt: null, now };
+  assert.deepEqual(updateGate(base), { allowed: true, reason: null, availableAt: null });
+  assert.equal(updateGate({ ...base, running: true }).allowed, false);
+
+  const soon = updateGate({ ...base, lastFinishedAt: now - 20_000 });
+  assert.equal(soon.allowed, false);
+  assert.equal(soon.availableAt, now + 40_000);
+
+  const renews = now + 5 * 3_600_000;
+  const usedUp = updateGate({ ...base, zerionUsedUp: true, zerionRenewsAt: renews });
+  assert.equal(usedUp.allowed, false);
+  assert.equal(usedUp.availableAt, renews);
+  assert.match(usedUp.reason ?? '', /resume in about 5 h/);
+
+  assert.equal(updateGate({ ...base, zerionWallets: 0, zerionUsedUp: true }).allowed, true);
 });
