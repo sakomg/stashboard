@@ -28,7 +28,10 @@ To work against real data, copy `config.example.json` to `config.json`, add keys
 - **Few dependencies.** Ask in an issue before adding a runtime dependency.
 - **Interface text** is plain and specific: full sentences rather than clauses joined with semicolons. A
   reading that is not obvious gets a help popover with a link to its source.
-- **Controls** come from the core components in [`public/ui.js`](public/ui.js).
+- **Controls** come from the core components in [`public/common/ui.js`](public/common/ui.js).
+- **Layers**: code goes in the layer it belongs to (see [Project layout](docs/ARCHITECTURE.md#project-layout)).
+  Dependencies point down, and a test fails when they do not. On the page, one module per part of the
+  dashboard, loaded from `main.js`.
 
 ## Pull requests
 

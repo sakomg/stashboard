@@ -1,7 +1,7 @@
 import { createHmac } from 'node:crypto';
-import type { Config } from '../config.ts';
-import { getJson, postJson } from '../http.ts';
-import type { CollectResult, Holding, HoldingType } from '../types.ts';
+import type { Config } from '../lib/config.ts';
+import { getJson, postJson } from '../lib/http.ts';
+import type { CollectResult, Holding, HoldingType } from '../domain/types.ts';
 
 type Keys = Config['binance'];
 

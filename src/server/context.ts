@@ -1,0 +1,56 @@
+import { randomBytes } from 'node:crypto';
+import type { DatabaseSync } from 'node:sqlite';
+import { base32Encode } from '../auth/index.ts';
+import { createResolver, loadAssetRules, type Asset, type Learned } from '../domain/assets.ts';
+import { loadConfig, type Config } from '../lib/config.ts';
+import { categoryNames, loadLearned } from '../services/categories.ts';
+import { importConfigExchange } from '../services/exchanges.ts';
+import { getOwner, openDb, type Owner } from '../storage/index.ts';
+
+export interface Context {
+  config: Config;
+  db: DatabaseSync;
+  demo: boolean;
+  host: string;
+  port: number;
+  local: boolean;
+  root: URL;
+  categories: string[];
+  learned: Learned;
+  resolve: (symbol: string) => Asset;
+  auth: { owner: Owner | null; setupCode: string | null };
+}
+
+export interface ContextOptions {
+  config?: Config;
+  db?: DatabaseSync;
+  env?: NodeJS.ProcessEnv;
+}
+
+export function createContext({
+  config = loadConfig(),
+  db = openDb(),
+  env = process.env,
+}: ContextOptions = {}): Context {
+  const host = env.HOST ?? '127.0.0.1';
+  const demo = env.DEMO === '1';
+  if (!demo) importConfigExchange(db, config.binance);
+  const rules = loadAssetRules();
+  const learned = loadLearned(db);
+  const owner = getOwner(db);
+  return {
+    config,
+    db,
+    demo,
+    host,
+    port: Number(env.PORT ?? 8787),
+    local: ['127.0.0.1', 'localhost', '::1'].includes(host) && env.REQUIRE_LOGIN !== '1',
+    root: new URL('../../', import.meta.url),
+    categories: categoryNames(rules),
+    learned,
+    resolve: createResolver(rules, learned),
+    auth: { owner, setupCode: owner ? null : base32Encode(randomBytes(8)).slice(0, 12) },
+  };
+}
+
+export const formatSetupCode = (code: string): string => code.match(/.{4}/g)!.join('-');

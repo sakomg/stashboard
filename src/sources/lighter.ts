@@ -1,5 +1,5 @@
-import { getJson, HttpError } from '../http.ts';
-import type { CollectResult, Holding } from '../types.ts';
+import { getJson, HttpError } from '../lib/http.ts';
+import type { CollectResult, Holding } from '../domain/types.ts';
 
 export const LIGHTER_VENUES = [
   { chain: 'ethereum', host: 'https://mainnet.zklighter.elliot.ai', collateral: 'USDC' },

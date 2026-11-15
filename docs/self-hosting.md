@@ -193,7 +193,7 @@ your computer; later deploys keep the server's copy.
 ## Command line
 
 On the server, prefix the commands with `docker compose run --rm stashboard`, for example
-`docker compose run --rm stashboard src/check.ts`. Locally, use npm:
+`docker compose run --rm stashboard src/cli/check.ts`. Locally, use npm:
 
 | Command                        | What it does                                                           |
 | ------------------------------ | ---------------------------------------------------------------------- |
@@ -217,7 +217,7 @@ ports 80 and 443 are open, and read `docker compose logs caddy`.
 accounts are kept:
 
 ```sh
-docker compose run --rm stashboard src/auth-reset.ts && docker compose restart stashboard
+docker compose run --rm stashboard src/cli/auth-reset.ts && docker compose restart stashboard
 ```
 
 **Binance refused the key.** The key or secret is wrong, or the key does not allow the server's IP address.

@@ -1,4 +1,4 @@
-import { getJson, HttpError } from '../http.ts';
+import { getJson, HttpError } from '../lib/http.ts';
 
 const SPOT = 'https://api.binance.com';
 const FUTURES = 'https://fapi.binance.com';
