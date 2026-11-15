@@ -4,18 +4,31 @@ import type { Config } from './config.ts';
 import { ensureExchangeAccount, finishSnapshot, listAccounts, saveOutcome, startSnapshot, type Account } from './db.ts';
 import { noteLogos } from './logos.ts';
 import { collectBinance } from './sources/binance.ts';
+import { collectLighter } from './sources/lighter.ts';
 import { collectTon } from './sources/ton.ts';
 import { collectZerion } from './sources/zerion.ts';
 import type { CollectResult } from './types.ts';
+
+/** An EVM address is read twice: Zerion for chains and protocols, Lighter for what sits on its exchange. */
+async function collectEvm(apiKey: string, address: string): Promise<CollectResult> {
+  const [indexed, lighter] = [await collectZerion(apiKey, address, 'evm'), await collectLighter(address)];
+  return {
+    holdings: [...indexed.holdings, ...lighter.holdings],
+    warnings: [...indexed.warnings, ...lighter.warnings],
+    logos: [...(indexed.logos ?? []), ...(lighter.logos ?? [])],
+  };
+}
 
 function collectAccount(config: Config, account: Account): Promise<CollectResult> {
   switch (account.kind) {
     case 'binance':
       return collectBinance(config.binance);
     case 'evm':
+      if (!config.zerion.apiKey) throw new Error('Zerion key is not set in config.json');
+      return collectEvm(config.zerion.apiKey, account.address);
     case 'solana':
       if (!config.zerion.apiKey) throw new Error('Zerion key is not set in config.json');
-      return collectZerion(config.zerion.apiKey, account.address, account.kind);
+      return collectZerion(config.zerion.apiKey, account.address, 'solana');
     case 'ton':
       return collectTon(config.tonapi.apiKey, account.address);
   }
