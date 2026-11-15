@@ -399,21 +399,23 @@ main > .summary {
 }
 
 .views-worth {
+  order: 2;
+  margin-left: auto;
+  padding-left: 16px;
   font: 600 17px/1 var(--display);
   letter-spacing: -0.02em;
   color: var(--bone);
-  max-width: 0;
-  overflow: hidden;
+  white-space: nowrap;
   opacity: 0;
+  visibility: hidden;
   transition:
-    max-width 0.25s,
-    opacity 0.2s;
+    opacity 0.2s,
+    visibility 0.2s;
 }
 
 .views.stuck .views-worth {
-  max-width: 160px;
-  margin-right: 24px;
   opacity: 1;
+  visibility: visible;
 }
 
 .tabs {
@@ -484,6 +486,7 @@ main > .summary {
 }
 
 .view {
+  min-height: calc(100dvh - 60px);
   padding-top: 28px;
 }
 

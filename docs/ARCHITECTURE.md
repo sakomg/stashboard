@@ -335,7 +335,7 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
 - **Views** switch with `history.replaceState`: the hash keeps the view across a reload, but switching adds no
   history entry, so the back button or a back swipe on a trackpad or phone leaves the page instead of cycling
   through views. The page also sets `overscroll-behavior-x: none`, so a sideways scroll does not start a back
-  swipe by accident. No element id equals a view name, so a hash never scrolls to an anchor. Switching from deep
+  swipe by accident. No element id equals a view name, so a hash never scrolls to an anchor, and a hash that is not a view name leaves the view as it is. Switching from deep
   in a view scrolls to where the tab bar sits in the page, computed rather than with `scrollIntoView`, which
   treats a stuck sticky element differently from one browser to another.
 - **Text** joins clauses with full stops, not semicolons, and lists reasons as separate tags.
@@ -354,7 +354,10 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
   dialog starts with amounts off while they are hidden.
 
 - **Views.** Overview, Positions, Signals, DeFi and Accounts share one tab bar; the view lives in the URL
-  hash. The bar sticks to the top and shows the net worth once the large figure scrolls away. Arrow keys move
+  hash. The bar sticks to the top and shows the net worth at its right end once the large figure scrolls away. The
+  tabs never move: the figure takes space only on the right, so a tab cannot slide from under the pointer when
+  the bar sticks or unsticks. Every view is at least a screen tall, so switching to a short one neither yanks
+  the page up nor unsticks the bar. Arrow keys move
   between tabs. Switching from deep in a long view opens the next one at its start. The history chart is
   resized when the overview is shown, because a chart drawn while hidden has no size.
 - **Progress.** While an update runs, the page asks `/api/progress` every second and shows each account's
