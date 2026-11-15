@@ -1,0 +1,22 @@
+services:
+  stashboard:
+    build: .
+    image: stashboard:latest
+    container_name: stashboard
+    # Stage 0: one-off check (docker compose run --rm stashboard). From stage 4: unless-stopped + Caddy.
+    restart: 'no'
+    init: true
+    labels:
+      # The image is built locally, so a watchtower running on the host must not try to update it
+      com.centurylinklabs.watchtower.enable: 'false'
+    volumes:
+      - ./config.json:/app/config.json:ro
+      - stashboard-data:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: '1m'
+        max-file: '3'
+
+volumes:
+  stashboard-data:
