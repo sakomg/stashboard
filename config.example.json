@@ -1,5 +1,4 @@
 {
-  "binance": { "apiKey": "", "apiSecret": "" },
   "zerion": { "apiKey": "" },
   "tonapi": { "apiKey": "" },
   "coingecko": { "apiKey": "" },

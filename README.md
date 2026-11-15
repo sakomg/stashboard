@@ -52,13 +52,32 @@ Requires Node.js 24 or newer.
 ```sh
 npm install
 cp config.example.json config.json    # then fill in the API keys
-npm run wallets -- add <address> [label]
 npm run check
 npm start                             # dashboard at http://127.0.0.1:8787
 ```
 
-The dashboard collects on start and then on a schedule (`schedule.balancesMinutes` in `config.json`). Wallets
-can be added, renamed and removed on the page itself.
+Wallets and exchanges are added, renamed and removed on the page (_Add wallet or exchange_). The dashboard
+collects on start and then on a schedule.
+
+### Configuration
+
+`config.json` holds the keys of the data services and a few settings. Exchange keys are not in it: they are
+added on the page and stored encrypted in the database.
+
+| Key                        | Needed for                                                         | Default                       |
+| -------------------------- | ------------------------------------------------------------------ | ----------------------------- |
+| `zerion.apiKey`            | EVM and Solana wallets                                             |                               |
+| `tonapi.apiKey`            | TON wallets. Works without it at a much lower rate                 |                               |
+| `coingecko.apiKey`         | Fallback prices, logos and categories. Works without it, slower    |                               |
+| `domain`                   | The public host name for HTTPS when deployed. Empty to run locally |                               |
+| `schedule.balancesMinutes` | How often balances are read (at least 5)                           | 60                            |
+| `schedule.signalsMinutes`  | How often heat signals are recomputed                              | 240                           |
+| `heat.weights`             | Weight of each reading in the heat score                           | see [Heat score](#heat-score) |
+| `heat.overheated`          | The reading at which each one counts as overheated                 | see [Heat score](#heat-score) |
+| `heat.zones`               | Where neutral, warm and overheated begin                           | 30, 60, 80                    |
+
+A `binance` block with `apiKey` and `apiSecret`, from setups that predate the page, is imported into the
+database once on start. After that it can be deleted from `config.json`.
 
 Without a login the server listens on localhost only and refuses any other address.
 
@@ -118,15 +137,15 @@ Interface icons come from [Lucide](https://lucide.dev) (ISC licence), built into
 
 ### Privacy and sharing
 
-The eye next to the net worth, or _Hide amounts_ in the account panel (the person icon), turns every dollar
+The eye next to the net worth, or _Hide amounts_ in Settings, turns every dollar
 amount and quantity into dots on every device, leaving shares and changes. It is meant for screens other
 people can see.
 
 _Share_ in Allocation makes a picture of the allocation to copy, download or send, grouped any way the strip
 can be. It can also make a link: a snapshot anyone with the link can open, without signing in, for 1, 7 or
-30 days. Amounts are left out unless you tick _Show amounts_. Links can be turned off in the account panel.
+30 days. Amounts are left out unless you tick _Show amounts_. Links can be turned off in Settings.
 
-Added your accounts one at a time? _Start history over_ in the account panel keeps the current balances and
+Added your accounts one at a time? _Start history over_ in Settings keeps the current balances and
 drops the staircase before them, after saving a copy of the database.
 
 The update button is unavailable for a minute after an update, and while Zerion's daily allowance is used up;
@@ -137,9 +156,8 @@ hovering it says why.
 All free:
 
 - **Binance:** create a _System generated_ (HMAC) key with only _Enable Reading_ ticked and restrict it to
-  the server's IP address, then add it on the page with _Add account_, _Exchange_. Stashboard checks the key
-  is read-only before saving it and stores the secret encrypted. A key in `binance` in `config.json` is
-  imported once on start, for setups that predate the page.
+  the server's IP address, then add it on the page with _Add wallet or exchange_, _Exchange_. Stashboard checks
+  the key is read-only before saving it and stores the secret encrypted.
 - **Zerion:** [developers.zerion.io](https://developers.zerion.io)
 - **TonAPI:** [tonconsole.com](https://tonconsole.com)
 - **CoinGecko:** a Demo API key from [coingecko.com/en/api](https://www.coingecko.com/en/api)
