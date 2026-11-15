@@ -1,5 +1,5 @@
 // HTTP server: the dashboard page, its JSON API, first-run setup, login and the collection schedule.
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import { createResolver, loadAssetRules } from './assets.ts';
@@ -383,8 +383,16 @@ setInterval(backup, 60 * 60_000).unref();
 
 // ── API ──────────────────────────────────────────────────────────────────────
 
+// Changes whenever the page's own files do. A tab left open across an update compares it with the one it
+// started with and reloads, instead of running old code against new answers.
+const build = createHash('sha1')
+  .update(['public/index.html', 'public/app.js', 'public/app.css'].map((f) => readFileSync(new URL(f, root))).join())
+  .digest('hex')
+  .slice(0, 12);
+
 app.get('/api/portfolio', async () => ({
   ...portfolioView(db, resolve),
+  build,
   fearGreed: await fearGreed(),
   collecting: collecting !== null,
   collectEveryMinutes: intervalMs / 60_000,
