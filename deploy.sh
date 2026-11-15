@@ -49,7 +49,8 @@ if docker compose version >/dev/null 2>&1; then DC="docker compose"; else DC="do
 $DC build --quiet
 # The key check runs in a throwaway container first. A failing source is reported but does not stop
 # the deploy: a third-party outage must not block shipping a fix.
-$DC run --rm --no-deps stashboard src/check.ts || echo "! The key check reported problems (see above); continuing"
+# </dev/null: this script itself arrives on stdin, and the container must not read the rest of it.
+$DC run --rm --no-deps -T stashboard src/check.ts </dev/null || echo "! The key check reported problems (see above); continuing"
 $DC up -d --remove-orphans
 
 echo "→ Waiting for the service"
