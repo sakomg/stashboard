@@ -1221,24 +1221,25 @@ function renderCounts() {
   set('accounts', troubled ? `${troubled} !` : String(data.sources.length), troubled ? 'warn' : '');
 }
 
+function switchView(view, focus = false) {
+  if (location.hash !== `#${view}`) history.replaceState(null, '', `#${view}`);
+  showView(view, focus);
+  const top = $('content').getBoundingClientRect().top + window.scrollY;
+  if (window.scrollY > top) window.scrollTo({ top, behavior: 'instant' });
+}
+
 for (const tab of tabs()) {
-  tab.addEventListener('click', () => {
-    if (location.hash !== `#${tab.dataset.view}`) history.pushState(null, '', `#${tab.dataset.view}`);
-    showView(tab.dataset.view);
-    if ($('views').classList.contains('stuck')) $('views').scrollIntoView();
-  });
+  tab.addEventListener('click', () => switchView(tab.dataset.view));
   tab.addEventListener('keydown', (e) => {
     const list = tabs();
     const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
     if (!step) return;
     e.preventDefault();
     const next = list[(list.indexOf(tab) + step + list.length) % list.length];
-    history.pushState(null, '', `#${next.dataset.view}`);
-    showView(next.dataset.view, true);
+    switchView(next.dataset.view, true);
   });
 }
 window.addEventListener('hashchange', () => showView(location.hash.slice(1)));
-window.addEventListener('popstate', () => showView(location.hash.slice(1)));
 showView(location.hash.slice(1));
 
 new IntersectionObserver(([entry]) => $('views').classList.toggle('stuck', !entry.isIntersecting), {
