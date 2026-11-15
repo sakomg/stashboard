@@ -332,8 +332,12 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
 - **Fear & Greed** is coloured by its band, following alternative.me's: under 25 extreme fear (teal), under 45
   fear, under 56 neutral, under 76 greed (amber), above extreme greed (orange), so it reads like the heat scale.
 - **Where an asset is held** lists places worth at least half a cent; the rest are counted in one line.
-- **Views** switch with `history.pushState`, and no element id equals a view name, so changing view never
-  scrolls to an anchor.
+- **Views** switch with `history.replaceState`: the hash keeps the view across a reload, but switching adds no
+  history entry, so the back button or a back swipe on a trackpad or phone leaves the page instead of cycling
+  through views. The page also sets `overscroll-behavior-x: none`, so a sideways scroll does not start a back
+  swipe by accident. No element id equals a view name, so a hash never scrolls to an anchor. Switching from deep
+  in a view scrolls to where the tab bar sits in the page, computed rather than with `scrollIntoView`, which
+  treats a stuck sticky element differently from one browser to another.
 - **Text** joins clauses with full stops, not semicolons, and lists reasons as separate tags.
 
 - **Header.** The header holds only Settings. Adding a wallet or an exchange starts from the dashed chip at the

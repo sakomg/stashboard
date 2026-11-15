@@ -26,6 +26,7 @@
 }
 
 html {
+  overscroll-behavior-x: none;
   background: var(--ink);
   color: var(--bone);
   font: 15px/1.5 var(--body);
