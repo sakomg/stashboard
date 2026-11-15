@@ -1,16 +1,6 @@
-const $ = (id) => document.getElementById(id);
+import { h } from '/ui.js';
 
-function h(tag, props = {}, ...children) {
-  const el = document.createElement(tag);
-  for (const [key, value] of Object.entries(props)) {
-    if (value === false || value == null) continue;
-    if (key === 'class') el.className = value;
-    else if (key === 'style') Object.assign(el.style, value);
-    else el.setAttribute(key, value === true ? '' : value);
-  }
-  el.append(...children.filter((c) => c != null && c !== false));
-  return el;
-}
+const $ = (id) => document.getElementById(id);
 
 const token = location.pathname.split('/')[2] ?? '';
 const usd = (n) =>

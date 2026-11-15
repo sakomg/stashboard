@@ -126,6 +126,9 @@ _Share_ in Allocation makes a picture of the allocation to copy, download or sen
 can be. It can also make a link: a snapshot anyone with the link can open, without signing in, for 1, 7 or
 30 days. Amounts are left out unless you tick _Show amounts_. Links can be turned off in the account panel.
 
+Added your accounts one at a time? _Start history over_ in the account panel keeps the current balances and
+drops the staircase before them, after saving a copy of the database.
+
 The update button is unavailable for a minute after an update, and while Zerion's daily allowance is used up;
 hovering it says why.
 
@@ -134,7 +137,9 @@ hovering it says why.
 All free:
 
 - **Binance:** create a _System generated_ (HMAC) key with only _Enable Reading_ ticked and restrict it to
-  the IPs you will run Stashboard from. The check fails if the key can trade or withdraw.
+  the server's IP address, then add it on the page with _Add account_, _Exchange_. Stashboard checks the key
+  is read-only before saving it and stores the secret encrypted. A key in `binance` in `config.json` is
+  imported once on start, for setups that predate the page.
 - **Zerion:** [developers.zerion.io](https://developers.zerion.io)
 - **TonAPI:** [tonconsole.com](https://tonconsole.com)
 - **CoinGecko:** a Demo API key from [coingecko.com/en/api](https://www.coingecko.com/en/api)
@@ -198,7 +203,8 @@ docker compose run --rm stashboard src/wallets.ts       # the console commands w
 
 Once a day the app writes a copy of the database to `backups/` inside its data volume and keeps the last 14.
 That protects against a bad update or a corrupted file, not against losing the server: copy a backup off the
-machine now and then.
+machine now and then. Exchange keys in the database are encrypted with `secret.key` in the same data
+directory. A backup restored without that file loses only the exchange keys: add the exchanges again.
 
 ```sh
 docker compose cp stashboard:/data/backups ./backups

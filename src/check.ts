@@ -1,5 +1,6 @@
 import { loadConfig, type Config } from './config.ts';
-import { listWallets, openDb, type Wallet } from './db.ts';
+import { listAccounts, listWallets, openDb, type Wallet } from './db.ts';
+import { checkBinanceKey, exchangeKeys, type ExchangeKeys } from './exchanges.ts';
 import { getJson } from './http.ts';
 import { binanceSigned } from './sources/binance.ts';
 import { fetchChains, zerionQuota } from './sources/zerion.ts';
@@ -25,32 +26,29 @@ async function step(source: string, fn: () => Promise<void>): Promise<void> {
   }
 }
 
-async function checkBinance(cfg: Config['binance']): Promise<void> {
+async function checkBinance(cfg: Config['binance'], stored: { label: string; keys: ExchangeKeys }[]): Promise<void> {
   await step('Binance pub', async () => {
     await getJson('https://api.binance.com/api/v3/ping');
     await getJson('https://fapi.binance.com/fapi/v1/ping');
     report('ok', 'Binance pub', 'spot and futures APIs are reachable from this IP');
   });
 
-  if (!cfg.apiKey || !cfg.apiSecret) return report('skip', 'Binance', 'key is not set');
+  const accounts =
+    stored.length > 0 ? stored : cfg.apiKey && cfg.apiSecret ? [{ label: 'config.json', keys: cfg }] : [];
+  if (accounts.length === 0) return report('skip', 'Binance', 'no exchange added');
 
-  await step('Binance', async () => {
-    const r = await binanceSigned<Record<string, unknown>>(cfg, '/sapi/v1/account/apiRestrictions');
-    const dangerous = Object.entries(r)
-      .filter(([k, v]) => v === true && k !== 'enableReading' && k !== 'ipRestrict')
-      .map(([k]) => k);
-    if (dangerous.length > 0) {
-      report('fail', 'Binance', `key is not read-only, disable: ${dangerous.join(', ')}`);
-    } else if (r.ipRestrict !== true) {
-      report('warn', 'Binance', 'key is read-only but not restricted to trusted IPs');
-    } else {
-      report('ok', 'Binance', 'key is read-only and IP-restricted');
-    }
+  for (const { label, keys } of accounts) {
+    await step('Binance', async () => {
+      const { extra, ipRestricted } = await checkBinanceKey(keys);
+      if (extra.length > 0) report('fail', 'Binance', `${label}: key can do more than read: ${extra.join(', ')}`);
+      else if (!ipRestricted) report('warn', 'Binance', `${label}: key is read-only but not restricted to trusted IPs`);
+      else report('ok', 'Binance', `${label}: key is read-only and IP-restricted`);
 
-    const acc = await binanceSigned<{ balances: { free: string; locked: string }[] }>(cfg, '/api/v3/account');
-    const nonZero = acc.balances.filter((b) => Number(b.free) + Number(b.locked) > 0).length;
-    report('ok', 'Binance', `spot account is readable, non-zero assets: ${nonZero}`);
-  });
+      const acc = await binanceSigned<{ balances: { free: string; locked: string }[] }>(keys, '/api/v3/account');
+      const nonZero = acc.balances.filter((b) => Number(b.free) + Number(b.locked) > 0).length;
+      report('ok', 'Binance', `${label}: spot account is readable, non-zero assets: ${nonZero}`);
+    });
+  }
 }
 
 async function checkZerion(cfg: Config['zerion'], wallets: Wallet[]): Promise<void> {
@@ -65,7 +63,7 @@ async function checkZerion(cfg: Config['zerion'], wallets: Wallet[]): Promise<vo
     report(
       'ok',
       'Zerion',
-      `key works, ${chains.length} chains${allowance}; ${wallets.length} wallets are read on collection`,
+      `key works, ${chains.length} chains${allowance}, ${wallets.length} wallets are read on collection`,
     );
   });
 }
@@ -119,7 +117,13 @@ try {
 }
 
 const db = openDb();
-await checkBinance(config.binance);
+const exchanges = listAccounts(db)
+  .filter((a) => a.kind === 'binance')
+  .flatMap((a) => {
+    const keys = exchangeKeys(db, a.id);
+    return keys ? [{ label: a.label, keys }] : [];
+  });
+await checkBinance(config.binance, exchanges);
 await checkZerion(config.zerion, [...listWallets(db, 'evm'), ...listWallets(db, 'solana')]);
 await checkTon(config.tonapi, listWallets(db, 'ton'));
 await checkCoingecko(config.coingecko);

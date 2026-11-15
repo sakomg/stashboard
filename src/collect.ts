@@ -1,6 +1,7 @@
 import { createResolver, loadAssetRules } from './assets.ts';
 import { loadLearned } from './categories.ts';
 import { runCollection } from './collector.ts';
+import { importConfigExchange } from './exchanges.ts';
 import { loadConfig } from './config.ts';
 import { currentState, openDb, type AccountState } from './db.ts';
 import { buildPortfolio } from './portfolio.ts';
@@ -112,6 +113,7 @@ async function printSignals(db: ReturnType<typeof openDb>): Promise<void> {
 }
 
 const db = openDb();
+importConfigExchange(db, loadConfig().binance);
 if (process.argv.includes('--signals')) {
   await printSignals(db);
   process.exit(0);
