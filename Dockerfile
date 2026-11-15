@@ -16,5 +16,5 @@ RUN mkdir -p /data && chown node:node /data
 
 USER node
 ENTRYPOINT ["node", "--disable-warning=ExperimentalWarning"]
-# Stage 0: key check. From stage 4 this starts the server.
-CMD ["src/check.ts"]
+# Other entry points run the same way: docker compose run --rm stashboard src/check.ts
+CMD ["src/server.ts"]

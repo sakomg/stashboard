@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Deploy to a server with Docker:  [SSH_PORT=22] ./deploy.sh user@host [remote dir, default /opt/stashboard]
-# For now (stage 0) it copies the project, builds the image and runs the key check from the server's IP.
+# Copies the project, builds the image, checks the API keys from the server, then (re)starts the service.
 set -euo pipefail
 
 HOST="${1:?Usage: [SSH_PORT=22] ./deploy.sh user@host [remote dir]}"
@@ -8,32 +8,60 @@ REMOTE_DIR="${2:-/opt/stashboard}"
 PORT="${SSH_PORT:-22}"
 cd "$(dirname "$0")"
 
-# config.json holds the keys. Run locally, it is uploaded; run from CI (no local copy), the one already on the server is kept.
-FILES=(src public assets package.json package-lock.json assets.json Dockerfile docker-compose.yml .dockerignore)
+FILES=(src public assets package.json package-lock.json assets.json Dockerfile docker-compose.yml Caddyfile .dockerignore)
+ssh -p "$PORT" "$HOST" "mkdir -p '$REMOTE_DIR'"
+
+# config.json holds the keys, the login and the domain. Run locally, it is uploaded together with a .env
+# naming the domain; run from CI (no local copy), what is already on the server is kept.
 if [[ -f config.json ]]; then
+  node -e '
+    const c = JSON.parse(require("fs").readFileSync("config.json", "utf8"));
+    const fail = (m) => { console.error(m); process.exit(1); };
+    if (!c.auth?.passwordHash || !c.auth?.totpSecret) fail("config.json has no login: run npm run auth first");
+    if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(c.domain ?? "")) fail("config.json has no domain: set \"domain\" to the host name of the dashboard");
+    require("fs").writeFileSync(".env.deploy", `DOMAIN=${c.domain}\n`);
+  '
+  trap 'rm -f .env.deploy' EXIT
+  scp -q -P "$PORT" .env.deploy "$HOST:$REMOTE_DIR/.env"
   FILES+=(config.json)
-elif ! ssh -p "$PORT" "$HOST" "test -f '$REMOTE_DIR/config.json'"; then
-  echo "config.json is missing both here and on the server: cp config.example.json config.json and fill it in"
+elif ! ssh -p "$PORT" "$HOST" "test -f '$REMOTE_DIR/config.json' -a -f '$REMOTE_DIR/.env'"; then
+  echo "config.json is missing here, and the server has no config.json and .env yet: run ./deploy.sh once from a machine that has config.json"
   exit 1
 fi
 
 echo "→ Copying to $HOST:$REMOTE_DIR (port $PORT)"
-ssh -p "$PORT" "$HOST" "mkdir -p '$REMOTE_DIR'"
 # Drop the old sources first so files deleted from the repository do not linger on the server.
-ssh -p "$PORT" "$HOST" "cd '$REMOTE_DIR' 2>/dev/null && rm -rf src public assets"
+ssh -p "$PORT" "$HOST" "cd '$REMOTE_DIR' && rm -rf src public assets"
 scp -q -r -P "$PORT" "${FILES[@]}" "$HOST:$REMOTE_DIR/"
 
-echo "→ Building and running the check"
+echo "→ Building, checking and starting"
 ssh -p "$PORT" "$HOST" REMOTE_DIR="$REMOTE_DIR" bash -s <<'REMOTE'
 set -euo pipefail
 cd "$REMOTE_DIR"
 # Secrets: readable only by the node user (uid 1000) inside the container.
-chmod 600 config.json
+chmod 600 config.json .env
 if ! chown 1000:1000 config.json 2>/dev/null; then
   echo "! Not root: cannot chown config.json to uid 1000, making it world-readable (chmod 644)"
   chmod 644 config.json
 fi
 if docker compose version >/dev/null 2>&1; then DC="docker compose"; else DC="docker-compose"; fi
-$DC build
-$DC run --rm stashboard
+$DC build --quiet
+# The key check runs in a throwaway container first. A failing source is reported but does not stop
+# the deploy: a third-party outage must not block shipping a fix.
+$DC run --rm --no-deps stashboard src/check.ts || echo "! The key check reported problems (see above); continuing"
+$DC up -d --remove-orphans
+
+echo "→ Waiting for the service"
+for _ in $(seq 1 30); do
+  status=$(docker inspect -f '{{.State.Health.Status}}' stashboard 2>/dev/null || echo starting)
+  [[ "$status" == healthy ]] && break
+  sleep 2
+done
+$DC ps
+if [[ "$status" != healthy ]]; then
+  echo "! The service did not become healthy:"
+  $DC logs --tail=30 stashboard
+  exit 1
+fi
+echo "✓ Running at https://$(grep -oP '(?<=^DOMAIN=).*' .env)"
 REMOTE

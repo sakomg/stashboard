@@ -7,7 +7,7 @@ Stashboard pulls balances from Binance, EVM chains, Solana and TON into one net-
 portfolio is allocated, keeps its history, and scores every position from cold to overheated so you can see
 what to trim and what to leave alone.
 
-> **Status:** early development. The dashboard and signals run locally; login and hosting are next.
+> **Status:** working end to end: collection, dashboard, signals, login and a one-command deploy.
 > See [PLAN.md](PLAN.md).
 
 ## Principles
@@ -44,7 +44,7 @@ npm start                             # dashboard at http://127.0.0.1:8787
 The dashboard collects on start and then on a schedule (`schedule.balancesMinutes` in `config.json`). Wallets
 can be added, renamed and removed on the page itself.
 
-> The server has no login yet and listens on localhost only. Do not expose it to a network until login lands.
+Without a login the server listens on localhost only and refuses any other address.
 
 ### Console
 
@@ -95,13 +95,56 @@ All free:
 
 `config.json` and the `data/` directory hold your keys and addresses and are ignored by git.
 
-## Deploy
+## Login
 
 ```sh
-./deploy.sh user@host            # copies the project to /opt/stashboard and builds it with Docker Compose
+npm run auth
 ```
 
-For now the deploy only runs the key check from the server's IP; the long-running service comes with stage 4.
+Run it in your own terminal. It asks for a password (12 characters or more), shows a QR code for an
+authenticator app, checks one code and writes the result to `config.json` under `auth`: an argon2id hash of
+the password and the authenticator secret. The password itself is never stored.
+
+With a login configured, nothing but the sign-in page is served without a session: pages redirect to it and
+the API answers 401. Sessions last 30 days. Five wrong attempts from one address lock it out for 15 minutes,
+and each authenticator code works once.
+
+## Deploy
+
+You need a server with Docker, ports 80 and 443 reachable from the internet, and a host name pointing at it
+(a free [DuckDNS](https://www.duckdns.org) subdomain works). Set the host name in `config.json`:
+
+```json
+"domain": "example.duckdns.org"
+```
+
+Then, with the login set up:
+
+```sh
+./deploy.sh user@host            # SSH_PORT=2222 ./deploy.sh user@host for a non-standard port
+```
+
+It copies the project to `/opt/stashboard`, builds the image, checks the API keys from the server and starts
+two containers: the app, and [Caddy](https://caddyserver.com) in front of it, which obtains and renews the
+HTTPS certificate. The app publishes no port of its own. Run the script again to update.
+
+On the server:
+
+```sh
+cd /opt/stashboard
+docker compose logs -f stashboard                       # what the app is doing
+docker compose run --rm stashboard src/wallets.ts       # the console commands work here too
+```
+
+### Backups
+
+Once a day the app writes a copy of the database to `backups/` inside its data volume and keeps the last 14.
+That protects against a bad update or a corrupted file, not against losing the server: copy a backup off the
+machine now and then.
+
+```sh
+docker compose cp stashboard:/data/backups ./backups
+```
 
 ### Continuous deployment
 
@@ -118,8 +161,9 @@ is configured under _Settings → Secrets and variables → Actions_:
 | Secret   | `DEPLOY_SSH_KEY`     | Private key of a deploy-only SSH key pair                            |
 | Secret   | `DEPLOY_KNOWN_HOSTS` | Optional: output of `ssh-keyscan <host>`, pins the server's host key |
 
-The pipeline never sees `config.json`: upload it once with a local `./deploy.sh`, and CI deploys keep the copy
-that is already on the server.
+The pipeline never sees `config.json`: run `./deploy.sh` once from your own machine to upload it, and CI
+deploys keep the copy that is already on the server. To change keys, the login or the domain, deploy from
+your machine again.
 
 ## Development
 

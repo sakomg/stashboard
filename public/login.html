@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <meta name="color-scheme" content="dark" />
+    <title>Sign in to Stashboard</title>
+    <link rel="icon" href="/logo.svg" />
+    <link rel="stylesheet" href="/app.css" />
+  </head>
+  <body class="login-page">
+    <main class="login">
+      <a class="brand" href="/"
+        ><img src="/logo.svg" alt="" width="28" height="28" /><span>stash</span><span>board</span></a
+      >
+      <form id="login">
+        <h1>Sign in</h1>
+        <label>
+          <span>Password</span>
+          <input name="password" type="password" autocomplete="current-password" required autofocus />
+        </label>
+        <label>
+          <span>Code from your authenticator app</span>
+          <input
+            name="code"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            pattern="[0-9 ]{6,7}"
+            maxlength="7"
+            required
+          />
+        </label>
+        <button class="button primary" type="submit">Sign in</button>
+        <p class="form-error" id="error" role="alert" hidden></p>
+      </form>
+    </main>
+    <script type="module" src="/login.js"></script>
+  </body>
+</html>
