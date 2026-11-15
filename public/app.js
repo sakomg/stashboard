@@ -1,9 +1,5 @@
-// Dashboard client. No build step: plain ES module, DOM built by hand.
-// Token names and symbols come from public chains and can contain anything, so nothing here uses innerHTML.
-
 const $ = (id) => document.getElementById(id);
 
-/** h('td', { class: 'num' }, 'text', childNode) */
 function h(tag, props = {}, ...children) {
   const el = document.createElement(tag);
   for (const [key, value] of Object.entries(props)) {
@@ -17,11 +13,8 @@ function h(tag, props = {}, ...children) {
   return el;
 }
 
-// ── Icons and logos ──────────────────────────────────────────────────────────
-
 const SVG = 'http://www.w3.org/2000/svg';
 
-/** An interface icon from the sprite. Decorative: the control that holds it carries the label. */
 function icon(name) {
   const svg = document.createElementNS(SVG, 'svg');
   svg.setAttribute('class', 'icon');
@@ -32,11 +25,9 @@ function icon(name) {
   return svg;
 }
 
-/** A button that shows only an icon; the label is read out and shown on hover. */
 const iconButton = (name, label, onclick, cls = '') =>
   h('button', { class: `icon-button ${cls}`, type: 'button', 'aria-label': label, title: label, onclick }, icon(name));
 
-/** The first letters of a name, shown where there is no logo. */
 function monogram(label) {
   return h(
     'span',
@@ -48,7 +39,6 @@ function monogram(label) {
   );
 }
 
-/** A logo the server has stored, or a monogram when it has none or the image fails to load. */
 function logo(kind, key, label = key) {
   const version = state.logos.get(`${kind}/${key}`);
   if (!version) return monogram(label);
@@ -64,21 +54,17 @@ function logo(kind, key, label = key) {
   return img;
 }
 
-// Accounts and the two non-EVM venues are drawn with the logo of their native coin.
 const KIND_TOKEN = { binance: 'BNB', evm: 'ETH', solana: 'SOL', ton: 'TON' };
 const CHAIN_TOKEN = { binance: 'BNB', ton: 'TON' };
 const kindLogo = (kind) => logo('token', KIND_TOKEN[kind], KINDS[kind]);
 const chainLogo = (id) =>
   CHAIN_TOKEN[id] ? logo('token', CHAIN_TOKEN[id], chainName(id)) : logo('chain', id, chainName(id));
 
-// ── Formatting ───────────────────────────────────────────────────────────────
-
 const usd = (n) =>
   `${n < 0 ? '−' : ''}$${Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const usdRound = (n) => `${n < 0 ? '−' : ''}$${Math.abs(n).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 const quantity = (n) => n.toLocaleString('en-US', { maximumSignificantDigits: 6 });
 const price = (n) => (n == null ? '—' : `$${n.toLocaleString('en-US', { maximumSignificantDigits: 5 })}`);
-// Rounds first, so a tiny negative number does not print as "-0.000".
 const fixed = (n, digits) =>
   (Number(n.toFixed(digits)) === 0 ? (0).toFixed(digits) : n.toFixed(digits)).replace('-', '−');
 const percent = (n) => `${(n * 100).toFixed(1)}%`;
@@ -121,10 +107,6 @@ const chainName = (id) =>
   state.chainNames[id] ??
   id.replace(/(^|-)(\w)/g, (_, hyphen, c) => (hyphen ? ' ' : '') + c.toUpperCase());
 
-// ── Colour ───────────────────────────────────────────────────────────────────
-// Eight categorical hues validated for this dark surface, used in this fixed order; a ninth group is "Other".
-// Colour follows the group, not its rank: a category keeps its hue whatever its size.
-
 const PALETTE = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#0ca30c', '#9085e9', '#e66767'];
 const OTHER_COLOR = '#6b7480';
 const CATEGORY_ORDER = ['L1', 'BTC', 'Stablecoins', 'Memes', 'DeFi', 'Stocks', 'ETH', 'L2'];
@@ -137,9 +119,6 @@ function colorOf(dimension, name) {
   return map.get(name);
 }
 
-// ── State ────────────────────────────────────────────────────────────────────
-
-// [id, label, group of a holding, logo of a group given one of its holdings]
 const DIMENSIONS = [
   ['category', 'Category', (x) => x.category, null],
   ['asset', 'Asset', (x) => x.asset, (x) => logo('token', x.asset)],
@@ -167,6 +146,8 @@ const state = {
   showDust: false,
   renaming: null,
   updating: false,
+  view: 'overview',
+  progress: null,
 };
 
 async function api(path, options) {
@@ -176,7 +157,6 @@ async function api(path, options) {
   } catch {
     throw new Error('The server did not answer. Check the connection.');
   }
-  // The session ended or was never there: the sign-in page is the only useful place to be.
   if (response.status === 401) {
     location.replace('/login');
     return new Promise(() => {});
@@ -186,19 +166,11 @@ async function api(path, options) {
   return body;
 }
 
-// ── Summary ──────────────────────────────────────────────────────────────────
-
 function renderSummary() {
   const { data } = state;
   const [whole, cents] = usd(data.netWorth).split('.');
   $('net-worth').replaceChildren(whole, h('span', { class: 'cents' }, `.${cents}`));
-
-  const busy = state.updating || data.collecting;
-  $('updated').textContent = busy ? 'Updating…' : data.updatedAt ? `Updated ${ago(data.updatedAt)}` : 'Not updated yet';
-  const button = $('collect');
-  button.disabled = busy;
-  button.classList.toggle('spinning', busy);
-  button.title = busy ? 'Updating…' : `Update now. Updates on its own every ${data.collectEveryMinutes} min.`;
+  $('views-worth').textContent = usdRound(data.netWorth);
 
   const fact = (label, ...value) => h('div', {}, h('dt', {}, label), h('dd', {}, ...value));
   $('facts').replaceChildren(
@@ -208,56 +180,119 @@ function renderSummary() {
     data.fearGreed && fact('Fear & Greed', String(data.fearGreed.value), h('small', {}, data.fearGreed.label)),
   );
   $('sign-out').hidden = !data.loginEnabled;
+  renderUpdating();
+  renderNotices();
+}
 
+const busy = () => state.updating || state.data?.collecting || state.progress !== null;
+const labelOf = (id) => state.data?.sources.find((s) => s.id === id)?.label ?? 'an account';
+
+function renderUpdating() {
+  const { data, progress } = state;
+  const button = $('collect');
+  button.disabled = busy();
+  button.classList.toggle('spinning', busy());
+  button.title = busy() ? 'Updating…' : `Update now. Updates on its own every ${data.collectEveryMinutes} min.`;
+
+  let line;
+  if (progress?.phase === 'signals') line = 'Updating signals…';
+  else if (progress) {
+    const done = progress.accounts.filter((a) => a.state === 'done' || a.state === 'failed').length;
+    const current = progress.accounts.find((a) => a.state === 'reading');
+    line = current
+      ? `${current.note ? `${labelOf(current.id)}: ${current.note}` : `Reading ${labelOf(current.id)}`} · ${done} of ${progress.accounts.length}`
+      : `Updating · ${done} of ${progress.accounts.length}`;
+  } else if (busy()) line = 'Updating…';
+  else line = data.updatedAt ? `Updated ${ago(data.updatedAt)}` : 'Not updated yet';
+  $('updated').textContent = line;
+  renderSources();
+}
+
+const isOld = (s) =>
+  s.oldestRead && Date.now() - Date.parse(s.oldestRead) > 2 * state.data.collectEveryMinutes * 60_000;
+
+function renderSources() {
+  const live = new Map((state.progress?.accounts ?? []).map((a) => [a.id, a]));
   $('sources').replaceChildren(
-    ...data.sources.map((s) => {
-      const problem =
-        s.status === null ? ['clock', 'Not read yet'] : s.stale ? ['triangle-alert', 'Out of date'] : null;
+    ...state.data.sources.map((s) => {
+      const step = live.get(s.id);
+      const mark = step
+        ? {
+            waiting: ['waiting', null, 'Waiting to be read'],
+            reading: ['reading', 'refresh-cw', step.note ?? 'Reading now'],
+            done: ['done', 'check', 'Read'],
+            failed: ['problem', 'triangle-alert', step.note ?? 'Could not be read'],
+          }[step.state]
+        : s.status === null
+          ? ['problem', 'clock', 'Not read yet']
+          : s.stale
+            ? ['problem', 'triangle-alert', 'Out of date']
+            : isOld(s)
+              ? ['aged', 'clock', `Some balances are from ${ago(s.oldestRead)}`]
+              : null;
       return h(
         'li',
         {
-          class: problem ? 'problem' : '',
-          title: problem ? problem[1] : `${usd(s.value)}, updated ${ago(s.collectedAt)}`,
+          class: mark?.[0] ?? '',
+          title: mark ? mark[2] : `${usd(s.value)}, updated ${ago(s.collectedAt)}`,
         },
         kindLogo(s.kind),
         h('span', { class: 'chip-label' }, s.label),
-        !problem && h('span', { class: 'num muted' }, usdRound(s.value)),
-        problem && icon(problem[0]),
-        problem && h('span', { class: 'sr-only' }, problem[1]),
+        (!mark || mark[0] === 'aged' || mark[0] === 'done' || mark[0] === 'waiting') &&
+          s.status !== null &&
+          h('span', { class: 'num muted' }, usdRound(s.value)),
+        mark?.[1] && icon(mark[1]),
+        mark && h('span', { class: 'sr-only' }, mark[2]),
       );
     }),
   );
-
-  // What went wrong, said once and in full, instead of a tooltip nobody finds.
-  $('notices').replaceChildren(
-    ...data.sources
-      .filter((s) => s.stale)
-      .map((s) =>
-        h(
-          'li',
-          {},
-          icon('triangle-alert'),
-          h(
-            'span',
-            {},
-            h('b', {}, s.label),
-            s.collectedAt
-              ? ` could not be updated. Showing its balances from ${ago(s.collectedAt)}. `
-              : ' could not be read, so it is missing from the totals. ',
-            h('span', { class: 'muted' }, s.error ?? ''),
-          ),
-        ),
-      ),
-  );
 }
 
-// ── Allocation ───────────────────────────────────────────────────────────────
+const joinNames = (names) =>
+  names.length <= 2 ? names.join(' and ') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+
+function renderNotices() {
+  const groups = new Map();
+  const add = (key, source, text) => {
+    if (!groups.has(key)) groups.set(key, { text, sources: [] });
+    groups.get(key).sources.push(source);
+  };
+  for (const s of state.data.sources) {
+    if (s.stale) add(`error\n${s.error}`, s, s.error ?? '');
+    for (const w of s.warnings) if (/allowance|rate limiting|left out/i.test(w)) add(`warn\n${w}`, s, w);
+  }
+  $('notices').replaceChildren(
+    ...[...groups].map(([key, { text, sources }]) => {
+      const names = joinNames(sources.map((s) => s.label));
+      const error = key.startsWith('error');
+      const oldest = sources.reduce(
+        (min, s) => (s.collectedAt && (!min || s.collectedAt < min) ? s.collectedAt : min),
+        null,
+      );
+      return h(
+        'li',
+        { class: error ? '' : 'info' },
+        icon(error ? 'triangle-alert' : 'clock'),
+        h(
+          'span',
+          {},
+          h('b', {}, names),
+          error
+            ? oldest
+              ? ` could not be updated. Showing balances from ${ago(oldest)}. `
+              : ' could not be read and are missing from the totals. '
+            : ': ',
+          h('span', { class: error ? 'muted' : '' }, text),
+        ),
+      );
+    }),
+  );
+}
 
 function groups(dimension) {
   const [, , keyOf, logoOf] = DIMENSIONS.find(([id]) => id === dimension);
   const totals = new Map();
   const samples = new Map();
-  // Debts are left out: a strip can only divide up what is held.
   for (const x of state.data.holdings) {
     if (x.value <= 0) continue;
     const key = keyOf(x);
@@ -267,7 +302,6 @@ function groups(dimension) {
   const sorted = [...totals].sort((a, b) => b[1] - a[1]);
   const total = sorted.reduce((s, [, v]) => s + v, 0);
 
-  // Keep what has a colour of its own and is wide enough to see; the rest folds into "Other".
   const shown = [];
   let other = 0;
   for (const [name, value] of sorted) {
@@ -282,7 +316,6 @@ function groups(dimension) {
       other += value;
     }
   }
-  // Dust worth less than a twentieth of a percent would only add an empty row.
   if (other / total >= 0.0005) shown.push({ name: 'Other', value: other });
   return shown.map((r) => ({
     ...r,
@@ -367,8 +400,6 @@ function renderAllocation() {
   );
 }
 
-// ── History ──────────────────────────────────────────────────────────────────
-
 let chart;
 
 async function renderHistory() {
@@ -399,8 +430,8 @@ async function renderHistory() {
   chart.setOption(
     {
       animation: false,
-      textStyle: { fontFamily: token('--body'), color: token('--slate') },
-      grid: { left: 0, right: 8, top: 44, bottom: 0, containLabel: true },
+      textStyle: { fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif", color: token('--slate') },
+      grid: { left: 10, right: 8, top: 44, bottom: 0, containLabel: true },
       legend: {
         top: 0,
         left: 0,
@@ -434,7 +465,6 @@ async function renderHistory() {
         type: 'line',
         stack: 'total',
         showSymbol: false,
-        // A surface-coloured edge keeps neighbouring bands apart without relying on hue alone.
         lineStyle: { width: 2, color: token('--ink') },
         areaStyle: { opacity: 1, color: colorOf('category', name) },
         itemStyle: { color: colorOf('category', name) },
@@ -449,11 +479,8 @@ async function renderHistory() {
 
 window.addEventListener('resize', () => chart?.resize());
 
-// ── Positions ────────────────────────────────────────────────────────────────
-
 const reading = (a, name) => a.signal?.components.find((c) => c.name === name)?.value ?? null;
 
-// [sort key, label, class, value to sort by]
 const COLUMNS = [
   ['key', 'Asset', '', (a) => a.key],
   ['quantity', 'Quantity', 'optional', (a) => a.quantity],
@@ -476,7 +503,6 @@ const READINGS = {
   oiGrowth: ['Open interest over 7 days', (v) => `${v > 0 ? '+' : '−'}${Math.abs(v).toFixed(0)}%`],
 };
 
-/** The heat score with its zone spelled out, so the colour is never the only cue. */
 function heatBadge(signal) {
   if (!signal) return dash();
   return h(
@@ -526,13 +552,13 @@ function renderPositions() {
     return sort.descending ? -order : order;
   });
 
+  $('positions-lead').textContent = 'Select an asset to see where it is held.';
   const toggle = $('dust-toggle');
   toggle.hidden = dust.length === 0;
   toggle.textContent = state.showDust
     ? `Hide positions under $${DUST_USD}`
     : `Show ${dust.length} positions under $${DUST_USD}`;
 
-  // Bars compare positions with each other, so the largest one fills the track.
   const largest = Math.max(...visible.map((a) => a.share), 0);
   const body = table.tBodies[0];
   body.replaceChildren();
@@ -616,7 +642,6 @@ function renderPositions() {
   }
 }
 
-/** Where one asset is held: every account, chain and protocol it sits in. */
 function placesRow(asset) {
   const places = state.data.holdings.filter((x) => x.asset === asset).sort((a, b) => b.value - a.value);
   return h(
@@ -677,11 +702,8 @@ $('dust-toggle').addEventListener('click', () => {
   renderPositions();
 });
 
-// ── Signals ──────────────────────────────────────────────────────────────────
-
 function renderSignals() {
   const scored = state.data.assets.filter((a) => a.signal && Math.abs(a.value) >= DUST_USD);
-  // Largest holdings first: an overheated 10% position matters more than an overheated 0.5% one.
   const list = (zone) => scored.filter((a) => a.signal.zone === zone).sort((a, b) => b.share - a.share);
   const column = (title, zone, empty, fired) => {
     const assets = list(zone);
@@ -733,7 +755,16 @@ function renderSignals() {
     : 'Signals appear a few minutes after the first update.';
 }
 
-// ── DeFi ─────────────────────────────────────────────────────────────────────
+function readNote(items) {
+  const oldest = items.reduce((min, x) => (x.readAt && (!min || x.readAt < min) ? x.readAt : min), null);
+  if (!oldest || Date.now() - Date.parse(oldest) < 30 * 60_000) return null;
+  return h(
+    'p',
+    { class: 'read-at', title: 'Positions in protocols are read less often to stay within the free allowance' },
+    icon('clock'),
+    `Read ${ago(oldest)}`,
+  );
+}
 
 function renderDefi() {
   const byProtocol = new Map();
@@ -764,6 +795,7 @@ function renderDefi() {
             h('span', {}, `${chainName(items[0].chain)}, ${[...new Set(items.map((x) => x.account))].join(', ')}`),
           ),
           h('p', { class: 'total num' }, usd(net)),
+          readNote(items),
         ),
         h(
           'ul',
@@ -795,31 +827,44 @@ function renderDefi() {
   }
 }
 
-// ── Wallets ──────────────────────────────────────────────────────────────────
+function accountStatus(s) {
+  if (s.status === null) return ['muted', 'Not read yet'];
+  if (s.stale) return ['warn', `Out of date, from ${ago(s.collectedAt)}. ${s.error ?? ''}`];
+  if (isOld(s)) return ['muted', `Updated ${ago(s.collectedAt)}; some balances are from ${ago(s.oldestRead)}`];
+  return ['muted', `Updated ${ago(s.collectedAt)}`];
+}
 
-function renderWallets() {
-  const wallets = state.data.sources.filter((s) => s.kind !== 'binance');
-  $('wallets-section').hidden = wallets.length === 0;
-
+function renderAccounts() {
   $('wallets').replaceChildren(
-    ...wallets.map((w) => {
+    ...state.data.sources.map((w) => {
+      const exchange = w.kind === 'binance';
+      const [tone, status] = accountStatus(w);
+      const details = h(
+        'div',
+        { class: 'details' },
+        h('p', { class: tone }, status),
+        ...w.warnings.map((text) => h('p', { class: 'muted' }, text)),
+      );
+
       if (state.renaming !== w.id) {
         return h(
           'li',
           {},
           h('span', { class: 'label name' }, kindLogo(w.kind), h('span', {}, w.label)),
-          h('span', { class: 'kind muted' }, KINDS[w.kind]),
-          h('span', { class: 'address num muted' }, w.address),
+          h('span', { class: 'kind muted' }, exchange ? 'Exchange' : KINDS[w.kind]),
+          h('span', { class: 'address num muted' }, exchange ? 'Read-only API key' : w.address),
           h('span', { class: 'num' }, w.status === null ? '—' : usd(w.value)),
           h(
             'span',
             { class: 'actions' },
-            iconButton('pencil', `Rename ${w.label}`, () => {
-              state.renaming = w.id;
-              renderWallets();
-            }),
-            iconButton('trash-2', `Remove ${w.label}`, () => openRemove(w)),
+            !exchange &&
+              iconButton('pencil', `Rename ${w.label}`, () => {
+                state.renaming = w.id;
+                renderAccounts();
+              }),
+            !exchange && iconButton('trash-2', `Remove ${w.label}`, () => openRemove(w)),
           ),
+          details,
         );
       }
 
@@ -827,7 +872,7 @@ function renderWallets() {
       const error = h('p', { class: 'form-error', role: 'alert', hidden: true });
       const cancel = () => {
         state.renaming = null;
-        renderWallets();
+        renderAccounts();
       };
       const save = async () => {
         try {
@@ -862,9 +907,69 @@ function renderWallets() {
     input.focus();
     input.select();
   }
+
+  const z = state.data.zerion;
+  $('quota').textContent =
+    z?.dayLimit != null
+      ? `EVM and Solana wallets are read through Zerion. Its ${z.tier ?? 'free'} key allows ${z.dayLimit} requests a day; ${z.dayRemaining ?? '?'} are left${z.dayResetsAt ? `, renewing in ${Math.max(1, Math.ceil((z.dayResetsAt - Date.now()) / 3_600_000))} h` : ''}. To stay within it, token balances are read at most every ${z.balancesEveryMinutes} minutes per wallet and DeFi positions every ${z.defiEveryMinutes >= 120 ? `${z.defiEveryMinutes / 60} hours` : 'hour'}.`
+      : '';
 }
 
-// ── Dialogs ──────────────────────────────────────────────────────────────────
+const VIEWS = ['overview', 'positions', 'signals', 'defi', 'accounts'];
+const tabs = () => [...document.querySelectorAll('[role="tab"]')];
+
+function showView(id, focus = false) {
+  state.view = VIEWS.includes(id) ? id : 'overview';
+  for (const tab of tabs()) {
+    const on = tab.dataset.view === state.view;
+    tab.setAttribute('aria-selected', String(on));
+    tab.tabIndex = on ? 0 : -1;
+    if (on && focus) tab.focus();
+  }
+  for (const view of VIEWS) $(`view-${view}`).hidden = view !== state.view;
+  if (state.view === 'overview') chart?.resize();
+}
+
+function renderCounts() {
+  const { data } = state;
+  const set = (name, text, tone = '') => {
+    const el = document.querySelector(`[data-count="${name}"]`);
+    el.textContent = text;
+    el.className = `count ${tone}`;
+  };
+  set('positions', String(data.assets.filter((a) => Math.abs(a.value) >= DUST_USD).length));
+  const hot = data.assets.filter((a) => a.signal?.zone === 'overheated' && Math.abs(a.value) >= DUST_USD).length;
+  set('signals', hot ? `${hot} hot` : '', hot ? 'hot' : '');
+  set(
+    'defi',
+    String(new Set(data.holdings.filter((x) => x.protocol && x.kind !== 'binance').map((x) => x.protocol)).size || ''),
+  );
+  const troubled = data.sources.filter((s) => s.stale || s.status === null).length;
+  set('accounts', troubled ? `${troubled} !` : String(data.sources.length), troubled ? 'warn' : '');
+}
+
+for (const tab of tabs()) {
+  tab.addEventListener('click', () => {
+    if (location.hash !== `#${tab.dataset.view}`) location.hash = tab.dataset.view;
+    showView(tab.dataset.view);
+    if ($('views').classList.contains('stuck')) $('views').scrollIntoView();
+  });
+  tab.addEventListener('keydown', (e) => {
+    const list = tabs();
+    const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+    if (!step) return;
+    e.preventDefault();
+    const next = list[(list.indexOf(tab) + step + list.length) % list.length];
+    location.hash = next.dataset.view;
+    showView(next.dataset.view, true);
+  });
+}
+window.addEventListener('hashchange', () => showView(location.hash.slice(1)));
+showView(location.hash.slice(1));
+
+new IntersectionObserver(([entry]) => $('views').classList.toggle('stuck', !entry.isIntersecting), {
+  rootMargin: '-60px 0px 0px 0px',
+}).observe($('net-worth'));
 
 function setError(id, message) {
   const el = $(id);
@@ -874,13 +979,11 @@ function setError(id, message) {
 
 for (const dialog of document.querySelectorAll('dialog')) {
   for (const button of dialog.querySelectorAll('[data-close]')) button.addEventListener('click', () => dialog.close());
-  // A click on the backdrop lands on the dialog element itself.
   dialog.addEventListener('click', (event) => {
     if (event.target === dialog) dialog.close();
   });
 }
 
-/** Runs a dialog's request with its buttons disabled; an error stays in the dialog. */
 async function submitDialog(form, errorId, request) {
   const buttons = [...form.querySelectorAll('button')];
   setError(errorId, null);
@@ -942,7 +1045,7 @@ $('add-wallet').addEventListener('submit', async (event) => {
       body: JSON.stringify({ address: form.address.value.trim(), label: form.label.value.trim() }),
     }),
   );
-  if (added) await update(); // read the new wallet straight away
+  if (added) await update();
 });
 
 let removing = null;
@@ -992,7 +1095,6 @@ function openCategory(asset) {
       ),
     ),
   );
-  // Going back to automatic only means something once a category was chosen by hand.
   $('category-auto').hidden = asset.source !== 'manual';
   $('category-dialog').showModal();
 }
@@ -1013,8 +1115,6 @@ $('category-form').addEventListener('submit', (event) => {
 });
 $('category-auto').addEventListener('click', () => saveCategory(null));
 
-// ── Tooltip and banner ───────────────────────────────────────────────────────
-
 function showTip(event, title, text) {
   const tip = $('tip');
   tip.replaceChildren(h('b', {}, title), text);
@@ -1026,7 +1126,6 @@ function showTip(event, title, text) {
 
 const hideTip = () => ($('tip').hidden = true);
 
-/** A failure of the page itself, as opposed to one account being out of date. */
 function showBanner(err) {
   const banner = $('banner');
   banner.replaceChildren(
@@ -1042,39 +1141,58 @@ function showBanner(err) {
   if (!state.data) $('updated').textContent = 'Not loaded';
 }
 
-// ── Loading ──────────────────────────────────────────────────────────────────
+let progressTimer;
 
-let pollTimer;
+function watchProgress() {
+  if (progressTimer) return;
+  const tick = async () => {
+    try {
+      const { collecting, progress } = await api('/api/progress');
+      state.progress = progress;
+      if (state.data) renderUpdating();
+      if (!collecting && !state.updating) {
+        progressTimer = null;
+        state.progress = null;
+        await load();
+        return;
+      }
+    } catch {}
+    progressTimer = setTimeout(tick, 1000);
+  };
+  progressTimer = setTimeout(tick, 300);
+}
 
 async function load() {
   try {
     const data = await api('/api/portfolio');
-    // The server was updated while this tab was open: its code no longer matches the answers. Start over.
     state.build ??= data.build;
     if (data.build !== state.build) {
       location.reload();
       return;
     }
     state.data = data;
+    state.progress = data.progress ?? state.progress;
     state.logos = new Map(Object.entries(data.logos.available));
     state.chainNames = data.logos.chains;
     $('banner').hidden = true;
 
-    const empty = data.holdings.length === 0;
-    $('welcome').hidden = !empty || data.collecting || state.updating;
-    $('content').hidden = empty;
+    const noAccounts = data.sources.length === 0;
+    const noBalances = data.holdings.length === 0;
+    $('welcome').hidden = !noAccounts;
+    $('content').hidden = noAccounts;
+    $('overview-empty').hidden = !noBalances;
+    $('overview-content').hidden = noBalances;
     renderSummary();
-    renderWallets();
-    if (!empty) {
+    renderAccounts();
+    renderCounts();
+    renderPositions();
+    renderSignals();
+    renderDefi();
+    if (!noBalances) {
       renderAllocation();
-      renderPositions();
-      renderSignals();
-      renderDefi();
       await renderHistory();
     }
-    // A collection started elsewhere (the schedule, another tab) is still running: look again shortly.
-    clearTimeout(pollTimer);
-    if (data.collecting) pollTimer = setTimeout(load, 4000);
+    if (data.collecting) watchProgress();
   } catch (err) {
     showBanner(err);
   }
@@ -1083,7 +1201,8 @@ async function load() {
 async function update() {
   if (state.updating) return;
   state.updating = true;
-  if (state.data) renderSummary();
+  if (state.data) renderUpdating();
+  watchProgress();
   let failure = null;
   try {
     await api('/api/collect', { method: 'POST', body: '{}' });
@@ -1091,10 +1210,10 @@ async function update() {
     failure = err;
   }
   state.updating = false;
+  state.progress = null;
   await load();
   if (failure) showBanner(failure);
-  // Logos of newly seen tokens are fetched after the update; pick them up once they are in.
-  else setTimeout(load, 15000);
+  else setTimeout(load, 20000);
 }
 
 $('collect').addEventListener('click', update);

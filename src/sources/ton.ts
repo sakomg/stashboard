@@ -1,9 +1,7 @@
-// TonAPI: TON balance and whitelisted jettons of one wallet.
 import { getJson } from '../http.ts';
 import type { CollectResult, Holding, LogoHint } from '../types.ts';
 
 const API = 'https://tonapi.io/v2';
-// TonAPI has no image for the native coin, and a lookup by ticker finds an unrelated token that shares it.
 const TON_LOGO = 'https://assets.dedust.io/images/ton.webp';
 
 interface JettonBalance {
@@ -13,7 +11,6 @@ interface JettonBalance {
 }
 
 export async function collectTon(apiKey: string, address: string): Promise<CollectResult> {
-  // TonAPI also answers without a key, with a much lower rate limit.
   const headers: Record<string, string> = apiKey ? { authorization: `Bearer ${apiKey}` } : {};
   const holdings: Holding[] = [];
   const warnings: string[] = [];
@@ -47,7 +44,6 @@ export async function collectTon(apiKey: string, address: string): Promise<Colle
     headers,
   );
   for (const j of jettons.balances) {
-    // Anyone can send a jetton to any wallet; only whitelisted ones count, the rest is mostly spam.
     if (j.jetton.verification !== 'whitelist' || j.balance === '0') continue;
     const quantity = Number(j.balance) / 10 ** j.jetton.decimals;
     const price = j.price?.prices?.USD;

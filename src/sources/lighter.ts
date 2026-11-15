@@ -1,6 +1,3 @@
-// Lighter: a perpetuals exchange with its own rollup, so wallet indexers do not see what is deposited there.
-// Its public API reports the account of an EVM address without a key. There are two separate exchanges:
-// the main one, funded from Ethereum, and one on Robinhood Chain.
 import { getJson, HttpError } from '../http.ts';
 import type { CollectResult, Holding } from '../types.ts';
 
@@ -9,18 +6,17 @@ export const LIGHTER_VENUES = [
   { chain: 'robinhood', host: 'https://api.rh.lighter.xyz', collateral: 'USDG' },
 ];
 
-const PROTOCOL = 'Lighter';
+export const LIGHTER_PROTOCOL = 'Lighter';
+const PROTOCOL = LIGHTER_PROTOCOL;
 const LOGO = 'https://app.lighter.xyz/apple-touch-icon.png';
 const NOT_FOUND = 21100;
 
 export interface LighterAccount {
-  /** Collateral plus unrealised profit and loss of open positions, in USD. */
   total_asset_value?: string;
   assets?: { symbol: string; margin_balance?: string; balance?: string }[];
   positions?: { symbol: string; position: string; sign: number }[];
 }
 
-/** One holding per account: its equity, counted in the stablecoin that backs it, the way futures wallets are. */
 export function lighterHoldings(accounts: LighterAccount[], chain: string, fallbackSymbol: string): Holding[] {
   const holdings: Holding[] = [];
   for (const account of accounts) {
@@ -47,7 +43,6 @@ async function fetchAccounts(host: string, address: string): Promise<LighterAcco
     );
     return answer.accounts ?? [];
   } catch (err) {
-    // Most addresses have never used the exchange; that is an answer, not a failure.
     if (err instanceof HttpError && err.body.includes(String(NOT_FOUND))) return [];
     throw err;
   }

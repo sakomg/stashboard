@@ -1,4 +1,3 @@
-// Shapes stored data into what the dashboard needs: the current portfolio and its history.
 import type { DatabaseSync } from 'node:sqlite';
 import type { Asset } from './assets.ts';
 import { currentState, latestSignals, listSnapshots, snapshotAt, snapshotValues } from './db.ts';
@@ -15,7 +14,6 @@ export function portfolioView(db: DatabaseSync, resolve: (symbol: string) => Ass
   const states = currentState(db);
   const portfolio = buildPortfolio(states, resolve);
 
-  // The portfolio as it stood a day, a week and a month ago; null until history reaches that far back.
   const past = (days: number) => {
     const snapshot = snapshotAt(db, new Date(now.getTime() - days * DAY_MS));
     return snapshot ? buildPortfolio(currentState(db, snapshot.id), resolve) : null;
@@ -48,7 +46,6 @@ export function portfolioView(db: DatabaseSync, resolve: (symbol: string) => Ass
       id: s.account.id,
       kind: s.account.kind,
       label: s.account.label,
-      // Full addresses stay on the server; the label identifies the wallet.
       address: short(s.account.address),
       status: s.lastStatus,
       stale: s.stale,
@@ -56,6 +53,10 @@ export function portfolioView(db: DatabaseSync, resolve: (symbol: string) => Ass
       collectedAt: s.collectedAt,
       warnings: s.warnings,
       value: s.holdings.reduce((sum, h) => sum + h.value, 0),
+      oldestRead: s.holdings.reduce<string | null>(
+        (min, h) => (h.readAt && (!min || h.readAt < min) ? h.readAt : min),
+        s.collectedAt,
+      ),
     })),
     holdings: states.flatMap((s) =>
       s.holdings.map((h) => {
@@ -81,10 +82,6 @@ export interface HistoryPoint {
 
 const MAX_POINTS = 240;
 
-/**
- * Value by category at every snapshot. An account that failed in a snapshot keeps its previous
- * value, so one source being down does not show as a drop in net worth.
- */
 export function historyView(
   db: DatabaseSync,
   resolve: (symbol: string) => Asset,
@@ -101,7 +98,7 @@ export function historyView(
     if (currentId === undefined) return;
     for (const [account, categories] of pending) latest.set(account, categories);
     const time = times.get(currentId);
-    if (!time) return; // unfinished snapshot
+    if (!time) return;
     const categories: Record<string, number> = {};
     for (const perAccount of latest.values()) {
       for (const [name, value] of Object.entries(perAccount)) categories[name] = (categories[name] ?? 0) + value;
@@ -128,17 +125,14 @@ export function historyView(
   const since = days === null ? '' : new Date(now.getTime() - days * DAY_MS).toISOString();
   const inRange = points.filter((p) => p.time >= since);
   if (inRange.length <= MAX_POINTS) return inRange;
-  // Thin out evenly, always keeping the most recent point.
   const step = inRange.length / MAX_POINTS;
   const thinned = Array.from({ length: MAX_POINTS - 1 }, (_, i) => inRange[Math.floor(i * step)]!);
   thinned.push(inRange.at(-1)!);
   return thinned;
 }
 
-// Accounts and the two non-EVM venues are drawn with the logo of their native coin.
 export const NATIVE_TOKENS = ['BNB', 'ETH', 'SOL', 'TON'];
 
-/** Every logo the current portfolio can show: its assets, the chains they sit on and the protocols they are in. */
 export function wantedLogos(db: DatabaseSync, resolve: (symbol: string) => Asset): Wanted[] {
   const tokens = new Map<string, { category: string; symbols: Set<string> }>();
   const chains = new Set<string>();
@@ -163,7 +157,6 @@ export function wantedLogos(db: DatabaseSync, resolve: (symbol: string) => Asset
       kind: 'token' as const,
       key,
       alternatives: [...symbols],
-      // Tokenized stocks are listed under their wrapper's ticker (NVDAx), not the company's.
       lookup: category === STOCKS_CATEGORY ? [`${key}x`, key] : [key],
     })),
     ...[...chains].map((key) => ({ kind: 'chain' as const, key })),

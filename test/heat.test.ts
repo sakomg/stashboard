@@ -12,7 +12,6 @@ const heat = {
 const none: Readings = { rsiDaily: null, rsiWeekly: null, funding: null, ma200: null, oiGrowth: null };
 
 test("RSI matches Wilder's published example", () => {
-  // The worked example from StockCharts' RSI article; its 15th value is 70.46.
   const closes = [
     44.34, 44.09, 44.15, 43.61, 44.33, 44.83, 45.1, 45.42, 45.84, 46.08, 45.89, 46.03, 45.61, 46.28, 46.28,
   ];
@@ -37,7 +36,6 @@ test('neutral readings score 50 and every reading at its threshold scores 80', (
 });
 
 test('missing readings hand their weight to the rest', () => {
-  // A tokenized stock has RSI only: 30 and 25 become 30/55 and 25/55.
   const stock = heatScore({ ...none, rsiDaily: 70, rsiWeekly: 50 }, heat)!;
   assert.deepEqual(
     stock.components.map((c) => [c.name, c.weight.toFixed(3)]),
@@ -66,12 +64,10 @@ test('finds the right Binance markets for an asset', () => {
     candles: { market: 'spot', symbol: 'BTCUSDT' },
     perp: 'BTCUSDT',
   });
-  // Stocks: spot wrapper only, no funding or open interest.
   assert.deepEqual(findPair({ key: 'NVDA', category: 'Stocks' }, markets), {
     candles: { market: 'spot', symbol: 'NVDABUSDT' },
     perp: null,
   });
-  // No spot market: candles come from the perpetual.
   assert.deepEqual(findPair({ key: 'PONS', category: 'Other' }, markets), {
     candles: { market: 'futures', symbol: 'PONSUSDT' },
     perp: 'PONSUSDT',

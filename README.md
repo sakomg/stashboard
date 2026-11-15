@@ -30,6 +30,21 @@ what to trim and what to leave alone.
 | RSI, funding, open interest                             | Binance public API          |
 | Fear & Greed                                            | alternative.me              |
 
+### Free-tier limits
+
+The tightest limit is Zerion's free key: about one request a second, a daily allowance, and a quarter of it
+for reads of DeFi positions. Stashboard reads it from Zerion's response headers and keeps within it:
+
+- token balances of a wallet are read at most every 10 minutes, so adding a wallet or a second click on
+  _Update_ does not re-read every other wallet;
+- DeFi positions are read on every hourly update when the key allows 1,000 or more requests a day, and
+  every 3 hours on a smaller key, repriced in between with the prices of the latest update;
+- answers are kept in the database, so a restart or a deploy costs nothing;
+- when Zerion refuses, the last answer is used and the dashboard says how old it is, instead of retrying
+  until the allowance renews.
+
+The _Accounts_ view shows how much of the day's allowance is left.
+
 ## Quick start
 
 Requires Node.js 24 or newer.
@@ -179,8 +194,9 @@ docker compose cp stashboard:/data/backups ./backups
 ### Continuous deployment
 
 GitHub Actions checks formatting and types and runs the tests on every pull request and on every push to `main`
-([`.github/workflows/ci.yml`](.github/workflows/ci.yml)). A push to `main` also deploys, once the repository
-is configured under _Settings → Secrets and variables → Actions_:
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)). Production is deployed only when a pull request into
+`main` is merged; a commit pushed straight to `main` is checked but not deployed. Deploys need the repository
+configured under _Settings → Secrets and variables → Actions_:
 
 | Kind     | Name                 | Value                                                                |
 | -------- | -------------------- | -------------------------------------------------------------------- |
@@ -197,11 +213,14 @@ again.
 
 ## Development
 
-```sh
-npm run format        # format everything with Prettier
-npm test              # unit tests
-npm run lint          # formatting check + typecheck + tests, the same as CI
-```
+| Command          | What it does                                      |
+| ---------------- | ------------------------------------------------- |
+| `npm run format` | Format everything with Prettier                   |
+| `npm test`       | Unit tests                                        |
+| `npm run lint`   | Formatting check, typecheck and tests, as CI runs |
+
+The code carries no comments. How it works and why it is built that way is in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); keep it current with the code.
 
 ## Brand
 

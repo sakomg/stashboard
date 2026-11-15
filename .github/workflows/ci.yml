@@ -2,6 +2,7 @@ name: CI
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, closed]
   push:
     branches: [main]
 
@@ -11,9 +12,12 @@ permissions:
 jobs:
   check:
     name: Format, typecheck and test
+    if: github.event.action != 'closed' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merged == true && github.event.pull_request.merge_commit_sha || '' }}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -26,8 +30,12 @@ jobs:
   deploy:
     name: Deploy
     needs: check
-    # Runs on every push to main once the repository variable DEPLOY_HOST is set (see README, "Continuous deployment").
-    if: github.event_name == 'push' && vars.DEPLOY_HOST != ''
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.action == 'closed' &&
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main' &&
+      vars.DEPLOY_HOST != ''
     runs-on: ubuntu-latest
     environment: production
     concurrency:
@@ -35,6 +43,8 @@ jobs:
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
       - name: Set up SSH
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}

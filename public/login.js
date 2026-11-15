@@ -23,7 +23,6 @@ form.addEventListener('submit', async (event) => {
   }
   error.hidden = false;
   button.disabled = false;
-  // A code works once, so a failed attempt always needs a fresh one.
   form.code.value = '';
   form.code.focus();
 });

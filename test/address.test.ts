@@ -21,7 +21,6 @@ test('the same wallet written differently has the same key', () => {
 test('rejects malformed addresses', () => {
   assert.throws(() => parseAddress('0x1234'));
   assert.throws(() => parseAddress('not an address'));
-  // One changed character breaks the TON checksum.
   assert.throws(() => parseAddress('EQCD39VS5jcptHL8vMjEXrzGaRcCVYto7HUn4bpAOg8xqB2M'));
   assert.throws(() => parseAddress('So11111111111111111111111111111111111111112', 'evm'));
 });

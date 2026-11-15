@@ -1,6 +1,3 @@
-// Logos for tokens, chains and protocols. Sources name a URL; the server downloads each image once,
-// keeps it in the data directory and serves it itself. The browser never asks a third party for a logo,
-// so nobody outside learns what the portfolio holds, and the repository ships no brand assets.
 import { createHash } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -31,7 +28,6 @@ interface Row {
 
 const dirOf = (): string => join(process.env.DATA_DIR ?? 'data', 'logos');
 
-/** Remembers where a logo can be found. When a source names a different address, the stored image is fetched again. */
 export function noteLogos(db: DatabaseSync, hints: LogoHint[]): void {
   const upsert = db.prepare(
     `INSERT INTO logos (kind, key, name, source_url) VALUES (?, ?, ?, ?)
@@ -49,13 +45,10 @@ export function noteLogos(db: DatabaseSync, hints: LogoHint[]): void {
 export interface Wanted {
   kind: LogoKind;
   key: string;
-  /** Other spellings whose logo will do when the key itself has none (WETH for ETH). */
   alternatives?: string[];
-  /** Symbols to look up on CoinGecko, most specific first. */
   lookup?: string[];
 }
 
-/** Recognises an image by its first bytes. Hosts often label logos as generic binary data, so the header is not trusted. */
 export function sniffImage(bytes: Buffer): string | null {
   if (bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'image/png';
   if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg';
@@ -68,7 +61,6 @@ export function sniffImage(bytes: Buffer): string | null {
 }
 
 async function download(url: string): Promise<{ bytes: Buffer; type: string } | null> {
-  // One retry: image hosts drop the odd connection, and a logo is not worth waiting a day for.
   for (let attempt = 0; ; attempt++) {
     try {
       const response = await fetch(url, { signal: AbortSignal.timeout(8_000), redirect: 'follow' });
@@ -82,7 +74,6 @@ async function download(url: string): Promise<{ bytes: Buffer; type: string } | 
   }
 }
 
-/** Looks up token logos by symbol; CoinGecko resolves a symbol to its largest coin. */
 async function coingeckoLogos(apiKey: string, symbols: string[]): Promise<Map<string, string>> {
   const found = new Map<string, string>();
   for (let i = 0; i < symbols.length; i += 50) {
@@ -99,7 +90,6 @@ async function coingeckoLogos(apiKey: string, symbols: string[]): Promise<Map<st
   return found;
 }
 
-/** Downloads the logos that are wanted and not yet stored. Failures are remembered and retried a few hours later. */
 export async function fetchMissingLogos(
   db: DatabaseSync,
   config: Config,
@@ -114,7 +104,6 @@ export async function fetchMissingLogos(
   });
   if (due.length === 0) return 0;
 
-  // Where to get each one: its own hint, then CoinGecko by symbol, then the logo of a wrapper.
   const needLookup = due.filter((w) => w.kind === 'token' && !rowOf(w.kind, w.key)?.source_url);
   let looked = new Map<string, string>();
   try {
@@ -148,15 +137,11 @@ export async function fetchMissingLogos(
         writeFileSync(join(dirOf(), file), image.bytes);
         saved = { url, file, type: image.type };
         break;
-      } catch {
-        // Try the next candidate.
-      }
+      } catch {}
     }
     save.run(
       w.kind,
       w.key,
-      // What the source named stays on record even when a fallback supplied the image, so the same hint
-      // arriving again is not mistaken for a new address.
       rowOf(w.kind, w.key)?.source_url ?? saved?.url ?? candidates[0] ?? null,
       saved?.file ?? null,
       saved?.type ?? null,
@@ -164,7 +149,6 @@ export async function fetchMissingLogos(
     );
     if (saved) stored++;
   };
-  // A few at a time: fast enough for a first run, gentle on the image hosts.
   const queue = [...due];
   await Promise.all(
     Array.from({ length: 6 }, async () => {
@@ -174,7 +158,6 @@ export async function fetchMissingLogos(
   return stored;
 }
 
-/** The stored file of a logo, if it has been downloaded. */
 export function logoFile(db: DatabaseSync, kind: string, key: string): { path: string; type: string } | null {
   const row = db
     .prepare('SELECT file, media_type FROM logos WHERE kind = ? AND key = ? AND file IS NOT NULL')
@@ -182,10 +165,6 @@ export function logoFile(db: DatabaseSync, kind: string, key: string): { path: s
   return row ? { path: join(dirOf(), row.file), type: row.media_type } : null;
 }
 
-/**
- * What the page may ask for: every stored logo as "kind/key" with a version that changes when the image does
- * (browsers keep logos for a week, so a replaced one needs a new address), and chain display names.
- */
 export function logoIndex(db: DatabaseSync): { available: Record<string, string>; chains: Record<string, string> } {
   const rows = db.prepare('SELECT kind, key, name, source_url, file FROM logos').all() as unknown as Row[];
   const version = (r: Row): string => createHash('sha1').update(`${r.source_url}\n${r.file}`).digest('hex').slice(0, 8);

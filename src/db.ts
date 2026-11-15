@@ -19,7 +19,6 @@ export interface Wallet extends Account {
   kind: WalletKind;
 }
 
-// Each entry upgrades the schema by one version; PRAGMA user_version records how many have run.
 const MIGRATIONS = [
   `CREATE TABLE IF NOT EXISTS accounts (
      id          INTEGER PRIMARY KEY,
@@ -85,7 +84,6 @@ const MIGRATIONS = [
      tried_at   TEXT,
      PRIMARY KEY (kind, key)
    );`,
-  // 8: categories from outside assets.json: chosen by hand, or looked up from a coin's tags.
   `CREATE TABLE asset_categories (
      key       TEXT PRIMARY KEY,
      manual    TEXT,
@@ -94,6 +92,14 @@ const MIGRATIONS = [
      tags      TEXT,
      tried_at  TEXT
    );`,
+  `CREATE TABLE zerion_cache (
+     address    TEXT NOT NULL,
+     part       TEXT NOT NULL,
+     fetched_at TEXT NOT NULL,
+     positions  TEXT NOT NULL,
+     PRIMARY KEY (address, part)
+   );
+   ALTER TABLE holdings ADD COLUMN read_at TEXT;`,
 ];
 
 export function openDb(dir = process.env.DATA_DIR ?? 'data'): DatabaseSync {
@@ -115,8 +121,6 @@ export function openDb(dir = process.env.DATA_DIR ?? 'data'): DatabaseSync {
   return db;
 }
 
-// ── Accounts ─────────────────────────────────────────────────────────────────
-
 export function listAccounts(db: DatabaseSync): Account[] {
   return db.prepare('SELECT id, kind, label, address FROM accounts ORDER BY id').all() as unknown as Account[];
 }
@@ -126,7 +130,6 @@ export function listWallets(db: DatabaseSync, kind?: WalletKind): Wallet[] {
   return listAccounts(db).filter((a): a is Wallet => kinds.includes(a.kind));
 }
 
-/** Adds a wallet; the network is detected from the address format unless given. */
 export function addWallet(db: DatabaseSync, input: string, label?: string, kind?: WalletKind): Wallet {
   const parsed = parseAddress(input, kind);
   const existing = db
@@ -142,7 +145,6 @@ export function addWallet(db: DatabaseSync, input: string, label?: string, kind?
   return { id: Number(lastInsertRowid), kind: parsed.kind, label: finalLabel, address: parsed.address };
 }
 
-/** Removes a wallet together with its collected history. */
 export function removeWallet(db: DatabaseSync, id: number): boolean {
   const placeholders = WALLET_KINDS.map(() => '?').join(', ');
   return (
@@ -159,7 +161,6 @@ export function renameWallet(db: DatabaseSync, id: number, label: string): boole
   );
 }
 
-/** The exchange is an account too, so its holdings and status are stored like a wallet's. */
 export function ensureExchangeAccount(db: DatabaseSync, kind: 'binance', label: string): Account {
   db.prepare('INSERT OR IGNORE INTO accounts (kind, label, address, address_key) VALUES (?, ?, ?, ?)').run(
     kind,
@@ -169,8 +170,6 @@ export function ensureExchangeAccount(db: DatabaseSync, kind: 'binance', label: 
   );
   return db.prepare('SELECT id, kind, label, address FROM accounts WHERE kind = ?').get(kind) as unknown as Account;
 }
-
-// ── Snapshots ────────────────────────────────────────────────────────────────
 
 export type AccountOutcome =
   | { status: 'ok'; holdings: Holding[]; warnings: string[]; reportedTotal?: number }
@@ -197,11 +196,22 @@ export function saveOutcome(db: DatabaseSync, snapshotId: number, accountId: num
         'INSERT INTO snapshot_accounts (snapshot_id, account_id, status, warnings, reported_total) VALUES (?, ?, ?, ?, ?)',
       ).run(snapshotId, accountId, 'ok', JSON.stringify(outcome.warnings), outcome.reportedTotal ?? null);
       const insert = db.prepare(
-        `INSERT INTO holdings (snapshot_id, account_id, chain, protocol, symbol, type, quantity, price, value_usd)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO holdings (snapshot_id, account_id, chain, protocol, symbol, type, quantity, price, value_usd, read_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
       for (const h of outcome.holdings) {
-        insert.run(snapshotId, accountId, h.chain, h.protocol, h.symbol, h.type, h.quantity, h.price, h.value);
+        insert.run(
+          snapshotId,
+          accountId,
+          h.chain,
+          h.protocol,
+          h.symbol,
+          h.type,
+          h.quantity,
+          h.price,
+          h.value,
+          h.readAt ?? null,
+        );
       }
     }
     db.exec('COMMIT');
@@ -215,26 +225,17 @@ export function finishSnapshot(db: DatabaseSync, snapshotId: number): void {
   db.prepare('UPDATE snapshots SET finished_at = ? WHERE id = ?').run(new Date().toISOString(), snapshotId);
 }
 
-// ── Reading the current portfolio ────────────────────────────────────────────
-
 export interface AccountState {
   account: Account;
-  /** Result of the most recent attempt; null if the account has never been collected. */
   lastStatus: 'ok' | 'error' | null;
   lastError: string | null;
-  /** When the holdings below were collected; null if there has never been a successful run. */
   collectedAt: string | null;
-  /** True when the most recent attempt failed and the holdings come from an earlier run. */
   stale: boolean;
   warnings: string[];
   reportedTotal: number | null;
   holdings: Holding[];
 }
 
-/**
- * Per account: the holdings of its latest successful collection, plus the status of its latest attempt.
- * `upToSnapshot` reads the portfolio as it stood at an earlier snapshot.
- */
 export function currentState(db: DatabaseSync, upToSnapshot = Number.MAX_SAFE_INTEGER): AccountState[] {
   const lastAttempt = db.prepare(
     'SELECT snapshot_id, status, error FROM snapshot_accounts WHERE account_id = ? AND snapshot_id <= ? ORDER BY snapshot_id DESC LIMIT 1',
@@ -246,7 +247,7 @@ export function currentState(db: DatabaseSync, upToSnapshot = Number.MAX_SAFE_IN
       ORDER BY sa.snapshot_id DESC LIMIT 1`,
   );
   const holdingsOf = db.prepare(
-    `SELECT chain, protocol, symbol, type, quantity, price, value_usd AS value
+    `SELECT chain, protocol, symbol, type, quantity, price, value_usd AS value, read_at AS readAt
        FROM holdings WHERE snapshot_id = ? AND account_id = ? ORDER BY value_usd DESC`,
   );
 
@@ -282,7 +283,6 @@ export function listSnapshots(db: DatabaseSync): SnapshotInfo[] {
     .all() as unknown as SnapshotInfo[];
 }
 
-/** The latest finished snapshot started at or before the given time, if any. */
 export function snapshotAt(db: DatabaseSync, time: Date): SnapshotInfo | undefined {
   return db
     .prepare(
@@ -299,7 +299,6 @@ export interface SnapshotValue {
   value: number | null;
 }
 
-/** Every account's result in every snapshot, summed per symbol: the raw material for the history chart. */
 export function snapshotValues(db: DatabaseSync): SnapshotValue[] {
   return db
     .prepare(
@@ -312,12 +311,9 @@ export function snapshotValues(db: DatabaseSync): SnapshotValue[] {
     .all() as unknown as SnapshotValue[];
 }
 
-// ── Signals ──────────────────────────────────────────────────────────────────
-
 export interface SignalRow extends Heat {
   asset: string;
   time: string;
-  /** Binance market the candles came from. */
   pair: string;
 }
 
@@ -335,7 +331,6 @@ export function saveSignals(db: DatabaseSync, rows: SignalRow[]): void {
   }
 }
 
-/** The most recent signal of every asset. */
 export function latestSignals(db: DatabaseSync): SignalRow[] {
   const rows = db
     .prepare(
@@ -345,9 +340,6 @@ export function latestSignals(db: DatabaseSync): SignalRow[] {
     .all() as unknown as (Omit<SignalRow, 'components'> & { components: string })[];
   return rows.map((r) => ({ ...r, components: JSON.parse(r.components) as SignalRow['components'] }));
 }
-
-// ── Sessions ─────────────────────────────────────────────────────────────────
-// Only a hash of the token is stored, so a copy of the database cannot be used to sign in.
 
 const tokenHash = (token: string): string => createHash('sha256').update(token).digest('hex');
 
@@ -372,10 +364,6 @@ export function deleteSession(db: DatabaseSync, token: string): void {
   db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(tokenHash(token));
 }
 
-// ── Account ──────────────────────────────────────────────────────────────────
-// One owner. The account is created in the browser on first run and lives in the database,
-// so it travels with the data and is covered by the backups.
-
 export interface Owner {
   passwordHash: string;
   totpSecret: string;
@@ -390,18 +378,20 @@ export function saveOwner(db: DatabaseSync, owner: Owner): void {
   db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('owner', ?)").run(JSON.stringify(owner));
 }
 
-/** Removes the account and signs everyone out; the next start asks for setup again. */
+export function getSetting(db: DatabaseSync, key: string): string | null {
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined;
+  return row?.value ?? null;
+}
+
+export function setSetting(db: DatabaseSync, key: string, value: string): void {
+  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, value);
+}
+
 export function deleteOwner(db: DatabaseSync): boolean {
   db.prepare('DELETE FROM sessions').run();
   return db.prepare("DELETE FROM settings WHERE key = 'owner'").run().changes > 0;
 }
 
-// ── Backup ───────────────────────────────────────────────────────────────────
-
-/**
- * Writes today's copy of the database next to it (backups/stashboard-YYYY-MM-DD.db) unless it exists,
- * and keeps the newest `keep` copies. Returns the file written, or null if today's copy was already there.
- */
 export function backupDaily(
   db: DatabaseSync,
   dir = process.env.DATA_DIR ?? 'data',
@@ -415,7 +405,6 @@ export function backupDaily(
     .filter((f) => /^stashboard-\d{4}-\d{2}-\d{2}\.db$/.test(f))
     .sort();
   if (existing.includes(file.slice(folder.length + 1))) return null;
-  // VACUUM INTO takes a consistent copy while the database is in use.
   db.exec(`VACUUM INTO '${file.replaceAll("'", "''")}'`);
   for (const old of existing.slice(0, Math.max(0, existing.length + 1 - keep))) rmSync(join(folder, old));
   return file;

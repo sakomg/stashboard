@@ -5,7 +5,6 @@ export interface Config {
   zerion: { apiKey: string };
   tonapi: { apiKey: string };
   coingecko: { apiKey: string };
-  /** Public host name the dashboard is served on; used by the deploy for HTTPS. */
   domain: string;
   schedule: { balancesMinutes: number; signalsMinutes: number };
   heat: {
@@ -35,7 +34,6 @@ type Obj = Record<string, unknown>;
 const obj = (v: unknown): Obj => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Obj) : {});
 const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 
-/** Numeric settings: take what the file sets, fall back to defaults for the rest. */
 function numbers<T extends Record<string, number>>(raw: unknown, defaults: T, path: string): T {
   const src = obj(raw);
   const out: Record<string, number> = { ...defaults };

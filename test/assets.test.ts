@@ -19,7 +19,6 @@ test('Aave deposit receipts count as the token that was lent', () => {
   assert.deepEqual(resolve('aArbUSDC'), { key: 'USDC', category: 'Stablecoins' });
   assert.deepEqual(resolve('aBaswstETH'), { key: 'ETH', category: 'ETH' });
   assert.deepEqual(resolve('aEthLidoWETH'), { key: 'ETH', category: 'ETH' });
-  // Tokens that merely start the same way are left alone.
   assert.equal(resolve('aEthX').key, 'aEthX');
   assert.equal(resolve('ARB').key, 'ARB');
   assert.equal(resolve('aArb').key, 'aArb');

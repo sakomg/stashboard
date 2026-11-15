@@ -1,6 +1,3 @@
-// Stage 1: collects every account once and prints the portfolio.
-// Run: npm run collect            collect, then print
-//      npm run collect -- --show  print the stored portfolio without calling any API
 import { createResolver, loadAssetRules } from './assets.ts';
 import { loadLearned } from './categories.ts';
 import { runCollection } from './collector.ts';
@@ -19,7 +16,6 @@ const price = (n: number | null): string =>
 const pct = (n: number): string => `${(n * 100).toFixed(1)}%`;
 const short = (a: string): string => (a.length > 12 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a);
 
-/** Prints rows as a table; columns listed in `right` are right-aligned. */
 function table(header: string[], rows: string[][], right: number[]): void {
   const widths = header.map((h, i) => Math.max(h.length, ...rows.map((r) => r[i]!.length)));
   const line = (cells: string[]): string =>
@@ -93,7 +89,6 @@ const READING_LABELS = {
   oiGrowth: 'OI 7d %',
 } as const;
 
-/** npm run collect -- --signals: recompute signals for the stored portfolio and print them. */
 async function printSignals(db: ReturnType<typeof openDb>): Promise<void> {
   const rows = await runSignals(db, loadConfig(), createResolver(loadAssetRules(), loadLearned(db)));
   const names = Object.keys(READING_LABELS) as (keyof typeof READING_LABELS)[];
@@ -141,5 +136,4 @@ if (states.length === 0) {
 }
 printSources(states);
 printAssets(states);
-// A failed source is visible above and in the exit code, so a scheduled run can alert on it.
 process.exit(states.some((s) => s.lastStatus !== 'ok') ? 1 : 0);
