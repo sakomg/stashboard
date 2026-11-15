@@ -97,3 +97,41 @@ export async function runCollection(db: DatabaseSync, config: Config, notify: No
   finishSnapshot(db, snapshotId);
   return snapshotId;
 }
+
+export interface UpdateGate {
+  allowed: boolean;
+  reason: string | null;
+  availableAt: number | null;
+}
+
+export const UPDATE_COOLDOWN_MS = 60_000;
+
+export function updateGate({
+  running,
+  lastFinishedAt,
+  zerionWallets,
+  zerionUsedUp,
+  zerionRenewsAt,
+  now = Date.now(),
+}: {
+  running: boolean;
+  lastFinishedAt: number;
+  zerionWallets: number;
+  zerionUsedUp: boolean;
+  zerionRenewsAt: number | null;
+  now?: number;
+}): UpdateGate {
+  if (running) return { allowed: false, reason: 'An update is running', availableAt: null };
+  if (zerionWallets > 0 && zerionUsedUp) {
+    const hours = zerionRenewsAt ? Math.max(1, Math.ceil((zerionRenewsAt - now) / 3_600_000)) : null;
+    return {
+      allowed: false,
+      reason: `Zerion's daily allowance is used up${hours ? `; updates resume in about ${hours} h` : ''}`,
+      availableAt: zerionRenewsAt,
+    };
+  }
+  if (now - lastFinishedAt < UPDATE_COOLDOWN_MS) {
+    return { allowed: false, reason: 'Updated a moment ago', availableAt: lastFinishedAt + UPDATE_COOLDOWN_MS };
+  }
+  return { allowed: true, reason: null, availableAt: null };
+}

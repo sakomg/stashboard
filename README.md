@@ -116,6 +116,19 @@ first letters instead.
 
 Interface icons come from [Lucide](https://lucide.dev) (ISC licence), built into one sprite by the server.
 
+### Privacy and sharing
+
+The eye next to the net worth, or _Hide amounts_ in the account panel (the person icon), turns every dollar
+amount and quantity into dots on every device, leaving shares and changes. It is meant for screens other
+people can see.
+
+_Share_ in Allocation makes a picture of the allocation to copy, download or send, grouped any way the strip
+can be. It can also make a link: a snapshot anyone with the link can open, without signing in, for 1, 7 or
+30 days. Amounts are left out unless you tick _Show amounts_. Links can be turned off in the account panel.
+
+The update button is unavailable for a minute after an update, and while Zerion's daily allowance is used up;
+hovering it says why.
+
 ### API keys
 
 All free:

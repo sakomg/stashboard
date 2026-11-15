@@ -73,6 +73,9 @@ const inHours = (until: number, now: number): string => {
 
 export const zerionTiming = { minIntervalMs: 1100, retryPausesMs: [2000, 5000, 10000] };
 const DAY_RESERVE = 5;
+
+export const zerionDayUsedUp = (now = Date.now()): boolean =>
+  quota.dayRemaining !== null && quota.dayRemaining <= DAY_RESERVE && (quota.dayResetsAt ?? 0) > now;
 let lastRequestAt = 0;
 
 export interface ZerionCall {
@@ -89,7 +92,7 @@ async function zerionGet<T>(url: string, apiKey: string, call: ZerionCall = {}):
         `Zerion's allowance for DeFi positions is used up; it renews ${inHours(quota.defiBlockedUntil, now)}`,
       );
     }
-    if (quota.dayRemaining !== null && quota.dayRemaining <= DAY_RESERVE && (quota.dayResetsAt ?? 0) > now) {
+    if (zerionDayUsedUp(now)) {
       throw new ZerionLimitError(`Zerion's daily allowance is used up; it renews ${inHours(quota.dayResetsAt!, now)}`);
     }
     const wait = lastRequestAt + zerionTiming.minIntervalMs - now;

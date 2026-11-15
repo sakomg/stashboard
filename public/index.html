@@ -18,8 +18,8 @@
         <button class="button primary" type="button" data-open-add>
           <svg class="icon" aria-hidden="true"><use href="/icons.svg#plus"></use></svg>Add wallet
         </button>
-        <button class="icon-button" id="sign-out" type="button" aria-label="Sign out" title="Sign out" hidden>
-          <svg class="icon" aria-hidden="true"><use href="/icons.svg#log-out"></use></svg>
+        <button class="icon-button account-button" id="open-account" type="button" aria-label="Account" title="Account">
+          <svg class="icon" aria-hidden="true"><use href="/icons.svg#circle-user"></use></svg>
         </button>
       </div>
     </header>
@@ -29,7 +29,19 @@
 
       <section class="summary" aria-labelledby="net-worth-label">
         <div class="worth">
-          <h1 id="net-worth-label">Net worth</h1>
+          <div class="worth-label">
+            <h1 id="net-worth-label">Net worth</h1>
+            <button
+              class="icon-button small"
+              id="privacy"
+              type="button"
+              aria-pressed="false"
+              aria-label="Hide amounts"
+              title="Hide amounts"
+            >
+              <svg class="icon" aria-hidden="true"><use href="/icons.svg#eye"></use></svg>
+            </button>
+          </div>
           <p class="worth-value" id="net-worth">—</p>
           <p class="worth-meta">
             <span id="updated">Loading…</span>
@@ -83,7 +95,12 @@
             <section aria-labelledby="allocation-title">
               <div class="section-head">
                 <h2 id="allocation-title">Allocation</h2>
-                <div class="segmented" id="dimension" role="group" aria-label="Group allocation by"></div>
+                <div class="head-actions">
+                  <div class="segmented" id="dimension" role="group" aria-label="Group allocation by"></div>
+                  <button class="button" id="open-share" type="button">
+                    <svg class="icon" aria-hidden="true"><use href="/icons.svg#share-2"></use></svg>Share
+                  </button>
+                </div>
               </div>
               <div class="strip" id="strip" role="img" aria-label="Allocation of the portfolio"></div>
               <div class="allocation">
@@ -137,7 +154,6 @@
             </button>
           </div>
           <ul class="wallets" id="wallets"></ul>
-          <p class="footnote" id="quota"></p>
         </div>
       </div>
     </main>
@@ -198,6 +214,88 @@
         <footer>
           <button class="button" type="button" id="category-auto">Choose automatically</button>
           <button class="button primary" type="submit">Save</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog class="drawer" id="account" aria-labelledby="account-title">
+      <div class="drawer-body">
+        <header>
+          <h2 id="account-title">Account</h2>
+          <button class="icon-button" type="button" data-close aria-label="Close" title="Close">
+            <svg class="icon" aria-hidden="true"><use href="/icons.svg#x"></use></svg>
+          </button>
+        </header>
+
+        <section aria-labelledby="privacy-title">
+          <h3 id="privacy-title">Privacy</h3>
+          <label class="switch">
+            <input type="checkbox" id="hide-amounts" role="switch" />
+            <span class="track" aria-hidden="true"></span>
+            <span>
+              <b>Hide amounts</b>
+              <small
+                >Dollar amounts and quantities turn into dots on every device; shares and changes stay. New share images
+                and links leave amounts out unless you add them.</small
+              >
+            </span>
+          </label>
+        </section>
+
+        <section aria-labelledby="links-title">
+          <h3 id="links-title">Shared links</h3>
+          <ul class="links" id="share-links"></ul>
+        </section>
+
+        <section aria-labelledby="updates-title">
+          <h3 id="updates-title">Updates</h3>
+          <dl class="panel-facts" id="update-facts"></dl>
+        </section>
+
+        <section aria-labelledby="session-title">
+          <h3 id="session-title">Session</h3>
+          <p class="muted" id="session-text"></p>
+          <button class="button" id="sign-out" type="button" hidden>
+            <svg class="icon" aria-hidden="true"><use href="/icons.svg#log-out"></use></svg>Sign out
+          </button>
+        </section>
+      </div>
+    </dialog>
+
+    <dialog class="dialog share-dialog" id="share-dialog" aria-labelledby="share-title">
+      <form id="share-form">
+        <header>
+          <h2 id="share-title">Share allocation</h2>
+          <button class="icon-button" type="button" data-close aria-label="Close" title="Close">
+            <svg class="icon" aria-hidden="true"><use href="/icons.svg#x"></use></svg>
+          </button>
+        </header>
+        <div class="share-preview"><canvas id="share-canvas" width="1200" height="675" role="img"></canvas></div>
+        <div class="share-options">
+          <div class="segmented" id="share-dimension" role="group" aria-label="Group by"></div>
+          <label class="check"><input type="checkbox" id="share-amounts" /> Show amounts</label>
+        </div>
+        <p class="share-status" id="share-status" role="status" aria-live="polite"></p>
+        <p class="form-error" id="share-error" role="alert" hidden></p>
+        <footer>
+          <button class="button" type="button" id="share-copy">
+            <svg class="icon" aria-hidden="true"><use href="/icons.svg#copy"></use></svg>Copy image
+          </button>
+          <button class="button" type="button" id="share-download">
+            <svg class="icon" aria-hidden="true"><use href="/icons.svg#download"></use></svg>Download
+          </button>
+          <button class="button" type="button" id="share-native" hidden>
+            <svg class="icon" aria-hidden="true"><use href="/icons.svg#share-2"></use></svg>Share…
+          </button>
+          <span class="spacer"></span>
+          <select id="share-days" aria-label="Link lasts">
+            <option value="1">1 day</option>
+            <option value="7" selected>7 days</option>
+            <option value="30">30 days</option>
+          </select>
+          <button class="button primary" type="submit">
+            <svg class="icon" aria-hidden="true"><use href="/icons.svg#link"></use></svg>Create link
+          </button>
         </footer>
       </form>
     </dialog>

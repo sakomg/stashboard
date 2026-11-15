@@ -12,7 +12,7 @@ import {
   verifyPassword,
 } from './auth.ts';
 import { categoryNames, fetchMissingCategories, loadLearned, setManualCategory } from './categories.ts';
-import { runCollection, type ProgressEvent } from './collector.ts';
+import { runCollection, updateGate, type ProgressEvent } from './collector.ts';
 import { loadConfig } from './config.ts';
 import {
   addWallet,
@@ -28,6 +28,7 @@ import {
   saveOwner,
   sessionValid,
   getSetting,
+  listWallets,
   setSetting,
 } from './db.ts';
 import { qrSvg } from './qr.ts';
@@ -35,7 +36,8 @@ import { runSignals } from './signals.ts';
 import { fearGreed } from './sources/feargreed.ts';
 import { historyView, portfolioView, wantedLogos } from './view.ts';
 import { fetchMissingLogos, logoFile, noteLogos } from './logos.ts';
-import { fetchChains, zerionQuota } from './sources/zerion.ts';
+import { fetchChains, zerionDayUsedUp, zerionQuota } from './sources/zerion.ts';
+import { createShare, deleteShare, getShare, listShares, parseSharePayload, shareHasLogo } from './shares.ts';
 
 const config = loadConfig();
 const host = process.env.HOST ?? '127.0.0.1';
@@ -52,7 +54,7 @@ const local = ['127.0.0.1', 'localhost', '::1'].includes(host) && process.env.RE
 const setupCode = owner ? null : base32Encode(randomBytes(8)).slice(0, 12);
 const formatCode = (code: string): string => code.match(/.{4}/g)!.join('-');
 
-type Access = 'session' | 'signin' | 'setup';
+type Access = 'session' | 'signin' | 'setup' | 'public';
 const STATIC: Record<string, { file: string; type: string; cache?: boolean; access: Access[] }> = {
   '/': { file: 'public/index.html', type: 'text/html; charset=utf-8', access: ['session'] },
   '/app.js': { file: 'public/app.js', type: 'text/javascript; charset=utf-8', access: ['session'] },
@@ -66,19 +68,25 @@ const STATIC: Record<string, { file: string; type: string; cache?: boolean; acce
   '/login.js': { file: 'public/login.js', type: 'text/javascript; charset=utf-8', access: ['signin'] },
   '/setup': { file: 'public/setup.html', type: 'text/html; charset=utf-8', access: ['setup'] },
   '/setup.js': { file: 'public/setup.js', type: 'text/javascript; charset=utf-8', access: ['setup'] },
-  '/app.css': { file: 'public/app.css', type: 'text/css; charset=utf-8', access: ['signin', 'setup'] },
-  '/logo.svg': { file: 'assets/logo.svg', type: 'image/svg+xml', access: ['signin', 'setup'] },
+  '/share.js': { file: 'public/share.js', type: 'text/javascript; charset=utf-8', access: ['public'] },
+  '/app.css': { file: 'public/app.css', type: 'text/css; charset=utf-8', access: ['signin', 'setup', 'public'] },
+  '/logo.svg': { file: 'assets/logo.svg', type: 'image/svg+xml', access: ['signin', 'setup', 'public'] },
   '/vendor/bricolage.woff2': {
     file: 'node_modules/@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-wght-normal.woff2',
     type: 'font/woff2',
     cache: true,
-    access: ['signin', 'setup'],
+    access: ['signin', 'setup', 'public'],
   },
 };
 const openTo = (access: Access): Set<string> =>
   new Set(Object.keys(STATIC).filter((path) => STATIC[path]!.access.includes(access)));
 const SIGNIN_PATHS = new Set([...openTo('signin'), '/healthz', '/icons.svg', '/api/login']);
 const SETUP_PATHS = new Set([...openTo('setup'), '/healthz', '/icons.svg', '/api/setup/start', '/api/setup/finish']);
+const PUBLIC_PATHS = new Set([...openTo('public'), '/icons.svg']);
+const isPublic = (path: string): boolean =>
+  PUBLIC_PATHS.has(path) ||
+  /^\/s\/[A-Za-z0-9_-]+(\/logo\/[a-z]+\/[^/]+)?$/.test(path) ||
+  /^\/api\/shared\/[A-Za-z0-9_-]+$/.test(path);
 
 const app = Fastify({ logger: { level: 'warn' }, trustProxy: process.env.TRUST_PROXY === '1' });
 
@@ -108,6 +116,8 @@ app.addHook('onRequest', async (request, reply) => {
       return reply.code(403).send({ error: 'Cross-site request refused' });
     }
   }
+
+  if (request.method === 'GET' && isPublic(path)) return;
 
   if (owner) {
     if (path === '/setup') return reply.redirect('/login');
@@ -144,6 +154,14 @@ for (const [path, { file, type, cache }] of Object.entries(STATIC)) {
 app.get('/healthz', async () => ({ ok: true }));
 
 const ICONS = [
+  'circle-user',
+  'eye',
+  'eye-off',
+  'share-2',
+  'download',
+  'copy',
+  'link',
+  'image',
   'refresh-cw',
   'plus',
   'log-out',
@@ -167,9 +185,12 @@ const sprite =
   }).join('') +
   '</svg>';
 
-app.get('/icons.svg', async (_request, reply) => {
-  reply.type('image/svg+xml').header('Cache-Control', 'public, max-age=86400');
-  return sprite;
+const spriteTag = `"${createHash('sha1').update(sprite).digest('hex').slice(0, 16)}"`;
+
+app.get('/icons.svg', async (request, reply) => {
+  reply.header('Cache-Control', 'no-cache').header('ETag', spriteTag);
+  if (request.headers['if-none-match'] === spriteTag) return reply.code(304).send();
+  return reply.type('image/svg+xml').send(sprite);
 });
 
 app.get<{ Params: { kind: string; key: string } }>('/logo/:kind/:key', async (request, reply) => {
@@ -179,6 +200,31 @@ app.get<{ Params: { kind: string; key: string } }>('/logo/:kind/:key', async (re
   reply.type(logo.type).header('Cache-Control', 'private, max-age=604800');
   return readFileSync(logo.path);
 });
+
+app.get<{ Params: { token: string } }>('/s/:token', async (_request, reply) => {
+  reply.type('text/html; charset=utf-8').header('Cache-Control', 'no-store');
+  return readFileSync(new URL('public/share.html', root));
+});
+
+app.get<{ Params: { token: string } }>('/api/shared/:token', async (request, reply) => {
+  const share = getShare(db, request.params.token);
+  reply.header('Cache-Control', 'no-store');
+  if (!share) return reply.code(404).send({ error: 'This link has expired or was turned off.' });
+  return { ...share.payload, expiresAt: share.expiresAt };
+});
+
+app.get<{ Params: { token: string; kind: string; key: string } }>(
+  '/s/:token/logo/:kind/:key',
+  async (request, reply) => {
+    const { token, kind, key } = request.params;
+    const share = getShare(db, token);
+    const logo = share && shareHasLogo(share, kind, key) ? logoFile(db, kind, key) : null;
+    if (!logo) return reply.code(404).header('Cache-Control', 'no-store').send({ error: 'No logo' });
+    reply.header('Content-Security-Policy', "sandbox; default-src 'none'; style-src 'unsafe-inline'");
+    reply.type(logo.type).header('Cache-Control', 'private, max-age=86400');
+    return readFileSync(logo.path);
+  },
+);
 
 const perAddress = new AttemptLimiter(5, 15 * 60_000);
 const everyone = new AttemptLimiter(50, 15 * 60_000);
@@ -301,6 +347,18 @@ interface Progress {
   accounts: { id: number; state: 'waiting' | 'reading' | 'done' | 'failed'; note: string | null }[];
 }
 let progress: Progress | null = null;
+let lastFinishedAt = 0;
+
+const gate = () => {
+  const q = zerionQuota();
+  return updateGate({
+    running: collecting !== null,
+    lastFinishedAt,
+    zerionWallets: listWallets(db, 'evm').length + listWallets(db, 'solana').length,
+    zerionUsedUp: zerionDayUsedUp(),
+    zerionRenewsAt: q.dayResetsAt,
+  });
+};
 
 function track(event: ProgressEvent): void {
   if (event.type === 'start') {
@@ -358,6 +416,7 @@ function collect(): Promise<void> {
     .finally(() => {
       collecting = null;
       progress = null;
+      lastFinishedAt = Date.now();
     });
   return collecting;
 }
@@ -395,18 +454,51 @@ app.get('/api/portfolio', async () => ({
   zerion: zerionQuota(),
   fearGreed: await fearGreed(),
   collecting: collecting !== null,
+  update: gate(),
+  preferences: { hideAmounts: getSetting(db, 'hide_amounts') === '1' },
   collectEveryMinutes: intervalMs / 60_000,
   loginEnabled: owner !== null,
 }));
 
-app.get('/api/progress', async () => ({ collecting: collecting !== null, progress }));
+app.get('/api/progress', async () => ({ collecting: collecting !== null, progress, update: gate() }));
+
+app.put<{ Body: { hideAmounts?: unknown } }>('/api/preferences', async (request, reply) => {
+  const { hideAmounts } = request.body ?? {};
+  if (typeof hideAmounts !== 'boolean') return reply.code(400).send({ error: 'hideAmounts must be true or false' });
+  setSetting(db, 'hide_amounts', hideAmounts ? '1' : '0');
+  return { hideAmounts };
+});
+
+app.get('/api/shares', async () =>
+  listShares(db).map((s) => ({
+    token: s.token,
+    title: s.payload.title,
+    withAmounts: s.payload.total !== null || s.payload.rows.some((r) => r.value !== null),
+    createdAt: s.createdAt,
+    expiresAt: s.expiresAt,
+  })),
+);
+
+app.post('/api/shares', async (request, reply) => {
+  const parsed = parseSharePayload(request.body);
+  if ('error' in parsed) return reply.code(400).send({ error: parsed.error });
+  const share = createShare(db, parsed.payload, parsed.days);
+  return { token: share.token, expiresAt: share.expiresAt };
+});
+
+app.delete<{ Params: { token: string } }>('/api/shares/:token', async (request, reply) => {
+  if (!deleteShare(db, request.params.token)) return reply.code(404).send({ error: 'No such link' });
+  return { ok: true };
+});
 
 app.get<{ Querystring: { days?: string } }>('/api/history', async (request) => {
   const days = Number(request.query.days);
   return historyView(db, resolve, Number.isFinite(days) && days > 0 ? days : null);
 });
 
-app.post('/api/collect', async () => {
+app.post('/api/collect', async (_request, reply) => {
+  const now = gate();
+  if (!now.allowed && collecting === null) return reply.code(429).send({ error: now.reason, update: now });
   await collect();
   return { ok: true };
 });
@@ -417,6 +509,7 @@ app.post<{ Body: { address?: unknown; label?: unknown } }>('/api/wallets', async
     return reply.code(400).send({ error: 'Enter a wallet address' });
   try {
     const wallet = addWallet(db, address, typeof label === 'string' ? label.slice(0, 40) : undefined);
+    void (collecting ?? Promise.resolve()).then(collect);
     return { id: wallet.id, kind: wallet.kind, label: wallet.label };
   } catch (err) {
     return reply.code(400).send({ error: err instanceof Error ? err.message : String(err) });
