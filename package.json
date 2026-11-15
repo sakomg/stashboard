@@ -9,6 +9,7 @@
   },
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning src/server.ts",
+    "auth:reset": "node --disable-warning=ExperimentalWarning src/auth-reset.ts",
     "check": "node --disable-warning=ExperimentalWarning src/check.ts",
     "collect": "node --disable-warning=ExperimentalWarning src/collect.ts",
     "test": "node --disable-warning=ExperimentalWarning --test",
@@ -26,6 +27,7 @@
   "dependencies": {
     "@fontsource-variable/bricolage-grotesque": "5.3.0",
     "echarts": "6.1.0",
-    "fastify": "5.12.8"
+    "fastify": "5.12.8",
+    "qrcode-generator": "2.0.4"
   }
 }

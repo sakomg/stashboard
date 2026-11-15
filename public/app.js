@@ -109,6 +109,11 @@ const state = {
 
 async function api(path, options) {
   const response = await fetch(path, options && { ...options, headers: { 'content-type': 'application/json' } });
+  // The session ended or was never there: the sign-in page is the only useful place to be.
+  if (response.status === 401) {
+    location.replace('/login');
+    return new Promise(() => {});
+  }
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.error ?? `Request failed (${response.status})`);
   return body;
@@ -146,6 +151,7 @@ function renderHeader() {
     data.fearGreed && fact('Fear & Greed', String(data.fearGreed.value), h('small', {}, data.fearGreed.label)),
   );
 
+  $('sign-out').hidden = !data.loginEnabled;
   const button = $('collect');
   button.disabled = data.collecting;
   button.textContent = data.collecting ? 'Updating…' : 'Update now';
@@ -776,6 +782,10 @@ async function update() {
 }
 
 $('collect').addEventListener('click', update);
+$('sign-out').addEventListener('click', async () => {
+  await api('/api/logout', { method: 'POST', body: '{}' });
+  location.replace('/login');
+});
 setInterval(load, 5 * 60 * 1000);
 
 load().catch((err) => {

@@ -711,6 +711,110 @@ input::placeholder {
   color: var(--down);
 }
 
+/* ── Sign in ─────────────────────────────────────────────── */
+
+.login-page {
+  max-width: 400px;
+  padding-top: 14vh;
+}
+
+.login h1 {
+  font: 600 30px/1.2 var(--display);
+  letter-spacing: -0.02em;
+  margin: 40px 0 24px;
+}
+
+.login label {
+  display: block;
+  margin-bottom: 16px;
+}
+
+.login label span {
+  display: block;
+  font-size: 13px;
+  color: var(--slate);
+  margin-bottom: 5px;
+}
+
+.login .lead {
+  color: var(--slate);
+  margin: -12px 0 24px;
+}
+
+.login small {
+  display: block;
+  font-size: 13px;
+  color: var(--dim);
+  margin-top: 5px;
+}
+
+.login .qr {
+  display: block;
+  width: 220px;
+  height: 220px;
+  border-radius: 12px;
+  margin: 0 0 16px;
+}
+
+.login .key span {
+  display: block;
+  font-size: 13px;
+  color: var(--slate);
+}
+
+.login .key code {
+  display: block;
+  font:
+    500 15px/1.6 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  letter-spacing: 0.04em;
+  margin: 2px 0 20px;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.login .link {
+  display: block;
+  margin: 16px auto 0;
+}
+
+.login [hidden] {
+  display: none;
+}
+
+.login input {
+  padding: 11px 12px;
+  font-size: 16px;
+}
+
+.login .button {
+  width: 100%;
+  margin-top: 8px;
+  padding: 11px 14px;
+}
+
+.button.primary {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.button.primary:hover {
+  filter: brightness(1.08);
+}
+
+.button.primary:disabled {
+  filter: saturate(0.4);
+  color: var(--ink);
+}
+
+.login .form-error {
+  margin-top: 16px;
+}
+
 /* ── Tooltip ─────────────────────────────────────────────── */
 
 .tip {

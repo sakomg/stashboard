@@ -4,6 +4,8 @@
   "tonapi": { "apiKey": "" },
   "coingecko": { "apiKey": "" },
 
+  "domain": "",
+
   "schedule": {
     "balancesMinutes": 60,
     "signalsMinutes": 240

@@ -1,4 +1,5 @@
-import { mkdirSync } from 'node:fs';
+import { createHash, randomBytes } from 'node:crypto';
+import { mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { parseAddress, WALLET_KINDS, type WalletKind } from './address.ts';
@@ -64,6 +65,15 @@ const MIGRATIONS = [
      zone       TEXT NOT NULL,
      components TEXT NOT NULL,
      PRIMARY KEY (asset, time)
+   );`,
+  `CREATE TABLE sessions (
+     token_hash TEXT PRIMARY KEY,
+     created_at TEXT NOT NULL,
+     expires_at TEXT NOT NULL
+   );`,
+  `CREATE TABLE settings (
+     key   TEXT PRIMARY KEY,
+     value TEXT NOT NULL
    );`,
 ];
 
@@ -315,4 +325,79 @@ export function latestSignals(db: DatabaseSync): SignalRow[] {
     )
     .all() as unknown as (Omit<SignalRow, 'components'> & { components: string })[];
   return rows.map((r) => ({ ...r, components: JSON.parse(r.components) as SignalRow['components'] }));
+}
+
+// ── Sessions ─────────────────────────────────────────────────────────────────
+// Only a hash of the token is stored, so a copy of the database cannot be used to sign in.
+
+const tokenHash = (token: string): string => createHash('sha256').update(token).digest('hex');
+
+export function createSession(db: DatabaseSync, lifetimeMs: number, now = Date.now()): string {
+  const token = randomBytes(32).toString('base64url');
+  db.prepare('DELETE FROM sessions WHERE expires_at <= ?').run(new Date(now).toISOString());
+  db.prepare('INSERT INTO sessions (token_hash, created_at, expires_at) VALUES (?, ?, ?)').run(
+    tokenHash(token),
+    new Date(now).toISOString(),
+    new Date(now + lifetimeMs).toISOString(),
+  );
+  return token;
+}
+
+export function sessionValid(db: DatabaseSync, token: string, now = Date.now()): boolean {
+  const row = db.prepare('SELECT expires_at FROM sessions WHERE token_hash = ?').get(tokenHash(token)) as
+    { expires_at: string } | undefined;
+  return row !== undefined && Date.parse(row.expires_at) > now;
+}
+
+export function deleteSession(db: DatabaseSync, token: string): void {
+  db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(tokenHash(token));
+}
+
+// ── Account ──────────────────────────────────────────────────────────────────
+// One owner. The account is created in the browser on first run and lives in the database,
+// so it travels with the data and is covered by the backups.
+
+export interface Owner {
+  passwordHash: string;
+  totpSecret: string;
+}
+
+export function getOwner(db: DatabaseSync): Owner | null {
+  const row = db.prepare("SELECT value FROM settings WHERE key = 'owner'").get() as { value: string } | undefined;
+  return row ? (JSON.parse(row.value) as Owner) : null;
+}
+
+export function saveOwner(db: DatabaseSync, owner: Owner): void {
+  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('owner', ?)").run(JSON.stringify(owner));
+}
+
+/** Removes the account and signs everyone out; the next start asks for setup again. */
+export function deleteOwner(db: DatabaseSync): boolean {
+  db.prepare('DELETE FROM sessions').run();
+  return db.prepare("DELETE FROM settings WHERE key = 'owner'").run().changes > 0;
+}
+
+// ── Backup ───────────────────────────────────────────────────────────────────
+
+/**
+ * Writes today's copy of the database next to it (backups/stashboard-YYYY-MM-DD.db) unless it exists,
+ * and keeps the newest `keep` copies. Returns the file written, or null if today's copy was already there.
+ */
+export function backupDaily(
+  db: DatabaseSync,
+  dir = process.env.DATA_DIR ?? 'data',
+  keep = 14,
+  now = new Date(),
+): string | null {
+  const folder = join(dir, 'backups');
+  mkdirSync(folder, { recursive: true });
+  const file = join(folder, `stashboard-${now.toISOString().slice(0, 10)}.db`);
+  const existing = readdirSync(folder)
+    .filter((f) => /^stashboard-\d{4}-\d{2}-\d{2}\.db$/.test(f))
+    .sort();
+  if (existing.includes(file.slice(folder.length + 1))) return null;
+  // VACUUM INTO takes a consistent copy while the database is in use.
+  db.exec(`VACUUM INTO '${file.replaceAll("'", "''")}'`);
+  for (const old of existing.slice(0, Math.max(0, existing.length + 1 - keep))) rmSync(join(folder, old));
+  return file;
 }

@@ -5,6 +5,8 @@ export interface Config {
   zerion: { apiKey: string };
   tonapi: { apiKey: string };
   coingecko: { apiKey: string };
+  /** Public host name the dashboard is served on; used by the deploy for HTTPS. */
+  domain: string;
   schedule: { balancesMinutes: number; signalsMinutes: number };
   heat: {
     weights: { rsiDaily: number; rsiWeekly: number; funding: number; ma200: number; oiGrowth: number };
@@ -63,6 +65,7 @@ export function loadConfig(path = process.env.CONFIG_PATH ?? 'config.json'): Con
     zerion: { apiKey: str(obj(raw.zerion).apiKey) },
     tonapi: { apiKey: str(obj(raw.tonapi).apiKey) },
     coingecko: { apiKey: str(obj(raw.coingecko).apiKey) },
+    domain: str(raw.domain),
     schedule: numbers(raw.schedule, DEFAULTS.schedule, 'schedule'),
     heat: {
       weights: numbers(heat.weights, DEFAULTS.heat.weights, 'heat.weights'),
