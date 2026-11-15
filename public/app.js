@@ -157,6 +157,7 @@ const DUST_USD = 1;
 
 const state = {
   data: null,
+  build: null,
   logos: new Map(),
   chainNames: {},
   dimension: 'category',
@@ -990,6 +991,12 @@ let pollTimer;
 async function load() {
   try {
     const data = await api('/api/portfolio');
+    // The server was updated while this tab was open: its code no longer matches the answers. Start over.
+    state.build ??= data.build;
+    if (data.build !== state.build) {
+      location.reload();
+      return;
+    }
     state.data = data;
     state.logos = new Map(Object.entries(data.logos.available));
     state.chainNames = data.logos.chains;
