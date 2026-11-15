@@ -1,0 +1,23 @@
+{
+  "name": "stashboard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Self-hosted, read-only portfolio dashboard for Binance, EVM, Solana, TON and DeFi",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "check": "node --disable-warning=ExperimentalWarning src/check.ts",
+    "wallets": "node --disable-warning=ExperimentalWarning src/wallets.ts",
+    "typecheck": "tsc",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "npm run format:check && npm run typecheck"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "prettier": "3.10.1",
+    "typescript": "^5.9.0"
+  }
+}

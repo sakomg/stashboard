@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 64" role="img" aria-label="Stashboard">
+  <rect width="64" height="64" rx="15" fill="#0B0F14"/>
+  <rect x="24" y="14" width="28" height="10" rx="5" fill="#F2B33D"/>
+  <rect x="12" y="27" width="40" height="10" rx="5" fill="#EDE8DC"/>
+  <rect x="12" y="40" width="28" height="10" rx="5" fill="#4CC9C0"/>
+  <text x="82" y="43" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="32" font-weight="650" letter-spacing="-0.8">
+    <tspan fill="#F2B33D">stash</tspan><tspan fill="#8A93A0">board</tspan>
+  </text>
+</svg>

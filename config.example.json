@@ -1,0 +1,17 @@
+{
+  "binance": { "apiKey": "", "apiSecret": "" },
+  "zerion": { "apiKey": "" },
+  "tonapi": { "apiKey": "" },
+  "coingecko": { "apiKey": "" },
+
+  "schedule": {
+    "balancesMinutes": 60,
+    "signalsMinutes": 240
+  },
+
+  "heat": {
+    "weights": { "rsiDaily": 30, "rsiWeekly": 25, "funding": 20, "ma200": 15, "oiGrowth": 10 },
+    "overheated": { "rsiDaily": 70, "rsiWeekly": 75, "funding8hPct": 0.03, "ma200Pct": 50, "oiGrowth7dPct": 30 },
+    "zones": { "neutral": 30, "warm": 60, "overheated": 80 }
+  }
+}
