@@ -163,6 +163,7 @@ const ICONS = [
   'circle-help',
   'external-link',
   'circle-user',
+  'settings',
   'eye',
   'eye-off',
   'share-2',

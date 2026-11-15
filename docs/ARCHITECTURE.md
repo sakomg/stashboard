@@ -73,7 +73,7 @@ starts a collection on the server, so a new wallet is read straight away even in
 ### Starting history over
 
 Added one account at a time, the history shows a staircase of new accounts rather than the portfolio's
-movement. _Start history over_ in the account panel deletes every snapshot older than the latest good read of
+movement. _Start history over_ in the settings panel deletes every snapshot older than the latest good read of
 each account (an account that failed recently keeps its last good data), after copying the database to
 `backups/stashboard-before-history-reset-<time>.db`. The changes over 24 hours, 7 days and 30 days are empty
 again until history reaches that far.
@@ -92,7 +92,7 @@ changes compare with the snapshot at or before that time and stay empty until hi
 
 ### Binance
 
-An exchange is added on the page (Add account, Exchange) with an API key and its secret. Before anything is
+An exchange is added on the page (Add wallet or exchange, Exchange) with an API key and its secret. Before anything is
 saved, the key's permissions are read from Binance (`/sapi/v1/account/apiRestrictions`): a key that can trade,
 transfer or withdraw is refused with the permissions named, a key not restricted to trusted IP addresses is
 accepted with a warning. Several Binance accounts can be added; the same key twice cannot. Removing an exchange
@@ -248,7 +248,7 @@ browser can share files.
 A link is a snapshot, frozen when it is made. The page sends the groups; the server checks and caps them
 (a title of 80 characters, at most 12 rows, shares between 0 and 1, colours as `#rrggbb`, logos only of a
 known kind) and keeps amounts only when they were asked for, whatever else the request carries. The token is
-16 random bytes in base64url. A link lasts 1, 7 or 30 days, can be turned off in the account panel, and
+16 random bytes in base64url. A link lasts 1, 7 or 30 days, can be turned off in the settings panel, and
 expired links are deleted the next time the list is read.
 
 Without a session, only this is served: the page at `/s/<token>`, its data at `/api/shared/<token>`, logos
@@ -298,8 +298,7 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
 
 - **Core components.** `public/ui.js` is the one place controls are built, for the dashboard and the shared
   page alike: `h` (elements, never `innerHTML`), `icon` and `iconButton`, `button` in four variants
-  (primary for the one main action of a view or dialog, secondary, ghost for quiet actions such as Add account in
-  the header, danger for removal), `select` (a listbox that replaces the native select: arrow keys, Home, End,
+  (primary for the one main action of a view or dialog, secondary, ghost for quiet actions, danger for removal), `select` (a listbox that replaces the native select: arrow keys, Home, End,
   Enter, Space and Escape, `aria-activedescendant`, closes on Tab), `help` (a question-mark button opening a
   short explanation with a link to its source), `checkbox` and `segmented`. Popovers use the browser's
   Popover API, are placed under their trigger (or above it when there is no room) by script, and close on
@@ -308,6 +307,11 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
   (alternative.me), RSI and the 200-day average (StockCharts ChartSchool), funding (Binance), open interest
   (Wikipedia) and heat (the Signals view). The Signals view opens with the heat scale, its zones and the weight of
   each reading, taken from `heat` in `config.json`.
+- **Signals view.** The heat scale doubles as the summary: under each zone, the share of the portfolio in it
+  and how many assets. Clicking a zone shows only its assets. A sentence above says how much is overheated, warm
+  and cold, and how much has no readings (stablecoins and tokens without a Binance market). Below, one row per
+  scored asset with its heat and each reading, hottest first. A reading that is overheated or cold on its own is
+  coloured, so the reason for a score is visible without a list of tags.
 - **Fear & Greed** is coloured by its band, following alternative.me's: under 25 extreme fear (teal), under 45
   fear, under 56 neutral, under 76 greed (amber), above extreme greed (orange), so it reads like the heat scale.
 - **Where an asset is held** lists places worth at least half a cent; the rest are counted in one line.
@@ -315,7 +319,10 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
   scrolls to an anchor.
 - **Text** joins clauses with full stops, not semicolons, and lists reasons as separate tags.
 
-- **Account panel.** The Account button in the header opens a panel from the right with the privacy switch,
+- **Header.** The header holds only Settings. Adding a wallet or an exchange starts from the dashed chip at the
+  end of the account chips (and from the Accounts view), next to what it adds to, so it is not mistaken for
+  adding a user.
+- **Settings panel.** The Settings button in the header opens a panel from the right with the privacy switch,
   the shared links (copy, open, turn off), the update schedule and whether an update is possible now, the
   Zerion allowance, starting history over, and the session with sign-out.
 - **Hidden amounts.** One setting for the account, stored on the server (`hide_amounts` in `settings`), so

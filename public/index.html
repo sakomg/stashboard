@@ -15,12 +15,8 @@
         ><img src="/logo.svg" alt="" width="28" height="28" /><span>stash</span><span>board</span></a
       >
       <div class="top-actions">
-        <button class="button ghost" type="button" data-open-add aria-label="Add account">
-          <svg class="icon" aria-hidden="true"><use href="/icons.svg#plus"></use></svg
-          ><span class="label">Add account</span>
-        </button>
         <button class="button" id="open-account" type="button">
-          <svg class="icon" aria-hidden="true"><use href="/icons.svg#circle-user"></use></svg>Account
+          <svg class="icon" aria-hidden="true"><use href="/icons.svg#settings"></use></svg>Settings
         </button>
       </div>
     </header>
@@ -64,7 +60,7 @@
           phrases.
         </p>
         <button class="button primary" type="button" data-open-add>
-          <svg class="icon" aria-hidden="true"><use href="/icons.svg#plus"></use></svg>Add account
+          <svg class="icon" aria-hidden="true"><use href="/icons.svg#plus"></use></svg>Add wallet or exchange
         </button>
       </section>
 
@@ -138,7 +134,12 @@
         <div class="view" id="view-signals" role="tabpanel" aria-labelledby="tab-signals" tabindex="0" hidden>
           <h2 class="sr-only">Signals</h2>
           <div class="heat-guide" id="heat-guide"></div>
-          <div class="signals" id="signal-list"></div>
+          <div class="table-wrap">
+            <table class="signal-table" id="signal-table">
+              <thead></thead>
+              <tbody></tbody>
+            </table>
+          </div>
         </div>
 
         <div class="view" id="view-defi" role="tabpanel" aria-labelledby="tab-defi" tabindex="0" hidden>
@@ -151,7 +152,7 @@
             <h2 class="sr-only">Accounts</h2>
             <p class="lead">Every account is read on its own. One that fails keeps its last balances.</p>
             <button class="button" type="button" data-open-add>
-              <svg class="icon" aria-hidden="true"><use href="/icons.svg#plus"></use></svg>Add account
+              <svg class="icon" aria-hidden="true"><use href="/icons.svg#plus"></use></svg>Add wallet or exchange
             </button>
           </div>
           <ul class="wallets" id="wallets"></ul>
@@ -162,7 +163,7 @@
     <dialog class="dialog" id="add-dialog" aria-labelledby="add-title">
       <form id="add-form" autocomplete="off" novalidate>
         <header>
-          <h2 id="add-title">Add account</h2>
+          <h2 id="add-title">Add wallet or exchange</h2>
           <button class="icon-button" type="button" data-close aria-label="Close" title="Close">
             <svg class="icon" aria-hidden="true"><use href="/icons.svg#x"></use></svg>
           </button>
@@ -260,7 +261,7 @@
     <dialog class="drawer" id="account" aria-labelledby="account-title">
       <div class="drawer-body">
         <header>
-          <h2 id="account-title">Account</h2>
+          <h2 id="account-title">Settings</h2>
           <button class="icon-button" type="button" data-close aria-label="Close" title="Close">
             <svg class="icon" aria-hidden="true"><use href="/icons.svg#x"></use></svg>
           </button>
