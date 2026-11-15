@@ -8,7 +8,6 @@ test('a Lighter account is one holding worth its equity, in the stablecoin that 
       {
         total_asset_value: '429.218809',
         assets: [{ symbol: 'USDC', balance: '0.000000', margin_balance: '296.084395' }],
-        positions: [{ symbol: 'NVDA', position: '6.908', sign: -1 }],
       },
     ],
     'ethereum',

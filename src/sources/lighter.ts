@@ -14,7 +14,6 @@ const NOT_FOUND = 21100;
 export interface LighterAccount {
   total_asset_value?: string;
   assets?: { symbol: string; margin_balance?: string; balance?: string }[];
-  positions?: { symbol: string; position: string; sign: number }[];
 }
 
 export function lighterHoldings(accounts: LighterAccount[], chain: string, fallbackSymbol: string): Holding[] {
@@ -50,19 +49,12 @@ async function fetchAccounts(host: string, address: string): Promise<LighterAcco
 
 export async function collectLighter(address: string): Promise<CollectResult> {
   const holdings: Holding[] = [];
-  const warnings: string[] = [];
   for (const venue of LIGHTER_VENUES) {
-    const accounts = await fetchAccounts(venue.host, address);
-    holdings.push(...lighterHoldings(accounts, venue.chain, venue.collateral));
-    const open = accounts.flatMap((a) => a.positions ?? []).filter((p) => Number(p.position) !== 0);
-    if (open.length > 0) {
-      const list = open.map((p) => `${p.sign < 0 ? 'short' : 'long'} ${p.symbol}`).join(', ');
-      warnings.push(`Lighter (${venue.chain}): open positions are counted as account equity: ${list}`);
-    }
+    holdings.push(...lighterHoldings(await fetchAccounts(venue.host, address), venue.chain, venue.collateral));
   }
   return {
     holdings,
-    warnings,
+    warnings: [],
     logos: holdings.length > 0 ? [{ kind: 'protocol', key: PROTOCOL, url: LOGO }] : [],
   };
 }

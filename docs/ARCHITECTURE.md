@@ -161,8 +161,8 @@ Robinhood Chain with USDG. An address that never used one answers with code 2110
 not a failure.
 
 Each account becomes one holding worth its equity (collateral plus unrealised PnL), in the stablecoin that
-backs it and of type futures, the same way Binance futures wallets are counted. Open positions are listed in
-the account's warnings; they are not exposure in the portfolio.
+backs it and of type futures, the same way Binance futures wallets are counted. Open positions are not
+shown separately and are not exposure in the portfolio: only the equity counts.
 
 ### TonAPI
 
