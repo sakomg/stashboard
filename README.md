@@ -97,17 +97,29 @@ All free:
 
 ## Login
 
+There is nothing to configure by hand. The first time the dashboard is opened on a server, it asks you to
+create the account:
+
+1. Enter the **setup code**. The server prints it in its log on every start until the account exists, and
+   `deploy.sh` shows it at the end. It proves the server is yours, so whoever finds the address first cannot
+   claim it.
+2. Choose a password of at least 12 characters.
+3. Scan the QR code with an authenticator app and enter one code to confirm it works.
+
+From then on every page and API call needs a session; only the sign-in page is served without one. Sessions
+last 30 days. Five wrong attempts from one address lock it out for 15 minutes, and each authenticator code
+works once. The account (an argon2id hash of the password and the authenticator secret) lives in the
+database, never in `config.json`.
+
+Run on your own machine with `npm start`, the dashboard listens on localhost only and stays open until you
+create an account at `/setup`. Set `REQUIRE_LOGIN=1` to demand one from the start.
+
+Forgot the password or lost the phone? Remove the account and set it up again:
+
 ```sh
-npm run auth
+docker compose run --rm stashboard src/auth-reset.ts && docker compose restart stashboard   # on the server
+npm run auth:reset                                                                          # locally
 ```
-
-Run it in your own terminal. It asks for a password (12 characters or more), shows a QR code for an
-authenticator app, checks one code and writes the result to `config.json` under `auth`: an argon2id hash of
-the password and the authenticator secret. The password itself is never stored.
-
-With a login configured, nothing but the sign-in page is served without a session: pages redirect to it and
-the API answers 401. Sessions last 30 days. Five wrong attempts from one address lock it out for 15 minutes,
-and each authenticator code works once.
 
 ## Deploy
 
@@ -118,7 +130,7 @@ You need a server with Docker, ports 80 and 443 reachable from the internet, and
 "domain": "example.duckdns.org"
 ```
 
-Then, with the login set up:
+Then:
 
 ```sh
 ./deploy.sh user@host            # SSH_PORT=2222 ./deploy.sh user@host for a non-standard port
@@ -162,8 +174,8 @@ is configured under _Settings → Secrets and variables → Actions_:
 | Secret   | `DEPLOY_KNOWN_HOSTS` | Optional: output of `ssh-keyscan <host>`, pins the server's host key |
 
 The pipeline never sees `config.json`: run `./deploy.sh` once from your own machine to upload it, and CI
-deploys keep the copy that is already on the server. To change keys, the login or the domain, deploy from
-your machine again.
+deploys keep the copy that is already on the server. To change keys or the domain, deploy from your machine
+again.
 
 ## Development
 

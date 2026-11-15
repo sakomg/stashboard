@@ -71,6 +71,10 @@ const MIGRATIONS = [
      created_at TEXT NOT NULL,
      expires_at TEXT NOT NULL
    );`,
+  `CREATE TABLE settings (
+     key   TEXT PRIMARY KEY,
+     value TEXT NOT NULL
+   );`,
 ];
 
 export function openDb(dir = process.env.DATA_DIR ?? 'data'): DatabaseSync {
@@ -347,6 +351,30 @@ export function sessionValid(db: DatabaseSync, token: string, now = Date.now()):
 
 export function deleteSession(db: DatabaseSync, token: string): void {
   db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(tokenHash(token));
+}
+
+// ── Account ──────────────────────────────────────────────────────────────────
+// One owner. The account is created in the browser on first run and lives in the database,
+// so it travels with the data and is covered by the backups.
+
+export interface Owner {
+  passwordHash: string;
+  totpSecret: string;
+}
+
+export function getOwner(db: DatabaseSync): Owner | null {
+  const row = db.prepare("SELECT value FROM settings WHERE key = 'owner'").get() as { value: string } | undefined;
+  return row ? (JSON.parse(row.value) as Owner) : null;
+}
+
+export function saveOwner(db: DatabaseSync, owner: Owner): void {
+  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('owner', ?)").run(JSON.stringify(owner));
+}
+
+/** Removes the account and signs everyone out; the next start asks for setup again. */
+export function deleteOwner(db: DatabaseSync): boolean {
+  db.prepare('DELETE FROM sessions').run();
+  return db.prepare("DELETE FROM settings WHERE key = 'owner'").run().changes > 0;
 }
 
 // ── Backup ───────────────────────────────────────────────────────────────────

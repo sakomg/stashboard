@@ -736,6 +736,54 @@ input::placeholder {
   margin-bottom: 5px;
 }
 
+.login .lead {
+  color: var(--slate);
+  margin: -12px 0 24px;
+}
+
+.login small {
+  display: block;
+  font-size: 13px;
+  color: var(--dim);
+  margin-top: 5px;
+}
+
+.login .qr {
+  display: block;
+  width: 220px;
+  height: 220px;
+  border-radius: 12px;
+  margin: 0 0 16px;
+}
+
+.login .key span {
+  display: block;
+  font-size: 13px;
+  color: var(--slate);
+}
+
+.login .key code {
+  display: block;
+  font:
+    500 15px/1.6 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  letter-spacing: 0.04em;
+  margin: 2px 0 20px;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.login .link {
+  display: block;
+  margin: 16px auto 0;
+}
+
+.login [hidden] {
+  display: none;
+}
+
 .login input {
   padding: 11px 12px;
   font-size: 16px;

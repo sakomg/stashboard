@@ -88,3 +88,23 @@ test('one backup a day, and old ones are pruned', () => {
     'stashboard-2026-01-04.db',
   ]);
 });
+
+test('the account is stored in the database and removing it ends every session', async () => {
+  const { deleteOwner, getOwner, saveOwner } = await import('../src/db.ts');
+  const db = openDb(mkdtempSync(join(tmpdir(), 'stashboard-test-')));
+  assert.equal(getOwner(db), null);
+  saveOwner(db, { passwordHash: 'h', totpSecret: SECRET });
+  assert.deepEqual(getOwner(db), { passwordHash: 'h', totpSecret: SECRET });
+  const token = createSession(db, 60_000);
+  assert.equal(deleteOwner(db), true);
+  assert.equal(getOwner(db), null);
+  assert.equal(sessionValid(db, token), false);
+  assert.equal(deleteOwner(db), false);
+});
+
+test('the QR code is a self-contained SVG', async () => {
+  const { qrSvg } = await import('../src/qr.ts');
+  const svg = qrSvg('otpauth://totp/Stashboard:dashboard?secret=GEZDGNBVGY3TQOJQ&issuer=Stashboard');
+  assert.match(svg, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" viewBox="0 0 (\d+) \1"/);
+  assert.ok(!svg.includes('<script') && !svg.includes('href'));
+});

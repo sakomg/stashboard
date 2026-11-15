@@ -5,8 +5,6 @@ export interface Config {
   zerion: { apiKey: string };
   tonapi: { apiKey: string };
   coingecko: { apiKey: string };
-  /** Login. Null until `npm run auth` has been run; without it the server only listens on localhost. */
-  auth: { passwordHash: string; totpSecret: string } | null;
   /** Public host name the dashboard is served on; used by the deploy for HTTPS. */
   domain: string;
   schedule: { balancesMinutes: number; signalsMinutes: number };
@@ -62,18 +60,11 @@ export function loadConfig(path = process.env.CONFIG_PATH ?? 'config.json'): Con
   }
 
   const heat = obj(raw.heat);
-  const auth = obj(raw.auth);
-  const passwordHash = str(auth.passwordHash);
-  const totpSecret = str(auth.totpSecret);
-  if (Boolean(passwordHash) !== Boolean(totpSecret)) {
-    throw new Error('config: auth needs both passwordHash and totpSecret; run npm run auth');
-  }
   return {
     binance: { apiKey: str(obj(raw.binance).apiKey), apiSecret: str(obj(raw.binance).apiSecret) },
     zerion: { apiKey: str(obj(raw.zerion).apiKey) },
     tonapi: { apiKey: str(obj(raw.tonapi).apiKey) },
     coingecko: { apiKey: str(obj(raw.coingecko).apiKey) },
-    auth: passwordHash ? { passwordHash, totpSecret } : null,
     domain: str(raw.domain),
     schedule: numbers(raw.schedule, DEFAULTS.schedule, 'schedule'),
     heat: {

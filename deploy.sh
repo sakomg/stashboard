@@ -11,14 +11,15 @@ cd "$(dirname "$0")"
 FILES=(src public assets package.json package-lock.json assets.json Dockerfile docker-compose.yml Caddyfile .dockerignore)
 ssh -p "$PORT" "$HOST" "mkdir -p '$REMOTE_DIR'"
 
-# config.json holds the keys, the login and the domain. Run locally, it is uploaded together with a .env
+# config.json holds the keys and the domain. Run locally, it is uploaded together with a .env
 # naming the domain; run from CI (no local copy), what is already on the server is kept.
 if [[ -f config.json ]]; then
   node -e '
     const c = JSON.parse(require("fs").readFileSync("config.json", "utf8"));
-    const fail = (m) => { console.error(m); process.exit(1); };
-    if (!c.auth?.passwordHash || !c.auth?.totpSecret) fail("config.json has no login: run npm run auth first");
-    if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(c.domain ?? "")) fail("config.json has no domain: set \"domain\" to the host name of the dashboard");
+    if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(c.domain ?? "")) {
+      console.error("config.json has no domain: set \"domain\" to the host name of the dashboard");
+      process.exit(1);
+    }
     require("fs").writeFileSync(".env.deploy", `DOMAIN=${c.domain}\n`);
   '
   trap 'rm -f .env.deploy' EXIT
@@ -64,4 +65,9 @@ if [[ "$status" != healthy ]]; then
   exit 1
 fi
 echo "✓ Running at https://$(grep -oP '(?<=^DOMAIN=).*' .env)"
+# Until the owner has created the account, the server prints a setup code on every start.
+if setup=$($DC logs --since 2m stashboard 2>/dev/null | grep -F '[setup-code]' | tail -1) && [[ -n "$setup" ]]; then
+  echo
+  echo "$setup" | sed -E 's/^[^|]*\| //; s/ +\[setup-code\]//'
+fi
 REMOTE
