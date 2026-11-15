@@ -31,13 +31,14 @@ interface Row {
 
 const dirOf = (): string => join(process.env.DATA_DIR ?? 'data', 'logos');
 
-/** Remembers where a logo can be found. A known URL is kept unless the source now names a different one. */
+/** Remembers where a logo can be found. When a source names a different address, the stored image is fetched again. */
 export function noteLogos(db: DatabaseSync, hints: LogoHint[]): void {
   const upsert = db.prepare(
     `INSERT INTO logos (kind, key, name, source_url) VALUES (?, ?, ?, ?)
      ON CONFLICT (kind, key) DO UPDATE SET
        name = COALESCE(excluded.name, name),
        tried_at = CASE WHEN source_url IS excluded.source_url THEN tried_at ELSE NULL END,
+       file = CASE WHEN source_url IS excluded.source_url THEN file ELSE NULL END,
        source_url = excluded.source_url`,
   );
   for (const h of hints) {
@@ -154,7 +155,9 @@ export async function fetchMissingLogos(
     save.run(
       w.kind,
       w.key,
-      saved?.url ?? candidates[0] ?? null,
+      // What the source named stays on record even when a fallback supplied the image, so the same hint
+      // arriving again is not mistaken for a new address.
+      rowOf(w.kind, w.key)?.source_url ?? saved?.url ?? candidates[0] ?? null,
       saved?.file ?? null,
       saved?.type ?? null,
       new Date(now).toISOString(),
@@ -179,11 +182,15 @@ export function logoFile(db: DatabaseSync, kind: string, key: string): { path: s
   return row ? { path: join(dirOf(), row.file), type: row.media_type } : null;
 }
 
-/** What the page may ask for: every stored logo as "kind/key", and chain display names. */
-export function logoIndex(db: DatabaseSync): { available: string[]; chains: Record<string, string> } {
-  const rows = db.prepare('SELECT kind, key, name, file FROM logos').all() as unknown as Row[];
+/**
+ * What the page may ask for: every stored logo as "kind/key" with a version that changes when the image does
+ * (browsers keep logos for a week, so a replaced one needs a new address), and chain display names.
+ */
+export function logoIndex(db: DatabaseSync): { available: Record<string, string>; chains: Record<string, string> } {
+  const rows = db.prepare('SELECT kind, key, name, source_url, file FROM logos').all() as unknown as Row[];
+  const version = (r: Row): string => createHash('sha1').update(`${r.source_url}\n${r.file}`).digest('hex').slice(0, 8);
   return {
-    available: rows.filter((r) => r.file).map((r) => `${r.kind}/${r.key}`),
+    available: Object.fromEntries(rows.filter((r) => r.file).map((r) => [`${r.kind}/${r.key}`, version(r)])),
     chains: Object.fromEntries(rows.filter((r) => r.kind === 'chain' && r.name).map((r) => [r.key, r.name!])),
   };
 }

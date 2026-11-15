@@ -1,5 +1,6 @@
 // Zerion API (free tier): wallet tokens and DeFi positions for EVM chains and Solana.
 import { setTimeout as sleep } from 'node:timers/promises';
+import { receiptUnderlying } from '../assets.ts';
 import { getJson, HttpError } from '../http.ts';
 import type { CollectResult, Holding, HoldingType, LogoHint } from '../types.ts';
 
@@ -99,8 +100,23 @@ const TYPES: Record<string, HoldingType> = {
   margin: 'margin',
 };
 
+/**
+ * A lending deposit shows up twice: as the position in the protocol and as the receipt token the protocol
+ * handed out (aEthWETH for WETH lent on Aave). They are the same money, so the receipt is dropped when the
+ * deposit it stands for is listed on the same chain. A receipt with no listed deposit is kept.
+ */
+export function withoutDepositReceipts(positions: ZerionPosition[]): ZerionPosition[] {
+  const deposited = new Set(
+    positions.filter((p) => p.type === 'deposit').map((p) => `${p.chain}\n${p.symbol.toLowerCase()}`),
+  );
+  return positions.filter((p) => {
+    const inside = p.type === 'wallet' ? receiptUnderlying(p.symbol) : null;
+    return !(inside && deposited.has(`${p.chain}\n${inside.toLowerCase()}`));
+  });
+}
+
 export async function collectZerion(apiKey: string, address: string, kind: 'evm' | 'solana'): Promise<CollectResult> {
-  const positions = await fetchPositions(apiKey, address, kind);
+  const positions = withoutDepositReceipts(await fetchPositions(apiKey, address, kind));
   const holdings: Holding[] = [];
   const logos: LogoHint[] = [];
   let unpriced = 0;

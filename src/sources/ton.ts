@@ -3,6 +3,8 @@ import { getJson } from '../http.ts';
 import type { CollectResult, Holding, LogoHint } from '../types.ts';
 
 const API = 'https://tonapi.io/v2';
+// TonAPI has no image for the native coin, and a lookup by ticker finds an unrelated token that shares it.
+const TON_LOGO = 'https://assets.dedust.io/images/ton.webp';
 
 interface JettonBalance {
   balance: string;
@@ -15,7 +17,7 @@ export async function collectTon(apiKey: string, address: string): Promise<Colle
   const headers: Record<string, string> = apiKey ? { authorization: `Bearer ${apiKey}` } : {};
   const holdings: Holding[] = [];
   const warnings: string[] = [];
-  const logos: LogoHint[] = [];
+  const logos: LogoHint[] = [{ kind: 'token', key: 'TON', url: TON_LOGO }];
 
   const account = await getJson<{ balance: number }>(`${API}/accounts/${address}`, headers);
   const rates = await getJson<{ rates: { TON?: { prices?: { USD?: number } } } }>(

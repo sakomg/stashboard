@@ -23,6 +23,9 @@ export const OTHER_CATEGORY = 'Other';
 const AAVE_RECEIPT =
   /^a(?:Eth|Arb|Opt|Bas|Pol|Ava|Gno|Bnb|Scr|Lin|Met|ZkS|Zks|Son|Cel|Ink|Pla|Man|Sei)(?:Lido|EtherFi|Horizon)?(.{2,})$/;
 
+/** The token inside a lending receipt (WETH for aEthWETH), or null when the symbol is not a receipt. */
+export const receiptUnderlying = (symbol: string): string | null => AAVE_RECEIPT.exec(symbol)?.[1] ?? null;
+
 export function createResolver(rules: AssetRules): (symbol: string) => Asset {
   const alias = new Map<string, string>();
   for (const [key, wrappers] of Object.entries(rules.aliases)) {
@@ -36,7 +39,7 @@ export function createResolver(rules: AssetRules): (symbol: string) => Asset {
 
   return (held) => {
     // A lending receipt is the token that was lent.
-    const symbol = AAVE_RECEIPT.exec(held)?.[1] ?? held;
+    const symbol = receiptUnderlying(held) ?? held;
     const stock = /^([A-Z]+?)(x|B|on)?$/.exec(symbol);
     if (stock && stocks.has(stock[1]!)) return { key: stock[1]!, category: STOCKS_CATEGORY };
     // Exact spelling first: wrappers differ by case (stETH, cbBTC), plain tickers do not.
