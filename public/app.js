@@ -2016,6 +2016,10 @@ async function load() {
     $('banner').hidden = true;
 
     await renderAll();
+    if (data.demo && !state.demoNoticed) {
+      state.demoNoticed = true;
+      showInfo('This is demo data. Nothing in it is real, and updates and new accounts are off.');
+    }
     if ($('account').open) renderAccountPanel();
     if (data.collecting) watchProgress();
   } catch (err) {

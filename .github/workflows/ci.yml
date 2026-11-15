@@ -2,7 +2,6 @@ name: CI
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, closed]
   push:
     branches: [main]
 
@@ -12,12 +11,9 @@ permissions:
 jobs:
   check:
     name: Format, typecheck and test
-    if: github.event.action != 'closed' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.merged == true && github.event.pull_request.merge_commit_sha || '' }}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -26,43 +22,4 @@ jobs:
       - run: npm run format:check
       - run: npm run typecheck
       - run: npm test
-
-  deploy:
-    name: Deploy
-    needs: check
-    if: >-
-      github.event_name == 'pull_request' &&
-      github.event.action == 'closed' &&
-      github.event.pull_request.merged == true &&
-      github.event.pull_request.base.ref == 'main' &&
-      vars.DEPLOY_HOST != ''
-    runs-on: ubuntu-latest
-    environment: production
-    concurrency:
-      group: deploy
-      cancel-in-progress: false
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
-      - name: Set up SSH
-        env:
-          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
-          HOST: ${{ vars.DEPLOY_HOST }}
-          PORT: ${{ vars.DEPLOY_PORT || '22' }}
-        run: |
-          install -m 700 -d ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          if [ -n "$KNOWN_HOSTS" ]; then
-            printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
-          else
-            ssh-keyscan -p "$PORT" "$HOST" > ~/.ssh/known_hosts
-          fi
-      - name: Deploy
-        env:
-          TARGET: ${{ vars.DEPLOY_USER || 'root' }}@${{ vars.DEPLOY_HOST }}
-          SSH_PORT: ${{ vars.DEPLOY_PORT || '22' }}
-          REMOTE_DIR: ${{ vars.DEPLOY_DIR || '/opt/stashboard' }}
-        run: ./deploy.sh "$TARGET" "$REMOTE_DIR"
+      - run: bash -n install.sh deploy.sh

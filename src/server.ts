@@ -46,7 +46,8 @@ const config = loadConfig();
 const host = process.env.HOST ?? '127.0.0.1';
 const port = Number(process.env.PORT ?? 8787);
 const db = openDb();
-importConfigExchange(db, config.binance);
+const demo = process.env.DEMO === '1';
+if (!demo) importConfigExchange(db, config.binance);
 const rules = loadAssetRules();
 const categories = categoryNames(rules);
 const learned = loadLearned(db);
@@ -112,6 +113,9 @@ function setSessionCookie(request: FastifyRequest, reply: FastifyReply, token: s
 }
 
 app.addHook('onRequest', async (request, reply) => {
+  if (demo && DEMO_LOCKED.test(`${request.method} ${request.url.split('?')[0]}`)) {
+    return reply.code(403).send({ error: 'This is the demo. Install Stashboard to add your own accounts.' });
+  }
   const path = request.url.split('?')[0]!;
   const api = path.startsWith('/api/');
 
@@ -359,7 +363,10 @@ interface Progress {
 let progress: Progress | null = null;
 let lastFinishedAt = 0;
 
+const DEMO_LOCKED = /^(POST \/api\/(wallets|exchanges|history\/reset|collect)|DELETE \/api\/accounts\/)/;
+
 const gate = () => {
+  if (demo) return { allowed: false, reason: 'Demo data. Updates are off', availableAt: null };
   const q = zerionQuota();
   return updateGate({
     running: collecting !== null,
@@ -434,13 +441,16 @@ function collect(): Promise<void> {
 void fearGreed();
 
 const intervalMs = Math.max(config.schedule.balancesMinutes, 5) * 60_000;
-setInterval(collect, intervalMs).unref();
 const lastSnapshot = listSnapshots(db).at(-1);
-if (!lastSnapshot || Date.now() - Date.parse(lastSnapshot.startedAt) > intervalMs) void collect();
-else
-  void refreshSignals()
-    .then(refreshLogos)
-    .catch((err: unknown) => app.log.error(err));
+if (demo) void refreshLogos();
+else {
+  setInterval(collect, intervalMs).unref();
+  if (!lastSnapshot || Date.now() - Date.parse(lastSnapshot.startedAt) > intervalMs) void collect();
+  else
+    void refreshSignals()
+      .then(refreshLogos)
+      .catch((err: unknown) => app.log.error(err));
+}
 
 const backup = (): void => {
   try {
@@ -471,6 +481,7 @@ app.get('/api/portfolio', async () => ({
   fearGreed: await fearGreed(),
   collecting: collecting !== null,
   update: gate(),
+  demo,
   heat: { weights: config.heat.weights, zones: config.heat.zones },
   exchanges: EXCHANGES,
   preferences: { hideAmounts: getSetting(db, 'hide_amounts') === '1' },
