@@ -9,11 +9,13 @@
   },
   "scripts": {
     "check": "node --disable-warning=ExperimentalWarning src/check.ts",
+    "collect": "node --disable-warning=ExperimentalWarning src/collect.ts",
+    "test": "node --disable-warning=ExperimentalWarning --test",
     "wallets": "node --disable-warning=ExperimentalWarning src/wallets.ts",
     "typecheck": "tsc",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint": "npm run format:check && npm run typecheck"
+    "lint": "npm run format:check && npm run typecheck && npm test"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

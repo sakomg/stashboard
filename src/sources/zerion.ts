@@ -1,6 +1,7 @@
 // Zerion API (free tier): wallet tokens and DeFi positions for EVM chains and Solana.
 import { setTimeout as sleep } from 'node:timers/promises';
-import { getJson } from '../http.ts';
+import { getJson, HttpError } from '../http.ts';
+import type { CollectResult, Holding, HoldingType } from '../types.ts';
 
 export interface ZerionPosition {
   chain: string;
@@ -29,14 +30,26 @@ interface ApiPage {
   }[];
 }
 
-// The free tier allows one request per second per key.
-const MIN_INTERVAL_MS = 1100;
+// The free tier allows about one request per second per key and still throttles short bursts,
+// so requests are spaced out and a throttled one is retried with a growing pause.
+const MIN_INTERVAL_MS = 1500;
+const RETRY_PAUSES_MS = [3000, 6000, 12000];
 let lastRequestAt = 0;
 
-async function throttle(): Promise<void> {
-  const wait = lastRequestAt + MIN_INTERVAL_MS - Date.now();
-  if (wait > 0) await sleep(wait);
-  lastRequestAt = Date.now();
+async function zerionGet<T>(url: string, headers: Record<string, string>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    const wait = lastRequestAt + MIN_INTERVAL_MS - Date.now();
+    if (wait > 0) await sleep(wait);
+    try {
+      return await getJson<T>(url, headers);
+    } catch (err) {
+      const pause = RETRY_PAUSES_MS[attempt];
+      if (!(err instanceof HttpError) || err.status !== 429 || pause === undefined) throw err;
+      await sleep(pause);
+    } finally {
+      lastRequestAt = Date.now();
+    }
+  }
 }
 
 /** All positions of one wallet. DeFi positions are included for EVM; Zerion returns only plain tokens and staking for Solana. */
@@ -53,8 +66,7 @@ export async function fetchPositions(
 
   const out: ZerionPosition[] = [];
   while (url) {
-    await throttle();
-    const page: ApiPage = await getJson<ApiPage>(url, headers);
+    const page: ApiPage = await zerionGet<ApiPage>(url, headers);
     for (const { attributes: a, relationships } of page.data) {
       out.push({
         chain: relationships?.chain?.data?.id ?? 'unknown',
@@ -69,4 +81,39 @@ export async function fetchPositions(
     url = page.links?.next;
   }
   return out;
+}
+
+const TYPES: Record<string, HoldingType> = {
+  wallet: 'wallet',
+  deposit: 'deposit',
+  loan: 'borrow',
+  staked: 'staked',
+  locked: 'locked',
+  reward: 'reward',
+  airdrop: 'reward',
+  margin: 'margin',
+};
+
+export async function collectZerion(apiKey: string, address: string, kind: 'evm' | 'solana'): Promise<CollectResult> {
+  const positions = await fetchPositions(apiKey, address, kind);
+  const holdings: Holding[] = [];
+  let unpriced = 0;
+  for (const p of positions) {
+    // Tokens Zerion cannot price are almost always airdropped spam, so they are counted but not listed.
+    if (!p.value) {
+      unpriced++;
+      continue;
+    }
+    const type = TYPES[p.type] ?? 'wallet';
+    holdings.push({
+      chain: p.chain,
+      protocol: p.protocol,
+      symbol: p.symbol,
+      quantity: p.quantity,
+      price: p.price,
+      value: type === 'borrow' ? -Math.abs(p.value) : p.value,
+      type,
+    });
+  }
+  return { holdings, warnings: unpriced > 0 ? [`${unpriced} tokens without a price skipped`] : [] };
 }

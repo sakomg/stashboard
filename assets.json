@@ -1,0 +1,24 @@
+{
+  "aliases": {
+    "BTC": ["WBTC", "cbBTC", "BTCB", "tBTC", "BTC.b"],
+    "ETH": ["WETH", "stETH", "wstETH", "weETH", "eETH", "rETH", "cbETH", "BETH", "WBETH", "aWETH"],
+    "SOL": ["WSOL", "JitoSOL", "mSOL", "bSOL", "BNSOL", "JupSOL"],
+    "TON": ["tsTON", "stTON"],
+    "BNB": ["WBNB"],
+    "POL": ["MATIC", "WMATIC", "WPOL"],
+    "MNT": ["WMNT"],
+    "AVAX": ["WAVAX"],
+    "USDT": ["USD₮", "USDT0", "USDT.e", "aUSDT"],
+    "USDC": ["USDC.e", "USDbC", "aUSDC"]
+  },
+  "categories": {
+    "BTC": ["BTC"],
+    "ETH": ["ETH"],
+    "Stablecoins": ["USDT", "USDC", "DAI", "FDUSD", "USDe", "USDS", "PYUSD", "USDG", "USD1", "TUSD"],
+    "L1": ["SOL", "TON", "BNB", "ATOM", "APT", "SUI", "AVAX", "ADA", "TRX", "NEAR", "DOT", "XRP", "LTC", "DOGE"],
+    "L2": ["ARB", "OP", "STRK", "ZK", "POL", "MNT", "CYBER", "LINEA", "ZORA"],
+    "DeFi": ["AAVE", "UNI", "LDO", "GMX", "DYDX", "EIGEN", "ASTER", "PENDLE", "CRV", "MKR", "JUP", "PYTH", "W", "XVS"],
+    "Memes": ["NOT", "DOGS", "HMSTR", "PEPE", "SHIB", "WIF", "BONK", "DEGEN"]
+  },
+  "stocks": ["NVDA", "TSLA", "AAPL", "MSFT", "GOOGL", "AMZN", "META", "COIN", "MSTR", "HOOD", "CRCL", "SPY", "QQQ"]
+}

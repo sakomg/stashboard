@@ -6,7 +6,7 @@ ENV NODE_ENV=production \
     DATA_DIR=/data
 
 # No runtime dependencies yet: Node 24 runs TypeScript directly. The config is mounted from the host.
-COPY package.json ./
+COPY package.json assets.json ./
 COPY src ./src
 RUN mkdir -p /data && chown node:node /data
 

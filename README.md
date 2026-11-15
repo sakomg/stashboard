@@ -7,7 +7,7 @@ Stashboard pulls balances from Binance, EVM chains, Solana and TON into one net-
 portfolio is allocated, keeps its history, and scores every position from cold to overheated so you can see
 what to trim and what to leave alone.
 
-> **Status:** early development. Key checks and wallet storage work; collectors and the dashboard are next.
+> **Status:** early development. Collection works from the console; the dashboard is next.
 > See [PLAN.md](PLAN.md).
 
 ## Principles
@@ -38,10 +38,23 @@ npm install
 cp config.example.json config.json    # then fill in the API keys
 npm run wallets -- add <address> [label]
 npm run check
+npm run collect
 ```
 
 `npm run wallets` lists, adds and removes wallets; the network (EVM, Solana or TON) is detected from the
 address format. `npm run check` calls every source once and reports which keys and wallets work.
+
+`npm run collect` reads every account, stores a snapshot in `data/stashboard.db` and prints the portfolio:
+value per source, merged assets, categories and net worth. For Binance it also prints the exchange's own
+valuation next to the collected sum. `npm run collect -- --show` prints the stored portfolio without calling
+any API. If a source fails, its last good data is shown and marked, and the command exits with an error.
+
+### Asset rules
+
+[`assets.json`](assets.json) decides how holdings are merged and grouped: which wrappers count as the same
+asset (WETH and stETH as ETH), which category an asset belongs to, and which tickers are stocks. Tokenized
+stocks are matched by suffix, so `NVDAx`, `NVDAB` and `NVDAon` all count as NVDA. Edit the file to fit your
+portfolio; anything it does not mention lands in "Other".
 
 ### API keys
 
@@ -65,7 +78,7 @@ For now the deploy only runs the key check from the server's IP; the long-runnin
 
 ### Continuous deployment
 
-GitHub Actions checks formatting and types on every pull request and on every push to `main`
+GitHub Actions checks formatting and types and runs the tests on every pull request and on every push to `main`
 ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)). A push to `main` also deploys, once the repository
 is configured under _Settings → Secrets and variables → Actions_:
 
@@ -85,7 +98,8 @@ that is already on the server.
 
 ```sh
 npm run format        # format everything with Prettier
-npm run lint          # formatting check + typecheck, the same as CI
+npm test              # unit tests
+npm run lint          # formatting check + typecheck + tests, the same as CI
 ```
 
 ## Brand
