@@ -82,7 +82,7 @@ fi
 say "→ Building"
 "${DC[@]}" build --quiet
 say "→ Checking the API keys"
-"${DC[@]}" run --rm --no-deps -T stashboard src/check.ts </dev/null || say "! The key check reported problems (see above). Continuing."
+"${DC[@]}" run --rm --no-deps -T stashboard src/cli/check.ts </dev/null || say "! The key check reported problems (see above). Continuing."
 say "→ Starting"
 "${DC[@]}" up -d --remove-orphans
 

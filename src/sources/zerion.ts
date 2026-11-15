@@ -1,9 +1,9 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { receiptUnderlying } from '../assets.ts';
-import { getJsonWithHeaders, HttpError } from '../http.ts';
+import { receiptUnderlying } from '../domain/assets.ts';
+import { getJsonWithHeaders, HttpError } from '../lib/http.ts';
 import { LIGHTER_PROTOCOL } from './lighter.ts';
-import type { CollectResult, Holding, HoldingType, LogoHint } from '../types.ts';
+import type { CollectResult, Holding, HoldingType, LogoHint } from '../domain/types.ts';
 
 export interface ZerionPosition {
   chain: string;

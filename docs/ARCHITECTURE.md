@@ -3,42 +3,44 @@
 This is the reference for anyone changing the code. The code itself carries no comments: the reasons behind
 it live here, next to the user-facing [README](../README.md).
 
-## Code map
+## Project layout
 
-| Path                                   | Role                                                                                       |
-| -------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `src/server.ts`                        | HTTP server: pages, JSON API, first-run setup, sign-in, collection schedule                |
-| `src/collector.ts`                     | One collection run over every account, with progress events                                |
-| `src/sources/binance.ts`               | Binance account, every wallet a read-only key can see                                      |
-| `src/sources/zerion.ts`                | EVM and Solana wallets through Zerion, with its allowance and a per-wallet cache           |
-| `src/sources/lighter.ts`               | Lighter and Lighter on Robinhood Chain, by EVM address                                     |
-| `src/sources/ton.ts`                   | TON and whitelisted jettons through TonAPI                                                 |
-| `src/sources/market.ts`                | Binance public market data: candles, funding, open interest                                |
-| `src/sources/feargreed.ts`             | Crypto Fear & Greed index from alternative.me                                              |
-| `src/assets.ts`                        | Resolver: merges wrappers into one asset and gives it a category                           |
-| `src/categories.ts`                    | Categories looked up from CoinGecko tags, and categories chosen by hand                    |
-| `src/portfolio.ts`                     | Per-account holdings merged into the portfolio                                             |
-| `src/view.ts`                          | What the page needs: current portfolio, history, wanted logos                              |
-| `src/signals.ts`, `src/heat.ts`        | Market readings per asset and the heat score built from them                               |
-| `src/indicators.ts`                    | RSI and simple moving average                                                              |
-| `src/shares.ts`                        | Shared links: checking what the page sends, storing, expiring, turning off                 |
-| `src/exchanges.ts`                     | Exchange accounts: adding, checking a key is read-only, importing the key from config.json |
-| `src/vault.ts`                         | Encryption of stored secrets with a key file kept next to the database                     |
-| `src/logos.ts`                         | Logo download, verification, storage and the index the page reads                          |
-| `src/auth.ts`                          | Password hashing, TOTP and attempt limiting                                                |
-| `src/db.ts`                            | SQLite schema, migrations and every query                                                  |
-| `src/http.ts`                          | JSON over HTTP with timeouts and safe error text                                           |
-| `src/address.ts`                       | Address validation and network detection                                                   |
-| `src/qr.ts`                            | QR code as SVG for the authenticator link                                                  |
-| `src/check.ts`                         | `npm run check`: one request per source to prove the keys                                  |
-| `src/collect.ts`                       | `npm run collect`: collect once and print, `--show` prints only, `--signals` scores        |
-| `src/demo.ts`                          | `npm run demo`: a made-up portfolio and the server in demo mode                            |
-| `src/wallets.ts`                       | `npm run wallets`: list, `add <address> [label]`, `rm <id>`                                |
-| `src/auth-reset.ts`                    | `npm run auth:reset`: remove the account so it can be set up again                         |
-| `public/`                              | The page: plain HTML, CSS and ES modules, no build step                                    |
-| `public/ui.js`                         | The core components every page builds on                                                   |
-| `public/share.html`, `public/share.js` | The public page a shared link opens                                                        |
-| `install.sh`, `deploy.sh`              | Install or update on a server, and deploy from a computer                                  |
+```text
+src/
+  main.ts          entry point: builds the server, starts the schedule and backups, listens
+  lib/             config loading and JSON over HTTP with safe error text
+  domain/          pure logic, no I/O: addresses, asset rules, portfolio maths, heat score, indicators, types
+  storage/         SQLite: schema and migrations, one module per concern, and the vault for secrets
+  sources/         one client per external API: Binance, Zerion, Lighter, TonAPI, market data, Fear & Greed
+  services/        processes that combine them: collection, signals, categories, logos, exchanges, shares, views
+  auth/            password hashing, TOTP, attempt limiting, the setup QR code
+  server/          HTTP: context, access control, static files, the collection schedule, routes by area
+  cli/             console commands: check, collect, wallets, auth-reset, demo
+public/
+  common/          served to every page: core components (ui.js) and base, component and sign-in styles
+  dashboard/       the dashboard: index.html, main.js and one module per part of the page, its styles
+  login/ setup/    the sign-in and first-run pages
+  share/           the public page a shared link opens
+test/              mirrors src/, plus tests of the server over HTTP, the page modules and the layering
+docs/              this file, the self-hosting guide and the user guide
+assets/            the logo and the README screenshots
+```
+
+Dependencies point down: `lib` ← `domain` ← `storage`, `sources` ← `services` ← `server`, `cli` ← `main`. `domain`
+does no I/O and imports only `lib`, so it is tested without a database or a network. `test/architecture.test.ts`
+fails when a module imports a layer it should not, and when a new folder in `src` has no place in the layering.
+
+The server is assembled by `createApp` from a `Context` (config, database, resolver, owner) that `createContext`
+builds from the environment or that a test passes in. Routes live in `server/routes` by area (sign-in, dashboard,
+accounts, shares); `server/collection.ts` owns the schedule, the progress of a run and the update gate.
+`test/server/access.test.ts` drives the whole app through `app.inject` to check who may open what.
+
+On the page, `dashboard/main.js` loads data and renders; every other module owns one part of the page and
+exports its render function. Modules that need to reload or re-render call `actions.load` or
+`actions.renderAll` from `state.js`, which `main.js` fills in, so no module imports `main.js` and the import
+graph has no cycles. `main.js` imports the modules that only register event handlers (dialogs, settings,
+sharing, views) by name, since nothing else would load them. `test/web/modules.test.ts` checks that every module
+is reached from `main.js`, that every imported name is exported, and that there are no cycles.
 
 ## Collection
 
@@ -313,7 +315,7 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
     shimmer then. Past the first read, empty places say when they fill: the 24-hour, 7-day and 30-day changes count
     down from when history began (`historySince` in `/api/portfolio`), the history chart says when the next update
     is due, and the overview says why there are no balances when accounts exist but none could be priced.
-- **Core components.** `public/ui.js` is the one place controls are built, for the dashboard and the shared
+- **Core components.** `public/common/ui.js` is the one place controls are built, for the dashboard and the shared
   page alike: `h` (elements, never `innerHTML`), `icon` and `iconButton`, `button` in four variants
   (primary for the one main action of a view or dialog, secondary, ghost for quiet actions, danger for removal), `select` (a listbox that replaces the native select: arrow keys, Home, End,
   Enter, Space and Escape, `aria-activedescendant`, closes on Tab), `help` (a question-mark button opening a
@@ -383,7 +385,7 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
 
 ## Database
 
-One SQLite file, `DATA_DIR/stashboard.db`. Each migration in `src/db.ts` upgrades the schema by one version,
+One SQLite file, `DATA_DIR/stashboard.db`. Each migration in `src/storage/database.ts` upgrades the schema by one version,
 and `PRAGMA user_version` records how many have run.
 
 | Table               | Holds                                                                                                  |
@@ -435,14 +437,14 @@ deployed. It can also be started by hand. It stays off until `DEPLOY_HOST` is se
 deploy, and it runs the checks again before deploying.
 
 The image runs TypeScript directly on Node 24, so there is no build step; the config is mounted from the
-host, and other entry points run the same way (`docker compose run --rm stashboard src/check.ts`). The app
+host, and other entry points run the same way (`docker compose run --rm stashboard src/cli/check.ts`). The app
 publishes no port: only Caddy reaches it on the compose network. The image is built on the server, so a
 Watchtower running there is told to leave it alone. Caddy obtains and renews the HTTPS certificate, which
 needs ports 80 and 443 reachable from the internet.
 
 ## Demo
 
-`npm run demo` (`src/demo.ts`) writes a made-up portfolio into `data-demo` and starts the server on it with
+`npm run demo` (`src/cli/demo.ts`) writes a made-up portfolio into `data-demo` and starts the server on it with
 `DEMO=1` and `config.example.json`. The data is deterministic: four accounts (an exchange, an EVM wallet with
 an Aave deposit and loan, a Solana wallet with Jito staking, a TON wallet), 90 days of snapshots every six
 hours from a seeded random walk ending at fixed prices, a few quantity changes so the history moves, and

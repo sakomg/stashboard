@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <meta name="color-scheme" content="dark" />
+    <title>Shared allocation</title>
+    <link rel="icon" href="/logo.svg" />
+    <link rel="stylesheet" href="/common/base.css" />
+    <link rel="stylesheet" href="/common/components.css" />
+    <link rel="stylesheet" href="/share/share.css" />
+  </head>
+  <body class="shared-page">
+    <header class="top">
+      <span class="brand"
+        ><img src="/logo.svg" alt="" width="28" height="28" /><span>stash</span><span>board</span></span
+      >
+    </header>
+    <main>
+      <section class="shared" aria-labelledby="share-title">
+        <h1 id="share-title"><span class="skeleton sk-title" aria-hidden="true"></span></h1>
+        <p class="muted" id="share-meta"><span class="skeleton sk-line" aria-hidden="true"></span></p>
+        <p class="shared-total num" id="share-total" hidden></p>
+        <div class="strip" id="strip" role="img" aria-label="Allocation">
+          <span class="skeleton sk-strip" aria-hidden="true"></span>
+        </div>
+        <ul class="legend" id="legend">
+          <li class="sk-legend"><span class="skeleton sk-line wide" aria-hidden="true"></span></li>
+          <li class="sk-legend"><span class="skeleton sk-line wide" aria-hidden="true"></span></li>
+          <li class="sk-legend"><span class="skeleton sk-line wide" aria-hidden="true"></span></li>
+          <li class="sk-legend"><span class="skeleton sk-line wide" aria-hidden="true"></span></li>
+          <li class="sk-legend"><span class="skeleton sk-line wide" aria-hidden="true"></span></li>
+        </ul>
+      </section>
+    </main>
+    <script type="module" src="/share/share.js"></script>
+  </body>
+</html>

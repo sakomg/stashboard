@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- The source is organised in layers (`lib`, `domain`, `storage`, `sources`, `services`, `auth`, `server`, `cli`)
+  with the dependency direction enforced by a test. The server is split into a context, access control, static
+  files, the collection schedule and routes by area; the database module into one module per concern.
+- The page is split into one module per part of the dashboard and stylesheets for base, components and each
+  page, served from folders that set who may load them.
+- Tests for access control over HTTP, the page modules and the layering.
+- `.nvmrc`, `.gitattributes` and Dependabot for npm, GitHub Actions and Docker.
+
 ## 1.0.0
 
 The first public release.

@@ -1,5 +1,5 @@
-import { getJson } from '../http.ts';
-import type { CollectResult, Holding, LogoHint } from '../types.ts';
+import { getJson } from '../lib/http.ts';
+import type { CollectResult, Holding, LogoHint } from '../domain/types.ts';
 
 const API = 'https://tonapi.io/v2';
 const TON_LOGO = 'https://assets.dedust.io/images/ton.webp';

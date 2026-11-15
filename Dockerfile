@@ -15,4 +15,4 @@ RUN mkdir -p /data && chown node:node /data
 
 USER node
 ENTRYPOINT ["node", "--disable-warning=ExperimentalWarning"]
-CMD ["src/server.ts"]
+CMD ["src/main.ts"]
