@@ -1,6 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import type { Config } from './config.ts';
-import { ensureExchangeAccount, finishSnapshot, listAccounts, saveOutcome, startSnapshot, type Account } from './db.ts';
+import { finishSnapshot, listAccounts, saveOutcome, startSnapshot, type Account } from './db.ts';
+import { exchangeKeys } from './exchanges.ts';
 import { noteLogos } from './logos.ts';
 import { collectBinance } from './sources/binance.ts';
 import { collectLighter } from './sources/lighter.ts';
@@ -19,8 +20,11 @@ type Notify = (event: ProgressEvent) => void;
 function collectAccount(db: DatabaseSync, config: Config, account: Account, notify: Notify): Promise<CollectResult> {
   const onWait = (note: string): void => notify({ type: 'waiting', accountId: account.id, note });
   switch (account.kind) {
-    case 'binance':
-      return collectBinance(config.binance);
+    case 'binance': {
+      const keys = exchangeKeys(db, account.id);
+      if (!keys) throw new Error('No API key is stored for this exchange. Remove it and add it again.');
+      return collectBinance(keys);
+    }
     case 'evm':
       if (!config.zerion.apiKey) throw new Error('Zerion key is not set in config.json');
       return collectEvm(db, config.zerion.apiKey, account.address, onWait);
@@ -64,8 +68,6 @@ export function repriceEarlierReads(holdings: Holding[]): Holding[] {
 }
 
 export async function runCollection(db: DatabaseSync, config: Config, notify: Notify = () => {}): Promise<number> {
-  if (config.binance.apiKey && config.binance.apiSecret) ensureExchangeAccount(db, 'binance', 'Binance');
-
   const accounts = listAccounts(db);
   notify({ type: 'start', accounts });
   const results: { account: Account; result?: CollectResult; error?: string }[] = [];
@@ -126,7 +128,7 @@ export function updateGate({
     const hours = zerionRenewsAt ? Math.max(1, Math.ceil((zerionRenewsAt - now) / 3_600_000)) : null;
     return {
       allowed: false,
-      reason: `Zerion's daily allowance is used up${hours ? `; updates resume in about ${hours} h` : ''}`,
+      reason: `Zerion's daily allowance is used up${hours ? `. Updates resume in about ${hours} h` : ''}`,
       availableAt: zerionRenewsAt,
     };
   }

@@ -23,8 +23,10 @@ import {
   latestSignals,
   listSnapshots,
   openDb,
-  removeWallet,
-  renameWallet,
+  backupNow,
+  removeAccount,
+  renameAccount,
+  resetHistory,
   saveOwner,
   sessionValid,
   getSetting,
@@ -37,12 +39,14 @@ import { fearGreed } from './sources/feargreed.ts';
 import { historyView, portfolioView, wantedLogos } from './view.ts';
 import { fetchMissingLogos, logoFile, noteLogos } from './logos.ts';
 import { fetchChains, zerionDayUsedUp, zerionQuota } from './sources/zerion.ts';
+import { addExchange, checkBinanceKey, EXCHANGES, importConfigExchange, type ExchangeKind } from './exchanges.ts';
 import { createShare, deleteShare, getShare, listShares, parseSharePayload, shareHasLogo } from './shares.ts';
 
 const config = loadConfig();
 const host = process.env.HOST ?? '127.0.0.1';
 const port = Number(process.env.PORT ?? 8787);
 const db = openDb();
+importConfigExchange(db, config.binance);
 const rules = loadAssetRules();
 const categories = categoryNames(rules);
 const learned = loadLearned(db);
@@ -68,6 +72,7 @@ const STATIC: Record<string, { file: string; type: string; cache?: boolean; acce
   '/login.js': { file: 'public/login.js', type: 'text/javascript; charset=utf-8', access: ['signin'] },
   '/setup': { file: 'public/setup.html', type: 'text/html; charset=utf-8', access: ['setup'] },
   '/setup.js': { file: 'public/setup.js', type: 'text/javascript; charset=utf-8', access: ['setup'] },
+  '/ui.js': { file: 'public/ui.js', type: 'text/javascript; charset=utf-8', access: ['session', 'public'] },
   '/share.js': { file: 'public/share.js', type: 'text/javascript; charset=utf-8', access: ['public'] },
   '/app.css': { file: 'public/app.css', type: 'text/css; charset=utf-8', access: ['signin', 'setup', 'public'] },
   '/logo.svg': { file: 'assets/logo.svg', type: 'image/svg+xml', access: ['signin', 'setup', 'public'] },
@@ -154,6 +159,9 @@ for (const [path, { file, type, cache }] of Object.entries(STATIC)) {
 app.get('/healthz', async () => ({ ok: true }));
 
 const ICONS = [
+  'chevron-down',
+  'circle-help',
+  'external-link',
   'circle-user',
   'eye',
   'eye-off',
@@ -314,7 +322,7 @@ app.post<{ Body: { setupCode?: unknown; code?: unknown } }>('/api/setup/finish',
   saveOwner(db, owner);
   pending = null;
   signIn(request, reply, step);
-  console.log('Account created. Setup is closed; sign-in is now required.');
+  console.log('Account created. Setup is closed and sign-in is now required.');
   return { ok: true };
 });
 
@@ -442,7 +450,11 @@ backup();
 setInterval(backup, 60 * 60_000).unref();
 
 const build = createHash('sha1')
-  .update(['public/index.html', 'public/app.js', 'public/app.css'].map((f) => readFileSync(new URL(f, root))).join())
+  .update(
+    ['public/index.html', 'public/app.js', 'public/app.css', 'public/ui.js']
+      .map((f) => readFileSync(new URL(f, root)))
+      .join(),
+  )
   .digest('hex')
   .slice(0, 12);
 
@@ -455,6 +467,8 @@ app.get('/api/portfolio', async () => ({
   fearGreed: await fearGreed(),
   collecting: collecting !== null,
   update: gate(),
+  heat: { weights: config.heat.weights, zones: config.heat.zones },
+  exchanges: EXCHANGES,
   preferences: { hideAmounts: getSetting(db, 'hide_amounts') === '1' },
   collectEveryMinutes: intervalMs / 60_000,
   loginEnabled: owner !== null,
@@ -516,11 +530,56 @@ app.post<{ Body: { address?: unknown; label?: unknown } }>('/api/wallets', async
   }
 });
 
-app.patch<{ Params: { id: string }; Body: { label?: unknown } }>('/api/wallets/:id', async (request, reply) => {
+app.patch<{ Params: { id: string }; Body: { label?: unknown } }>('/api/accounts/:id', async (request, reply) => {
   const label = typeof request.body?.label === 'string' ? request.body.label.trim().slice(0, 40) : '';
-  if (!label) return reply.code(400).send({ error: 'Enter a name for the wallet' });
-  if (!renameWallet(db, Number(request.params.id), label)) return reply.code(404).send({ error: 'No such wallet' });
+  if (!label) return reply.code(400).send({ error: 'Enter a name for the account' });
+  if (!renameAccount(db, Number(request.params.id), label)) return reply.code(404).send({ error: 'No such account' });
   return { ok: true };
+});
+
+app.post<{ Body: { exchange?: unknown; apiKey?: unknown; apiSecret?: unknown; label?: unknown } }>(
+  '/api/exchanges',
+  async (request, reply) => {
+    const { exchange, apiKey, apiSecret, label } = request.body ?? {};
+    if (typeof exchange !== 'string' || !(exchange in EXCHANGES)) {
+      return reply.code(400).send({ error: 'Choose an exchange' });
+    }
+    const key = typeof apiKey === 'string' ? apiKey.trim() : '';
+    const secret = typeof apiSecret === 'string' ? apiSecret.trim() : '';
+    if (!/^[A-Za-z0-9]{16,128}$/.test(key) || !/^[A-Za-z0-9]{16,128}$/.test(secret)) {
+      return reply.code(400).send({ error: 'Paste the API key and the secret key exactly as the exchange shows them' });
+    }
+    const keys = { apiKey: key, apiSecret: secret };
+    try {
+      const { extra, ipRestricted } = await checkBinanceKey(keys);
+      if (extra.length > 0) {
+        return reply.code(400).send({
+          error: `This key can do more than read: ${extra.join(', ')}. Create a key with only Enable Reading ticked.`,
+        });
+      }
+      const account = addExchange(
+        db,
+        exchange as ExchangeKind,
+        keys,
+        typeof label === 'string' ? label.slice(0, 40) : undefined,
+      );
+      void (collecting ?? Promise.resolve()).then(collect);
+      return {
+        id: account.id,
+        label: account.label,
+        warning: ipRestricted
+          ? null
+          : "The key is not restricted to trusted IP addresses. Restricting it to this server's address is safer.",
+      };
+    } catch (err) {
+      return reply.code(400).send({ error: err instanceof Error ? err.message : String(err) });
+    }
+  },
+);
+
+app.post('/api/history/reset', async () => {
+  const backup = backupNow(db, 'before-history-reset');
+  return { removed: resetHistory(db), backup: backup.split('/').pop() };
 });
 
 app.put<{ Params: { key: string }; Body: { category?: unknown } }>(
@@ -538,8 +597,8 @@ app.put<{ Params: { key: string }; Body: { category?: unknown } }>(
   },
 );
 
-app.delete<{ Params: { id: string } }>('/api/wallets/:id', async (request, reply) => {
-  if (!removeWallet(db, Number(request.params.id))) return reply.code(404).send({ error: 'No such wallet' });
+app.delete<{ Params: { id: string } }>('/api/accounts/:id', async (request, reply) => {
+  if (!removeAccount(db, Number(request.params.id))) return reply.code(404).send({ error: 'No such account' });
   return { ok: true };
 });
 

@@ -1,32 +1,77 @@
 const $ = (id) => document.getElementById(id);
 
-function h(tag, props = {}, ...children) {
-  const el = document.createElement(tag);
-  for (const [key, value] of Object.entries(props)) {
-    if (value === false || value == null) continue;
-    if (key === 'class') el.className = value;
-    else if (key.startsWith('on')) el.addEventListener(key.slice(2), value);
-    else if (key === 'style') Object.assign(el.style, value);
-    else el.setAttribute(key, value === true ? '' : value);
-  }
-  el.append(...children.filter((c) => c != null && c !== false));
-  return el;
-}
+import { h, help, icon, iconButton, segmented as segmentedControl, select } from '/ui.js';
 
-const SVG = 'http://www.w3.org/2000/svg';
+const SOURCES = {
+  rsi: {
+    label: 'StockCharts ChartSchool: RSI',
+    href: 'https://chartschool.stockcharts.com/table-of-contents/technical-indicators-and-overlays/technical-indicators/relative-strength-index-rsi',
+  },
+  ma: {
+    label: 'StockCharts ChartSchool: moving averages',
+    href: 'https://chartschool.stockcharts.com/table-of-contents/technical-indicators-and-overlays/technical-overlays/moving-averages-simple-and-exponential',
+  },
+  funding: {
+    label: 'Binance: funding rates',
+    href: 'https://www.binance.com/en/support/faq/introduction-to-binance-futures-funding-rates-360033525031',
+  },
+  openInterest: { label: 'Wikipedia: open interest', href: 'https://en.wikipedia.org/wiki/Open_interest' },
+  fearGreed: {
+    label: 'alternative.me: Fear & Greed Index',
+    href: 'https://alternative.me/crypto/fear-and-greed-index/',
+  },
+  binanceKeys: {
+    label: 'Binance: how to create API keys',
+    href: 'https://www.binance.com/en/support/faq/how-to-create-api-keys-on-binance-360002502072',
+  },
+};
 
-function icon(name) {
-  const svg = document.createElementNS(SVG, 'svg');
-  svg.setAttribute('class', 'icon');
-  svg.setAttribute('aria-hidden', 'true');
-  const use = document.createElementNS(SVG, 'use');
-  use.setAttribute('href', `/icons.svg#${name}`);
-  svg.append(use);
-  return svg;
-}
+const HELP = {
+  rsi: {
+    title: 'RSI',
+    text: 'The Relative Strength Index compares the size of recent gains with recent losses over 14 periods, on a scale from 0 to 100. Above 70 is usually read as overbought, below 30 as oversold. Shown here on daily candles.',
+    source: SOURCES.rsi,
+  },
+  rsiWeekly: {
+    title: 'Weekly RSI',
+    text: 'The same Relative Strength Index on weekly candles. It moves slower and shows the longer trend.',
+    source: SOURCES.rsi,
+  },
+  funding: {
+    title: 'Funding',
+    text: 'Perpetual futures have no expiry, so longs and shorts pay each other a funding rate every few hours. A positive rate means longs pay shorts and leverage leans long. Shown as the three-day average per 8 hours. The usual resting rate on Binance is 0.01%.',
+    source: SOURCES.funding,
+  },
+  ma200: {
+    title: '200-day average',
+    text: 'How far the price is above or below its average close over the last 200 days. A price far above it has run ahead of its long trend.',
+    source: SOURCES.ma,
+  },
+  openInterest: {
+    title: 'Open interest',
+    text: 'The number of futures contracts still open. When it grows while the price rises, new leverage is coming in.',
+    source: SOURCES.openInterest,
+  },
+  heat: {
+    title: 'Heat',
+    text: "Stashboard's own score from 0 (cold) to 100 (overheated). It blends RSI, funding, the price against its 200-day average and open interest. It describes market conditions and is not advice.",
+    source: { label: 'How heat is scored', href: '#signals' },
+  },
+  fearGreed: {
+    title: 'Fear & Greed',
+    text: "Rates the crypto market's mood from 0 (extreme fear) to 100 (extreme greed), from volatility, momentum and volume, social media, Bitcoin dominance and search trends. Updated once a day.",
+    source: SOURCES.fearGreed,
+  },
+};
 
-const iconButton = (name, label, onclick, cls = '') =>
-  h('button', { class: `icon-button ${cls}`, type: 'button', 'aria-label': label, title: label, onclick }, icon(name));
+const FEAR_GREED_TONE = [
+  [25, 'cold'],
+  [45, 'cool'],
+  [56, 'neutral'],
+  [76, 'warm'],
+  [101, 'hot'],
+];
+const fearGreedTone = (value) => FEAR_GREED_TONE.find(([limit]) => value < limit)[1];
 
 function monogram(label) {
   return h(
@@ -200,7 +245,13 @@ function renderSummary() {
     fact('24 hours', change(data.changes.d1)),
     fact('7 days', change(data.changes.d7)),
     fact('30 days', change(data.changes.d30)),
-    data.fearGreed && fact('Fear & Greed', String(data.fearGreed.value), h('small', {}, data.fearGreed.label)),
+    data.fearGreed &&
+      h(
+        'div',
+        { class: `fear-greed ${fearGreedTone(data.fearGreed.value)}` },
+        h('dt', {}, 'Fear & Greed', help(HELP.fearGreed)),
+        h('dd', {}, h('b', {}, String(data.fearGreed.value)), h('small', {}, data.fearGreed.label)),
+      ),
   );
   renderUpdating();
   renderNotices();
@@ -459,7 +510,12 @@ async function renderHistory() {
     return;
   }
 
-  const present = new Set(points.flatMap((p) => Object.keys(p.categories)));
+  const peak = Math.max(...points.map((p) => p.total), 0);
+  const present = new Set(
+    points
+      .flatMap((p) => Object.keys(p.categories))
+      .filter((name) => points.some((p) => (p.categories[name] ?? 0) >= peak * 0.001)),
+  );
   const names = [
     ...CATEGORY_ORDER.filter((n) => present.has(n)),
     ...[...present].filter((n) => !CATEGORY_ORDER.includes(n)),
@@ -530,9 +586,9 @@ const COLUMNS = [
   ['share', 'Share', '', (a) => a.share],
   ['change1d', '24 h', '', (a) => a.change1d],
   ['change7d', '7 d', 'optional', (a) => a.change7d],
-  ['rsi', 'RSI', 'optional', (a) => reading(a, 'rsiDaily')],
-  ['funding', 'Funding', 'optional', (a) => reading(a, 'funding')],
-  ['heat', 'Heat', '', (a) => a.signal?.score ?? null],
+  ['rsi', 'RSI', 'optional', (a) => reading(a, 'rsiDaily'), HELP.rsi],
+  ['funding', 'Funding', 'optional', (a) => reading(a, 'funding'), HELP.funding],
+  ['heat', 'Heat', '', (a) => a.signal?.score ?? null, HELP.heat],
 ];
 
 const ZONES = { cold: 'Cold', neutral: 'Neutral', warm: 'Warm', overheated: 'Overheated' };
@@ -556,13 +612,13 @@ function heatBadge(signal) {
 
 function renderPositions() {
   const { data, sort } = state;
-  const table = $('positions');
+  const table = $('positions-table');
 
   table.tHead.replaceChildren(
     h(
       'tr',
       {},
-      ...COLUMNS.map(([key, label, cls]) => {
+      ...COLUMNS.map(([key, label, cls, , about]) => {
         const active = sort.key === key;
         return h(
           'th',
@@ -579,6 +635,7 @@ function renderPositions() {
             label,
             active && icon(sort.descending ? 'arrow-down' : 'arrow-up'),
           ),
+          about && help(about),
         );
       }),
     ),
@@ -683,8 +740,12 @@ function renderPositions() {
   }
 }
 
+const CENT = 0.005;
+
 function placesRow(asset) {
-  const places = state.data.holdings.filter((x) => x.asset === asset).sort((a, b) => b.value - a.value);
+  const all = state.data.holdings.filter((x) => x.asset === asset).sort((a, b) => b.value - a.value);
+  const places = all.filter((x) => Math.abs(x.value) >= CENT);
+  const tiny = all.length - places.length;
   return h(
     'tr',
     { class: 'places' },
@@ -733,6 +794,12 @@ function placesRow(asset) {
             ),
           ),
         ),
+        tiny > 0 &&
+          h(
+            'p',
+            { class: 'places-more' },
+            `${tiny} more ${tiny === 1 ? 'place holds' : 'places hold'} less than a cent.`,
+          ),
       ),
     ),
   );
@@ -773,27 +840,92 @@ function renderSignals() {
                   h('span', { class: 'num muted' }, percent(a.share)),
                 ),
                 heatBadge(a.signal),
-                h(
-                  'p',
-                  { class: 'muted' },
-                  reasons.length
-                    ? reasons.join('; ')
-                    : 'No single reading stands out; the score is the sum of small ones.',
-                ),
+                reasons.length
+                  ? h(
+                      'ul',
+                      { class: 'reasons' },
+                      reasons.map((r) => h('li', {}, r)),
+                    )
+                  : h('p', { class: 'muted' }, 'No single reading stands out. The score is the sum of small ones.'),
               );
             }),
           ),
     );
   };
 
-  $('signals').replaceChildren(
+  $('signal-list').replaceChildren(
     column('Overheated', 'overheated', 'Nothing in the portfolio is overheated.', (c) => c.score >= 80),
     column('Cold', 'cold', 'Nothing in the portfolio is cold.', (c) => c.score <= 30),
   );
   const newest = scored.reduce((max, a) => (a.signal.time > max ? a.signal.time : max), '');
-  $('signals-note').textContent = newest
-    ? `Heat runs from 0 (cold) to 100 (overheated) and blends RSI, funding, distance from the 200-day average and open interest. Updated ${ago(newest)}.`
-    : 'Signals appear a few minutes after the first update.';
+  renderHeatGuide(newest);
+}
+
+const READING_HELP = {
+  rsiDaily: HELP.rsi,
+  rsiWeekly: HELP.rsiWeekly,
+  funding: HELP.funding,
+  ma200: HELP.ma200,
+  oiGrowth: HELP.openInterest,
+};
+const READING_NAMES = {
+  rsiDaily: 'Daily RSI',
+  rsiWeekly: 'Weekly RSI',
+  funding: 'Funding',
+  ma200: 'Price against 200-day average',
+  oiGrowth: 'Open interest',
+};
+
+function renderHeatGuide(newest) {
+  const { weights, zones } = state.data.heat;
+  const total = Object.values(weights).reduce((s, w) => s + w, 0) || 1;
+  const bands = [
+    ['cold', 'Cold', 0, zones.neutral],
+    ['neutral', 'Neutral', zones.neutral, zones.warm],
+    ['warm', 'Warm', zones.warm, zones.overheated],
+    ['overheated', 'Overheated', zones.overheated, 100],
+  ];
+  $('heat-guide').replaceChildren(
+    h(
+      'div',
+      { class: 'guide-head' },
+      h('p', {}, 'Heat blends five market readings into one score from 0 to 100.'),
+      h(
+        'span',
+        { class: 'muted' },
+        newest ? `Updated ${ago(newest)}` : 'Signals appear a few minutes after the first update',
+      ),
+    ),
+    h(
+      'div',
+      {
+        class: 'heat-scale',
+        role: 'img',
+        'aria-label': bands.map(([, name, from, to]) => `${name} ${from} to ${to}`).join(', '),
+      },
+      bands.map(([tone, name, from, to]) =>
+        h(
+          'div',
+          { class: `band ${tone}`, style: { flex: `${to - from} 1 0` } },
+          h('span', { class: 'bar' }),
+          h('span', { class: 'label' }, h('b', {}, name), h('small', { class: 'num' }, `${from}–${to}`)),
+        ),
+      ),
+    ),
+    h(
+      'ul',
+      { class: 'readings' },
+      Object.entries(weights).map(([name, weight]) =>
+        h(
+          'li',
+          {},
+          h('span', {}, READING_NAMES[name] ?? name),
+          h('b', { class: 'num' }, `${Math.round((weight / total) * 100)}%`),
+          READING_HELP[name] && help(READING_HELP[name]),
+        ),
+      ),
+    ),
+  );
 }
 
 function readNote(items) {
@@ -820,7 +952,7 @@ function renderDefi() {
     .filter((p) => Math.abs(p.net) >= DUST_USD)
     .sort((a, b) => b.net - a.net);
 
-  $('defi').replaceChildren(
+  $('defi-list').replaceChildren(
     ...protocols.map(({ items, net }) =>
       h(
         'article',
@@ -858,7 +990,7 @@ function renderDefi() {
     ),
   );
   if (protocols.length === 0) {
-    $('defi').replaceChildren(
+    $('defi-list').replaceChildren(
       h(
         'p',
         { class: 'empty' },
@@ -893,17 +1025,16 @@ function renderAccounts() {
           {},
           h('span', { class: 'label name' }, kindLogo(w.kind), h('span', {}, w.label)),
           h('span', { class: 'kind muted' }, exchange ? 'Exchange' : KINDS[w.kind]),
-          h('span', { class: 'address num muted' }, exchange ? 'Read-only API key' : w.address),
+          h('span', { class: 'address num muted' }, w.address),
           h('span', { class: 'num' }, w.status === null ? '—' : money(w.value)),
           h(
             'span',
             { class: 'actions' },
-            !exchange &&
-              iconButton('pencil', `Rename ${w.label}`, () => {
-                state.renaming = w.id;
-                renderAccounts();
-              }),
-            !exchange && iconButton('trash-2', `Remove ${w.label}`, () => openRemove(w)),
+            iconButton('pencil', `Rename ${w.label}`, () => {
+              state.renaming = w.id;
+              renderAccounts();
+            }),
+            iconButton('trash-2', `Remove ${w.label}`, () => openRemove(w)),
           ),
           details,
         );
@@ -917,7 +1048,7 @@ function renderAccounts() {
       };
       const save = async () => {
         try {
-          await api(`/api/wallets/${w.id}`, { method: 'PATCH', body: JSON.stringify({ label: input.value }) });
+          await api(`/api/accounts/${w.id}`, { method: 'PATCH', body: JSON.stringify({ label: input.value }) });
           state.renaming = null;
           await load();
         } catch (err) {
@@ -954,6 +1085,7 @@ const VIEWS = ['overview', 'positions', 'signals', 'defi', 'accounts'];
 const tabs = () => [...document.querySelectorAll('[role="tab"]')];
 
 function showView(id, focus = false) {
+  for (const open of document.querySelectorAll('.popover:popover-open')) open.hidePopover();
   state.view = VIEWS.includes(id) ? id : 'overview';
   for (const tab of tabs()) {
     const on = tab.dataset.view === state.view;
@@ -985,7 +1117,7 @@ function renderCounts() {
 
 for (const tab of tabs()) {
   tab.addEventListener('click', () => {
-    if (location.hash !== `#${tab.dataset.view}`) location.hash = tab.dataset.view;
+    if (location.hash !== `#${tab.dataset.view}`) history.pushState(null, '', `#${tab.dataset.view}`);
     showView(tab.dataset.view);
     if ($('views').classList.contains('stuck')) $('views').scrollIntoView();
   });
@@ -995,11 +1127,12 @@ for (const tab of tabs()) {
     if (!step) return;
     e.preventDefault();
     const next = list[(list.indexOf(tab) + step + list.length) % list.length];
-    location.hash = next.dataset.view;
+    history.pushState(null, '', `#${next.dataset.view}`);
     showView(next.dataset.view, true);
   });
 }
 window.addEventListener('hashchange', () => showView(location.hash.slice(1)));
+window.addEventListener('popstate', () => showView(location.hash.slice(1)));
 showView(location.hash.slice(1));
 
 new IntersectionObserver(([entry]) => $('views').classList.toggle('stuck', !entry.isIntersecting), {
@@ -1045,8 +1178,49 @@ const NETWORKS = [
   ['solana', /^[1-9A-HJ-NP-Za-km-z]{32,44}$/, 'Solana address.'],
 ];
 
+const addForm = $('add-form');
+let addKind = 'wallet';
+const exchangeChoice = select({
+  label: 'Exchange',
+  options: [{ value: 'binance', label: 'Binance' }],
+  value: 'binance',
+});
+$('exchange-select').append(exchangeChoice);
+$('exchange-hint').replaceChildren(
+  'Create a key with only ',
+  h('b', {}, 'Enable Reading'),
+  " ticked and restrict it to this server's IP address. The key is checked before it is saved, and the secret is stored encrypted on this server. ",
+  h(
+    'a',
+    { href: SOURCES.binanceKeys.href, target: '_blank', rel: 'noopener noreferrer' },
+    'How to create an API key',
+    icon('external-link'),
+  ),
+);
+
+function setAddKind(kind) {
+  addKind = kind;
+  $('add-kind').replaceChildren(
+    segmentedControl({
+      label: 'What to add',
+      options: [
+        ['wallet', 'Wallet'],
+        ['exchange', 'Exchange'],
+      ],
+      value: kind,
+      onChange: setAddKind,
+    }),
+  );
+  $('wallet-fields').hidden = kind !== 'wallet';
+  $('exchange-fields').hidden = kind !== 'exchange';
+  $('add-submit').textContent = kind === 'wallet' ? 'Add wallet' : 'Add exchange';
+  addForm.label.placeholder = kind === 'wallet' ? 'Optional, for example Ledger' : 'Optional, for example Binance main';
+  setError('add-error', null);
+  (kind === 'wallet' ? addForm.address : addForm.apiKey).focus();
+}
+
 function showDetected() {
-  const address = $('add-wallet').address.value.trim();
+  const address = addForm.address.value.trim();
   const found = NETWORKS.find(([, pattern]) => pattern.test(address));
   $('detected').replaceChildren(
     ...(found
@@ -1059,48 +1233,91 @@ function showDetected() {
   );
 }
 
-$('add-wallet').address.addEventListener('input', showDetected);
+addForm.address.addEventListener('input', showDetected);
 
-for (const button of document.querySelectorAll('[data-open-add]')) {
-  button.addEventListener('click', () => {
-    $('add-wallet').reset();
-    setError('add-error', null);
+for (const trigger of document.querySelectorAll('[data-open-add]')) {
+  trigger.addEventListener('click', () => {
+    addForm.reset();
     showDetected();
     $('add-dialog').showModal();
-    $('add-wallet').address.focus();
+    setAddKind('wallet');
   });
 }
 
-$('add-wallet').addEventListener('submit', async (event) => {
+addForm.addEventListener('submit', async (event) => {
   event.preventDefault();
-  const form = event.currentTarget;
-  const added = await submitDialog(form, 'add-error', () =>
-    api('/api/wallets', {
+  const label = addForm.label.value.trim();
+  let warning = null;
+  const added = await submitDialog(addForm, 'add-error', async () => {
+    if (addKind === 'wallet') {
+      if (!addForm.address.value.trim()) throw new Error('Enter a wallet address');
+      await api('/api/wallets', {
+        method: 'POST',
+        body: JSON.stringify({ address: addForm.address.value.trim(), label }),
+      });
+      return;
+    }
+    if (!addForm.apiKey.value.trim() || !addForm.apiSecret.value.trim()) {
+      throw new Error('Paste both the API key and the secret key');
+    }
+    const result = await api('/api/exchanges', {
       method: 'POST',
-      body: JSON.stringify({ address: form.address.value.trim(), label: form.label.value.trim() }),
-    }),
-  );
-  if (added) await load();
+      body: JSON.stringify({
+        exchange: exchangeChoice.value,
+        apiKey: addForm.apiKey.value.trim(),
+        apiSecret: addForm.apiSecret.value.trim(),
+        label,
+      }),
+    });
+    warning = result.warning;
+  });
+  addForm.apiSecret.value = '';
+  if (!added) return;
+  await load();
+  if (warning) showInfo(warning);
 });
 
 let removing = null;
 
-function openRemove(wallet) {
-  removing = wallet;
+function openRemove(account) {
+  removing = account;
+  const exchange = account.kind === 'binance';
   setError('remove-error', null);
+  $('remove-title').textContent = exchange ? 'Remove exchange' : 'Remove wallet';
+  $('remove-submit').textContent = exchange ? 'Remove exchange' : 'Remove wallet';
   $('remove-text').replaceChildren(
-    h('b', {}, wallet.label),
-    ` (${wallet.address}) leaves the dashboard together with its recorded history. Nothing changes on chain, and you can add the wallet again later.`,
+    h('b', {}, account.label),
+    exchange
+      ? ` (${account.address}) leaves the dashboard together with its recorded history and its stored API key. Nothing changes on the exchange. You can also delete the key there.`
+      : ` (${account.address}) leaves the dashboard together with its recorded history. Nothing changes on chain, and you can add the wallet again later.`,
   );
   $('remove-dialog').showModal();
 }
 
-$('remove-wallet').addEventListener('submit', async (event) => {
+$('remove-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const removed = await submitDialog(event.currentTarget, 'remove-error', () =>
-    api(`/api/wallets/${removing.id}`, { method: 'DELETE' }),
+    api(`/api/accounts/${removing.id}`, { method: 'DELETE' }),
   );
   if (removed) await load();
+});
+
+$('open-reset').addEventListener('click', () => {
+  setError('reset-error', null);
+  $('reset-dialog').showModal();
+});
+
+$('reset-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  let result = null;
+  const done = await submitDialog(event.currentTarget, 'reset-error', async () => {
+    result = await api('/api/history/reset', { method: 'POST', body: '{}' });
+  });
+  if (!done) return;
+  await load();
+  showInfo(
+    `History starts over from now. ${result.removed} earlier ${result.removed === 1 ? 'update was' : 'updates were'} removed, and a copy was saved as ${result.backup}.`,
+  );
 });
 
 let categorising = null;
@@ -1252,7 +1469,7 @@ function renderAccountPanel() {
         'Update now',
         gate.allowed
           ? 'Available'
-          : `${gate.reason}${gate.availableAt ? `; available again in ${inMinutes(gate.availableAt)}` : ''}`,
+          : `${gate.reason}${gate.availableAt ? `. Available again in ${inMinutes(gate.availableAt)}` : ''}`,
       ),
       z?.dayLimit != null &&
         fact(
@@ -1437,6 +1654,17 @@ async function drawShareCard({ title, rows, withAmounts }) {
   );
 }
 
+const shareDays = select({
+  label: 'Link lasts',
+  options: [
+    { value: '1', label: '1 day' },
+    { value: '7', label: '7 days' },
+    { value: '30', label: '30 days' },
+  ],
+  value: '7',
+});
+$('share-days').replaceWith(shareDays);
+
 function shareStatus(...content) {
   $('share-status').replaceChildren(...content);
 }
@@ -1520,7 +1748,7 @@ $('share-form').addEventListener('submit', async (event) => {
       method: 'POST',
       body: JSON.stringify({
         title: shareTitle(state.shareDimension),
-        days: Number($('share-days').value),
+        days: Number(shareDays.value),
         showAmounts: withAmounts,
         total: withAmounts ? (rows[0]?.total ?? null) : null,
         rows: rows.map((r) => ({
@@ -1542,7 +1770,7 @@ $('share-form').addEventListener('submit', async (event) => {
     shareStatus(
       copied ? 'Link copied: ' : 'Link: ',
       h('a', { href: url, target: '_blank', rel: 'noopener' }, url),
-      `. It works for ${$('share-days').selectedOptions[0].textContent} and can be turned off in Account.`,
+      `. It works for ${shareDays.selectedLabel} and can be turned off in Account.`,
     );
   } catch (err) {
     setError('share-error', err.message);
@@ -1562,7 +1790,19 @@ function showTip(event, title, text) {
 
 const hideTip = () => ($('tip').hidden = true);
 
+function showInfo(text) {
+  const banner = $('banner');
+  banner.className = 'banner info';
+  banner.replaceChildren(
+    icon('circle-help'),
+    h('span', {}, text),
+    h('button', { class: 'link', type: 'button', onclick: () => (banner.hidden = true) }, 'Dismiss'),
+  );
+  banner.hidden = false;
+}
+
 function showBanner(err) {
+  $('banner').className = 'banner';
   const banner = $('banner');
   banner.replaceChildren(
     icon('triangle-alert'),

@@ -15,11 +15,12 @@
         ><img src="/logo.svg" alt="" width="28" height="28" /><span>stash</span><span>board</span></a
       >
       <div class="top-actions">
-        <button class="button primary" type="button" data-open-add>
-          <svg class="icon" aria-hidden="true"><use href="/icons.svg#plus"></use></svg>Add wallet
+        <button class="button ghost" type="button" data-open-add aria-label="Add account">
+          <svg class="icon" aria-hidden="true"><use href="/icons.svg#plus"></use></svg
+          ><span class="label">Add account</span>
         </button>
-        <button class="icon-button account-button" id="open-account" type="button" aria-label="Account" title="Account">
-          <svg class="icon" aria-hidden="true"><use href="/icons.svg#circle-user"></use></svg>
+        <button class="button" id="open-account" type="button">
+          <svg class="icon" aria-hidden="true"><use href="/icons.svg#circle-user"></use></svg>Account
         </button>
       </div>
     </header>
@@ -63,7 +64,7 @@
           phrases.
         </p>
         <button class="button primary" type="button" data-open-add>
-          <svg class="icon" aria-hidden="true"><use href="/icons.svg#plus"></use></svg>Add wallet
+          <svg class="icon" aria-hidden="true"><use href="/icons.svg#plus"></use></svg>Add account
         </button>
       </section>
 
@@ -127,7 +128,7 @@
             <button class="link" id="dust-toggle" type="button" hidden></button>
           </div>
           <div class="table-wrap">
-            <table class="positions" id="positions">
+            <table class="positions" id="positions-table">
               <thead></thead>
               <tbody></tbody>
             </table>
@@ -136,21 +137,21 @@
 
         <div class="view" id="view-signals" role="tabpanel" aria-labelledby="tab-signals" tabindex="0" hidden>
           <h2 class="sr-only">Signals</h2>
-          <div class="signals" id="signals"></div>
-          <p class="signals-note" id="signals-note"></p>
+          <div class="heat-guide" id="heat-guide"></div>
+          <div class="signals" id="signal-list"></div>
         </div>
 
         <div class="view" id="view-defi" role="tabpanel" aria-labelledby="tab-defi" tabindex="0" hidden>
           <h2 class="sr-only">DeFi</h2>
-          <div id="defi"></div>
+          <div id="defi-list"></div>
         </div>
 
         <div class="view" id="view-accounts" role="tabpanel" aria-labelledby="tab-accounts" tabindex="0" hidden>
           <div class="section-head">
             <h2 class="sr-only">Accounts</h2>
-            <p class="lead">Every account is read on its own; one that fails keeps its last balances.</p>
+            <p class="lead">Every account is read on its own. One that fails keeps its last balances.</p>
             <button class="button" type="button" data-open-add>
-              <svg class="icon" aria-hidden="true"><use href="/icons.svg#plus"></use></svg>Add wallet
+              <svg class="icon" aria-hidden="true"><use href="/icons.svg#plus"></use></svg>Add account
             </button>
           </div>
           <ul class="wallets" id="wallets"></ul>
@@ -159,43 +160,81 @@
     </main>
 
     <dialog class="dialog" id="add-dialog" aria-labelledby="add-title">
-      <form id="add-wallet" autocomplete="off">
+      <form id="add-form" autocomplete="off" novalidate>
         <header>
-          <h2 id="add-title">Add wallet</h2>
+          <h2 id="add-title">Add account</h2>
           <button class="icon-button" type="button" data-close aria-label="Close" title="Close">
             <svg class="icon" aria-hidden="true"><use href="/icons.svg#x"></use></svg>
           </button>
         </header>
-        <label>
-          <span>Address</span>
-          <input name="address" required spellcheck="false" placeholder="EVM, Solana or TON address" />
-        </label>
-        <p class="detected" id="detected" aria-live="polite"></p>
+        <div id="add-kind"></div>
+        <div class="fields" id="wallet-fields">
+          <label>
+            <span>Address</span>
+            <input name="address" spellcheck="false" placeholder="EVM, Solana or TON address" />
+          </label>
+          <p class="detected" id="detected" aria-live="polite"></p>
+        </div>
+        <div class="fields" id="exchange-fields" hidden>
+          <div class="field">
+            <span id="exchange-label">Exchange</span>
+            <div id="exchange-select"></div>
+          </div>
+          <label>
+            <span>API key</span>
+            <input name="apiKey" spellcheck="false" autocomplete="off" />
+          </label>
+          <label>
+            <span>Secret key</span>
+            <input name="apiSecret" type="password" spellcheck="false" autocomplete="new-password" />
+          </label>
+          <p class="hint" id="exchange-hint"></p>
+        </div>
         <label>
           <span>Name</span>
-          <input name="label" maxlength="40" placeholder="Optional, for example Ledger" />
+          <input name="label" maxlength="40" placeholder="Optional" />
         </label>
         <p class="form-error" id="add-error" role="alert" hidden></p>
         <footer>
           <button class="button" type="button" data-close>Cancel</button>
-          <button class="button primary" type="submit">Add wallet</button>
+          <button class="button primary" type="submit" id="add-submit">Add wallet</button>
         </footer>
       </form>
     </dialog>
 
     <dialog class="dialog" id="remove-dialog" aria-labelledby="remove-title">
-      <form id="remove-wallet">
+      <form id="remove-form">
         <header>
-          <h2 id="remove-title">Remove wallet</h2>
+          <h2 id="remove-title">Remove account</h2>
           <button class="icon-button" type="button" data-close aria-label="Close" title="Close">
             <svg class="icon" aria-hidden="true"><use href="/icons.svg#x"></use></svg>
           </button>
         </header>
-        <p id="remove-text"></p>
+        <p class="dialog-text" id="remove-text"></p>
         <p class="form-error" id="remove-error" role="alert" hidden></p>
         <footer>
-          <button class="button" type="button" data-close>Keep wallet</button>
-          <button class="button danger" type="submit">Remove wallet</button>
+          <button class="button" type="button" data-close>Keep it</button>
+          <button class="button danger" type="submit" id="remove-submit">Remove</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog class="dialog" id="reset-dialog" aria-labelledby="reset-title">
+      <form id="reset-form">
+        <header>
+          <h2 id="reset-title">Start history over</h2>
+          <button class="icon-button" type="button" data-close aria-label="Close" title="Close">
+            <svg class="icon" aria-hidden="true"><use href="/icons.svg#x"></use></svg>
+          </button>
+        </header>
+        <p class="dialog-text">
+          The history chart and the 24-hour, 7-day and 30-day changes start again from the current balances. Every
+          earlier update is deleted. A copy of the database is saved in the backups folder on the server first.
+        </p>
+        <p class="form-error" id="reset-error" role="alert" hidden></p>
+        <footer>
+          <button class="button" type="button" data-close>Keep history</button>
+          <button class="button danger" type="submit">Start over</button>
         </footer>
       </form>
     </dialog>
@@ -235,7 +274,7 @@
             <span>
               <b>Hide amounts</b>
               <small
-                >Dollar amounts and quantities turn into dots on every device; shares and changes stay. New share images
+                >Dollar amounts and quantities turn into dots on every device. Shares and changes stay. New share images
                 and links leave amounts out unless you add them.</small
               >
             </span>
@@ -250,6 +289,12 @@
         <section aria-labelledby="updates-title">
           <h3 id="updates-title">Updates</h3>
           <dl class="panel-facts" id="update-facts"></dl>
+        </section>
+
+        <section aria-labelledby="history-reset-title">
+          <h3 id="history-reset-title">History</h3>
+          <p class="muted">Added accounts one by one? Start the history over so the chart begins with all of them.</p>
+          <button class="button" id="open-reset" type="button">Start history over</button>
         </section>
 
         <section aria-labelledby="session-title">
@@ -273,7 +318,11 @@
         <div class="share-preview"><canvas id="share-canvas" width="1200" height="675" role="img"></canvas></div>
         <div class="share-options">
           <div class="segmented" id="share-dimension" role="group" aria-label="Group by"></div>
-          <label class="check"><input type="checkbox" id="share-amounts" /> Show amounts</label>
+          <label class="check"
+            ><input type="checkbox" id="share-amounts" /><span class="box" aria-hidden="true"
+              ><svg class="icon" aria-hidden="true"><use href="/icons.svg#check"></use></svg></span
+            >Show amounts</label
+          >
         </div>
         <p class="share-status" id="share-status" role="status" aria-live="polite"></p>
         <p class="form-error" id="share-error" role="alert" hidden></p>
@@ -288,11 +337,7 @@
             <svg class="icon" aria-hidden="true"><use href="/icons.svg#share-2"></use></svg>Share…
           </button>
           <span class="spacer"></span>
-          <select id="share-days" aria-label="Link lasts">
-            <option value="1">1 day</option>
-            <option value="7" selected>7 days</option>
-            <option value="30">30 days</option>
-          </select>
+          <div id="share-days"></div>
           <button class="button primary" type="submit">
             <svg class="icon" aria-hidden="true"><use href="/icons.svg#link"></use></svg>Create link
           </button>

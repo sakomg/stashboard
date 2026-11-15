@@ -106,6 +106,11 @@ const MIGRATIONS = [
      expires_at TEXT NOT NULL,
      payload    TEXT NOT NULL
    );`,
+  `CREATE TABLE exchange_keys (
+     account_id INTEGER PRIMARY KEY REFERENCES accounts (id) ON DELETE CASCADE,
+     key_hint   TEXT NOT NULL,
+     sealed     TEXT NOT NULL
+   );`,
 ];
 
 export function openDb(dir = process.env.DATA_DIR ?? 'data'): DatabaseSync {
@@ -167,14 +172,12 @@ export function renameWallet(db: DatabaseSync, id: number, label: string): boole
   );
 }
 
-export function ensureExchangeAccount(db: DatabaseSync, kind: 'binance', label: string): Account {
-  db.prepare('INSERT OR IGNORE INTO accounts (kind, label, address, address_key) VALUES (?, ?, ?, ?)').run(
-    kind,
-    label,
-    '',
-    kind,
-  );
-  return db.prepare('SELECT id, kind, label, address FROM accounts WHERE kind = ?').get(kind) as unknown as Account;
+export function removeAccount(db: DatabaseSync, id: number): boolean {
+  return db.prepare('DELETE FROM accounts WHERE id = ?').run(id).changes > 0;
+}
+
+export function renameAccount(db: DatabaseSync, id: number, label: string): boolean {
+  return db.prepare('UPDATE accounts SET label = ? WHERE id = ?').run(label, id).changes > 0;
 }
 
 export type AccountOutcome =
@@ -396,6 +399,26 @@ export function setSetting(db: DatabaseSync, key: string, value: string): void {
 export function deleteOwner(db: DatabaseSync): boolean {
   db.prepare('DELETE FROM sessions').run();
   return db.prepare("DELETE FROM settings WHERE key = 'owner'").run().changes > 0;
+}
+
+export function backupNow(db: DatabaseSync, reason: string, dir = process.env.DATA_DIR ?? 'data'): string {
+  const folder = join(dir, 'backups');
+  mkdirSync(folder, { recursive: true });
+  const file = join(folder, `stashboard-${reason}-${new Date().toISOString().replace(/[:.]/g, '-')}.db`);
+  db.exec(`VACUUM INTO '${file.replaceAll("'", "''")}'`);
+  return file;
+}
+
+export function resetHistory(db: DatabaseSync): number {
+  const from = db
+    .prepare(
+      `SELECT MIN(last_ok) AS id FROM (
+         SELECT MAX(snapshot_id) AS last_ok FROM snapshot_accounts WHERE status = 'ok' GROUP BY account_id
+       )`,
+    )
+    .get() as { id: number | null };
+  if (from.id === null) return 0;
+  return Number(db.prepare('DELETE FROM snapshots WHERE id < ?').run(from.id).changes);
 }
 
 export function backupDaily(

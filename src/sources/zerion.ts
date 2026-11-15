@@ -89,11 +89,11 @@ async function zerionGet<T>(url: string, apiKey: string, call: ZerionCall = {}):
     const now = Date.now();
     if (call.defi && now < quota.defiBlockedUntil) {
       throw new ZerionLimitError(
-        `Zerion's allowance for DeFi positions is used up; it renews ${inHours(quota.defiBlockedUntil, now)}`,
+        `Zerion's allowance for DeFi positions is used up. It renews ${inHours(quota.defiBlockedUntil, now)}`,
       );
     }
     if (zerionDayUsedUp(now)) {
-      throw new ZerionLimitError(`Zerion's daily allowance is used up; it renews ${inHours(quota.dayResetsAt!, now)}`);
+      throw new ZerionLimitError(`Zerion's daily allowance is used up. It renews ${inHours(quota.dayResetsAt!, now)}`);
     }
     const wait = lastRequestAt + zerionTiming.minIntervalMs - now;
     if (wait > 0) await sleep(wait);
@@ -107,13 +107,13 @@ async function zerionGet<T>(url: string, apiKey: string, call: ZerionCall = {}):
       if (call.defi && attempt >= 1) {
         quota.defiBlockedUntil = Math.max(quota.dayResetsAt ?? 0, Date.now() + 60 * 60_000);
         throw new ZerionLimitError(
-          `Zerion's allowance for DeFi positions is used up; it renews ${inHours(quota.defiBlockedUntil, Date.now())}`,
+          `Zerion's allowance for DeFi positions is used up. It renews ${inHours(quota.defiBlockedUntil, Date.now())}`,
         );
       }
       const pause = zerionTiming.retryPausesMs[attempt];
       if (pause === undefined)
-        throw new ZerionLimitError('Zerion kept refusing requests; it is rate limiting this key');
-      call.onWait?.(`Zerion asked to slow down; trying again in ${pause / 1000} s`);
+        throw new ZerionLimitError('Zerion kept refusing requests. It is rate limiting this key');
+      call.onWait?.(`Zerion asked to slow down. Trying again in ${pause / 1000} s`);
       await sleep(pause);
     } finally {
       lastRequestAt = Date.now();

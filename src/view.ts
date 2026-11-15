@@ -1,6 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import type { Asset } from './assets.ts';
 import { currentState, latestSignals, listSnapshots, snapshotAt, snapshotValues } from './db.ts';
+import { exchangeHints } from './exchanges.ts';
 import { STOCKS_CATEGORY } from './assets.ts';
 import { logoIndex, type Wanted } from './logos.ts';
 import { buildPortfolio } from './portfolio.ts';
@@ -23,6 +24,7 @@ export function portfolioView(db: DatabaseSync, resolve: (symbol: string) => Ass
     p?.assets.find((a) => a.key === key)?.price ?? undefined;
 
   const signals = new Map(latestSignals(db).map((s) => [s.asset, s]));
+  const hints = exchangeHints(db);
 
   return {
     logos: logoIndex(db),
@@ -46,7 +48,7 @@ export function portfolioView(db: DatabaseSync, resolve: (symbol: string) => Ass
       id: s.account.id,
       kind: s.account.kind,
       label: s.account.label,
-      address: short(s.account.address),
+      address: s.account.kind === 'binance' ? `API key ${hints.get(s.account.id) ?? ''}` : short(s.account.address),
       status: s.lastStatus,
       stale: s.stale,
       error: s.lastError,
