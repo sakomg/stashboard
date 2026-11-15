@@ -56,6 +56,11 @@ export function portfolioView(db: DatabaseSync, resolve: (symbol: string) => Ass
       collectedAt: s.collectedAt,
       warnings: s.warnings,
       value: s.holdings.reduce((sum, h) => sum + h.value, 0),
+      // The oldest answer behind these balances: earlier than collectedAt when a source was reused.
+      oldestRead: s.holdings.reduce<string | null>(
+        (min, h) => (h.readAt && (!min || h.readAt < min) ? h.readAt : min),
+        s.collectedAt,
+      ),
     })),
     holdings: states.flatMap((s) =>
       s.holdings.map((h) => {

@@ -4,7 +4,7 @@ import { loadConfig, type Config } from './config.ts';
 import { listWallets, openDb, type Wallet } from './db.ts';
 import { getJson } from './http.ts';
 import { binanceSigned } from './sources/binance.ts';
-import { fetchPositions } from './sources/zerion.ts';
+import { fetchChains, zerionQuota } from './sources/zerion.ts';
 
 type Status = 'ok' | 'warn' | 'fail' | 'skip';
 const MARK: Record<Status, string> = { ok: '✓', warn: '!', fail: '✗', skip: '–' };
@@ -62,28 +62,21 @@ async function checkBinance(cfg: Config['binance']): Promise<void> {
 
 async function checkZerion(cfg: Config['zerion'], wallets: Wallet[]): Promise<void> {
   if (!cfg.apiKey) return report('skip', 'Zerion', 'key is not set');
-  if (wallets.length === 0) return report('skip', 'Zerion', 'no EVM or Solana wallets');
-
-  for (const w of wallets) {
-    await step('Zerion', async () => {
-      const positions = await fetchPositions(cfg.apiKey, w.address, w.kind as 'evm' | 'solana');
-      const total = positions.reduce((s, p) => s + (p.value ?? 0), 0);
-      const byProtocol = new Map<string, number>();
-      for (const p of positions) {
-        if (p.protocol) byProtocol.set(p.protocol, (byProtocol.get(p.protocol) ?? 0) + (p.value ?? 0));
-      }
-      const protocols = [...byProtocol]
-        .filter(([, v]) => Math.abs(v) >= 1)
-        .sort((a, b) => b[1] - a[1])
-        .map(([name, v]) => `${name} ${usd(v)}`);
-      report(
-        'ok',
-        'Zerion',
-        `${w.label} ${short(w.address)}: total ${usd(total)}, positions ${positions.length}` +
-          (protocols.length > 0 ? `, protocols: ${protocols.join(', ')}` : ''),
-      );
-    });
-  }
+  // One cheap request proves the key. Wallets are not read here: on a free key every read counts against a
+  // small daily allowance, and a deploy should not spend it.
+  await step('Zerion', async () => {
+    const chains = await fetchChains(cfg.apiKey);
+    const q = zerionQuota();
+    const allowance =
+      q.dayLimit === null
+        ? ''
+        : `, ${q.tier ?? 'unknown'} tier: ${q.dayRemaining ?? '?'} of ${q.dayLimit} requests left today`;
+    report(
+      'ok',
+      'Zerion',
+      `key works, ${chains.length} chains${allowance}; ${wallets.length} wallets are read on collection`,
+    );
+  });
 }
 
 // ── TonAPI ───────────────────────────────────────────────────────────────────

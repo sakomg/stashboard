@@ -13,7 +13,7 @@ import {
   verifyPassword,
 } from './auth.ts';
 import { categoryNames, fetchMissingCategories, loadLearned, setManualCategory } from './categories.ts';
-import { runCollection } from './collector.ts';
+import { runCollection, type ProgressEvent } from './collector.ts';
 import { loadConfig } from './config.ts';
 import {
   addWallet,
@@ -28,13 +28,15 @@ import {
   renameWallet,
   saveOwner,
   sessionValid,
+  getSetting,
+  setSetting,
 } from './db.ts';
 import { qrSvg } from './qr.ts';
 import { runSignals } from './signals.ts';
 import { fearGreed } from './sources/feargreed.ts';
 import { historyView, portfolioView, wantedLogos } from './view.ts';
 import { fetchMissingLogos, logoFile, noteLogos } from './logos.ts';
-import { fetchChains } from './sources/zerion.ts';
+import { fetchChains, zerionQuota } from './sources/zerion.ts';
 
 const config = loadConfig();
 const host = process.env.HOST ?? '127.0.0.1';
@@ -327,14 +329,34 @@ app.post('/api/logout', async (request, reply) => {
 
 let collecting: Promise<void> | null = null;
 
+/** What the running collection is doing, account by account. Null when nothing runs. */
+interface Progress {
+  phase: 'accounts' | 'signals';
+  accounts: { id: number; state: 'waiting' | 'reading' | 'done' | 'failed'; note: string | null }[];
+}
+let progress: Progress | null = null;
+
+function track(event: ProgressEvent): void {
+  if (event.type === 'start') {
+    progress = {
+      phase: 'accounts',
+      accounts: event.accounts.map((a) => ({ id: a.id, state: 'waiting', note: null })),
+    };
+    return;
+  }
+  const entry = progress?.accounts.find((a) => a.id === event.accountId);
+  if (!entry) return;
+  if (event.type === 'reading') Object.assign(entry, { state: 'reading', note: null });
+  else if (event.type === 'waiting') entry.note = event.note;
+  else Object.assign(entry, { state: event.ok ? 'done' : 'failed', note: event.note ?? null });
+}
+
 /** Signals are recomputed when they are older than the schedule allows. */
 async function refreshSignals(): Promise<void> {
   const newest = latestSignals(db).reduce((max, s) => (s.time > max ? s.time : max), '');
   if (newest && Date.now() - Date.parse(newest) < config.schedule.signalsMinutes * 60_000) return;
   await runSignals(db, config, resolve);
 }
-
-let chainsFetchedAt = 0;
 
 /** Looks up categories for assets that have none. A failure is only logged; they stay in "Other" until the next run. */
 async function refreshCategories(): Promise<void> {
@@ -348,9 +370,11 @@ async function refreshCategories(): Promise<void> {
 /** Fetches the logos the portfolio shows and does not have yet. Cosmetic, so a failure is only logged. */
 async function refreshLogos(): Promise<void> {
   try {
-    if (config.zerion.apiKey && Date.now() - chainsFetchedAt > 24 * 60 * 60_000) {
+    // Chain names and logos hardly change; once a week is plenty, and it survives restarts.
+    const chainsAt = Number(getSetting(db, 'zerion_chains_at') ?? 0);
+    if (config.zerion.apiKey && Date.now() - chainsAt > 7 * 24 * 60 * 60_000) {
       noteLogos(db, await fetchChains(config.zerion.apiKey));
-      chainsFetchedAt = Date.now();
+      setSetting(db, 'zerion_chains_at', String(Date.now()));
     }
     await fetchMissingLogos(db, config, wantedLogos(db, resolve));
   } catch (err) {
@@ -360,8 +384,11 @@ async function refreshLogos(): Promise<void> {
 
 /** Starts a collection unless one is already running; either way resolves when it has finished. */
 function collect(): Promise<void> {
-  collecting ??= runCollection(db, config)
-    .then(refreshSignals)
+  collecting ??= runCollection(db, config, track)
+    .then(() => {
+      if (progress) progress.phase = 'signals';
+      return refreshSignals();
+    })
     .then(() => {
       // Logos are cosmetic: fetched in the background so they never hold up an update.
       void refreshLogos();
@@ -370,6 +397,7 @@ function collect(): Promise<void> {
     .catch((err: unknown) => app.log.error(err))
     .finally(() => {
       collecting = null;
+      progress = null;
     });
   return collecting;
 }
@@ -408,11 +436,15 @@ app.get('/api/portfolio', async () => ({
   ...portfolioView(db, resolve),
   build,
   categories,
+  progress,
+  zerion: zerionQuota(),
   fearGreed: await fearGreed(),
   collecting: collecting !== null,
   collectEveryMinutes: intervalMs / 60_000,
   loginEnabled: owner !== null,
 }));
+
+app.get('/api/progress', async () => ({ collecting: collecting !== null, progress }));
 
 app.get<{ Querystring: { days?: string } }>('/api/history', async (request) => {
   const days = Number(request.query.days);

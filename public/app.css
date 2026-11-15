@@ -247,8 +247,7 @@ input {
 
 /* ── Summary ─────────────────────────────────────────────── */
 
-main > section,
-#content > section {
+main > section {
   margin-top: 56px;
 }
 
@@ -318,6 +317,39 @@ main > .summary {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber) 45%, transparent);
 }
 
+/* While an update runs, each chip says where it stands. */
+
+.sources li {
+  transition:
+    opacity 0.2s,
+    box-shadow 0.2s;
+}
+
+.sources .waiting {
+  opacity: 0.5;
+}
+
+.sources .reading {
+  box-shadow: inset 0 0 0 1px var(--slate);
+}
+
+.sources .reading .icon {
+  animation: spin 0.9s linear infinite;
+}
+
+.sources .done .icon {
+  color: var(--teal);
+}
+
+.sources .aged .icon {
+  color: var(--slate);
+}
+
+.sources .icon {
+  width: 14px;
+  height: 14px;
+}
+
 .notices li,
 .banner {
   display: flex;
@@ -348,6 +380,158 @@ main > .summary {
 
 .banner .link {
   color: var(--bone);
+}
+
+.notices .info {
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.notices .info .icon {
+  color: var(--slate);
+}
+
+/* ── Views: one tab bar, one view at a time ──────────────── */
+
+#content {
+  margin-top: 40px;
+}
+
+.views {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  margin: 0 -28px;
+  padding: 0 28px;
+  background: color-mix(in srgb, var(--ink) 92%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+
+/* The net worth rides along once its big copy has scrolled away. */
+.views-worth {
+  font: 600 17px/1 var(--display);
+  letter-spacing: -0.02em;
+  color: var(--bone);
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition:
+    max-width 0.25s,
+    opacity 0.2s;
+}
+
+.views.stuck .views-worth {
+  max-width: 160px;
+  margin-right: 24px;
+  opacity: 1;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tabs button {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  background: none;
+  padding: 16px 12px 15px;
+  font: 500 15px/1 var(--body);
+  color: var(--slate);
+  cursor: pointer;
+}
+
+.tabs button:first-child {
+  padding-left: 0;
+}
+
+.tabs button:hover {
+  color: var(--bone);
+}
+
+.tabs button[aria-selected='true'] {
+  color: var(--bone);
+}
+
+/* The active tab gets one of the logo's bars. */
+.tabs button[aria-selected='true']::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: -1px;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--amber);
+}
+
+.tabs button:first-child[aria-selected='true']::after {
+  left: 0;
+}
+
+.count {
+  font: 500 12px/1 var(--body);
+  font-variant-numeric: tabular-nums;
+  color: var(--dim);
+}
+
+.count:empty {
+  display: none;
+}
+
+.count.hot {
+  color: var(--overheated);
+}
+
+.count.warn {
+  color: var(--amber);
+}
+
+.view {
+  padding-top: 28px;
+}
+
+.view:focus-visible {
+  outline-offset: 8px;
+}
+
+.view section + section {
+  margin-top: 56px;
+}
+
+.lead {
+  color: var(--slate);
+  font-size: 13.5px;
+}
+
+.footnote {
+  margin-top: 20px;
+  max-width: 78ch;
+  font-size: 13px;
+  color: var(--slate);
+}
+
+.read-at {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--slate);
+}
+
+.read-at .icon {
+  width: 13px;
+  height: 13px;
 }
 
 main > .welcome {
@@ -880,10 +1064,10 @@ tr[aria-expanded='true'] .chevron {
 
 .wallets li {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) 70px minmax(0, 1fr) 120px 72px;
+  grid-template-columns: minmax(0, 1.4fr) 76px minmax(0, 1fr) 120px 72px;
   align-items: center;
-  gap: 16px;
-  padding: 8px 0;
+  gap: 4px 16px;
+  padding: 10px 0;
   min-height: 52px;
   border-bottom: 1px solid var(--line);
 }
@@ -900,6 +1084,17 @@ tr[aria-expanded='true'] .chevron {
   display: flex;
   gap: 4px;
   justify-content: flex-end;
+}
+
+.wallets .details {
+  grid-column: 1 / -1;
+  padding-left: 28px;
+  font-size: 13px;
+}
+
+.wallets .details .warn {
+  color: var(--amber);
+  overflow-wrap: anywhere;
 }
 
 .wallets .renaming {
@@ -1155,9 +1350,45 @@ input::placeholder {
     padding: 0 16px 64px;
   }
 
-  main > section,
-  #content > section {
+  main > section {
     margin-top: 44px;
+  }
+
+  .views {
+    margin: 0 -16px;
+    padding: 0 16px;
+  }
+
+  .views.stuck .views-worth {
+    display: none;
+  }
+
+  .tabs {
+    gap: 0;
+  }
+
+  /* Only counts that call for attention earn their room on a phone. */
+  .count:not(.hot):not(.warn) {
+    display: none;
+  }
+
+  .tabs button {
+    gap: 5px;
+    padding: 14px 8px 13px;
+    font-size: 14px;
+  }
+
+  .tabs button[aria-selected='true']::after {
+    left: 8px;
+    right: 8px;
+  }
+
+  .view section + section {
+    margin-top: 44px;
+  }
+
+  .wallets .details {
+    padding-left: 0;
   }
 
   .allocation,

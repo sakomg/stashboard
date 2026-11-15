@@ -94,6 +94,16 @@ const MIGRATIONS = [
      tags      TEXT,
      tried_at  TEXT
    );`,
+  // 9: the last answer Zerion gave for each wallet, so a wallet is not asked again within minutes,
+  // and when a holding was read, if it comes from such an earlier answer.
+  `CREATE TABLE zerion_cache (
+     address    TEXT NOT NULL,
+     part       TEXT NOT NULL,
+     fetched_at TEXT NOT NULL,
+     positions  TEXT NOT NULL,
+     PRIMARY KEY (address, part)
+   );
+   ALTER TABLE holdings ADD COLUMN read_at TEXT;`,
 ];
 
 export function openDb(dir = process.env.DATA_DIR ?? 'data'): DatabaseSync {
@@ -197,11 +207,22 @@ export function saveOutcome(db: DatabaseSync, snapshotId: number, accountId: num
         'INSERT INTO snapshot_accounts (snapshot_id, account_id, status, warnings, reported_total) VALUES (?, ?, ?, ?, ?)',
       ).run(snapshotId, accountId, 'ok', JSON.stringify(outcome.warnings), outcome.reportedTotal ?? null);
       const insert = db.prepare(
-        `INSERT INTO holdings (snapshot_id, account_id, chain, protocol, symbol, type, quantity, price, value_usd)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO holdings (snapshot_id, account_id, chain, protocol, symbol, type, quantity, price, value_usd, read_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
       for (const h of outcome.holdings) {
-        insert.run(snapshotId, accountId, h.chain, h.protocol, h.symbol, h.type, h.quantity, h.price, h.value);
+        insert.run(
+          snapshotId,
+          accountId,
+          h.chain,
+          h.protocol,
+          h.symbol,
+          h.type,
+          h.quantity,
+          h.price,
+          h.value,
+          h.readAt ?? null,
+        );
       }
     }
     db.exec('COMMIT');
@@ -246,7 +267,7 @@ export function currentState(db: DatabaseSync, upToSnapshot = Number.MAX_SAFE_IN
       ORDER BY sa.snapshot_id DESC LIMIT 1`,
   );
   const holdingsOf = db.prepare(
-    `SELECT chain, protocol, symbol, type, quantity, price, value_usd AS value
+    `SELECT chain, protocol, symbol, type, quantity, price, value_usd AS value, read_at AS readAt
        FROM holdings WHERE snapshot_id = ? AND account_id = ? ORDER BY value_usd DESC`,
   );
 
@@ -391,6 +412,15 @@ export function saveOwner(db: DatabaseSync, owner: Owner): void {
 }
 
 /** Removes the account and signs everyone out; the next start asks for setup again. */
+export function getSetting(db: DatabaseSync, key: string): string | null {
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined;
+  return row?.value ?? null;
+}
+
+export function setSetting(db: DatabaseSync, key: string, value: string): void {
+  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, value);
+}
+
 export function deleteOwner(db: DatabaseSync): boolean {
   db.prepare('DELETE FROM sessions').run();
   return db.prepare("DELETE FROM settings WHERE key = 'owner'").run().changes > 0;

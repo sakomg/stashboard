@@ -9,7 +9,8 @@ export const LIGHTER_VENUES = [
   { chain: 'robinhood', host: 'https://api.rh.lighter.xyz', collateral: 'USDG' },
 ];
 
-const PROTOCOL = 'Lighter';
+export const LIGHTER_PROTOCOL = 'Lighter';
+const PROTOCOL = LIGHTER_PROTOCOL;
 const LOGO = 'https://app.lighter.xyz/apple-touch-icon.png';
 const NOT_FOUND = 21100;
 

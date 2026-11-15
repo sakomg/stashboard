@@ -13,6 +13,8 @@ export interface Holding {
   /** USD. Negative for debts, so that sums are net worth. */
   value: number;
   type: HoldingType;
+  /** When the position was read, if it comes from an earlier answer of the source rather than this run. */
+  readAt?: string | null;
 }
 
 export type LogoKind = 'token' | 'chain' | 'protocol';

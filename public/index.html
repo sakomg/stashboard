@@ -56,30 +56,57 @@
       </section>
 
       <div id="content" hidden>
-        <section aria-labelledby="allocation-title">
-          <div class="section-head">
-            <h2 id="allocation-title">Allocation</h2>
-            <div class="segmented" id="dimension" role="group" aria-label="Group allocation by"></div>
+        <nav class="views" id="views" aria-label="Sections">
+          <span class="views-worth num" id="views-worth" aria-hidden="true"></span>
+          <div class="tabs" role="tablist" aria-label="Sections">
+            <button role="tab" type="button" id="tab-overview" aria-controls="view-overview" data-view="overview">
+              Overview
+            </button>
+            <button role="tab" type="button" id="tab-positions" aria-controls="view-positions" data-view="positions">
+              Positions<span class="count" data-count="positions"></span>
+            </button>
+            <button role="tab" type="button" id="tab-signals" aria-controls="view-signals" data-view="signals">
+              Signals<span class="count" data-count="signals"></span>
+            </button>
+            <button role="tab" type="button" id="tab-defi" aria-controls="view-defi" data-view="defi">
+              DeFi<span class="count" data-count="defi"></span>
+            </button>
+            <button role="tab" type="button" id="tab-accounts" aria-controls="view-accounts" data-view="accounts">
+              Accounts<span class="count" data-count="accounts"></span>
+            </button>
           </div>
-          <div class="strip" id="strip" role="img" aria-label="Allocation of the portfolio"></div>
-          <div class="allocation">
-            <ul class="legend" id="legend"></ul>
-            <aside class="notes" id="allocation-notes"></aside>
-          </div>
-        </section>
+        </nav>
 
-        <section aria-labelledby="history-title">
-          <div class="section-head">
-            <h2 id="history-title">History</h2>
-            <div class="segmented" id="period" role="group" aria-label="History period"></div>
-          </div>
-          <div class="chart" id="history"></div>
-          <p class="empty" id="history-empty" hidden></p>
-        </section>
+        <div class="view" id="view-overview" role="tabpanel" aria-labelledby="tab-overview" tabindex="0">
+          <p class="empty" id="overview-empty" hidden>Balances appear here after the first update.</p>
+          <div id="overview-content">
+            <section aria-labelledby="allocation-title">
+              <div class="section-head">
+                <h2 id="allocation-title">Allocation</h2>
+                <div class="segmented" id="dimension" role="group" aria-label="Group allocation by"></div>
+              </div>
+              <div class="strip" id="strip" role="img" aria-label="Allocation of the portfolio"></div>
+              <div class="allocation">
+                <ul class="legend" id="legend"></ul>
+                <aside class="notes" id="allocation-notes"></aside>
+              </div>
+            </section>
 
-        <section aria-labelledby="positions-title">
+            <section aria-labelledby="history-title">
+              <div class="section-head">
+                <h2 id="history-title">History</h2>
+                <div class="segmented" id="period" role="group" aria-label="History period"></div>
+              </div>
+              <div class="chart" id="history"></div>
+              <p class="empty" id="history-empty" hidden></p>
+            </section>
+          </div>
+        </div>
+
+        <div class="view" id="view-positions" role="tabpanel" aria-labelledby="tab-positions" tabindex="0" hidden>
           <div class="section-head">
-            <h2 id="positions-title">Positions</h2>
+            <h2 class="sr-only">Positions</h2>
+            <p class="lead" id="positions-lead"></p>
             <button class="link" id="dust-toggle" type="button" hidden></button>
           </div>
           <div class="table-wrap">
@@ -88,29 +115,31 @@
               <tbody></tbody>
             </table>
           </div>
-        </section>
+        </div>
 
-        <section aria-labelledby="signals-title">
-          <div class="section-head"><h2 id="signals-title">Signals</h2></div>
+        <div class="view" id="view-signals" role="tabpanel" aria-labelledby="tab-signals" tabindex="0" hidden>
+          <h2 class="sr-only">Signals</h2>
           <div class="signals" id="signals"></div>
           <p class="signals-note" id="signals-note"></p>
-        </section>
-
-        <section aria-labelledby="defi-title">
-          <div class="section-head"><h2 id="defi-title">DeFi</h2></div>
-          <div id="defi"></div>
-        </section>
-      </div>
-
-      <section aria-labelledby="wallets-title" id="wallets-section" hidden>
-        <div class="section-head">
-          <h2 id="wallets-title">Wallets</h2>
-          <button class="button" type="button" data-open-add>
-            <svg class="icon" aria-hidden="true"><use href="/icons.svg#plus"></use></svg>Add wallet
-          </button>
         </div>
-        <ul class="wallets" id="wallets"></ul>
-      </section>
+
+        <div class="view" id="view-defi" role="tabpanel" aria-labelledby="tab-defi" tabindex="0" hidden>
+          <h2 class="sr-only">DeFi</h2>
+          <div id="defi"></div>
+        </div>
+
+        <div class="view" id="view-accounts" role="tabpanel" aria-labelledby="tab-accounts" tabindex="0" hidden>
+          <div class="section-head">
+            <h2 class="sr-only">Accounts</h2>
+            <p class="lead">Every account is read on its own; one that fails keeps its last balances.</p>
+            <button class="button" type="button" data-open-add>
+              <svg class="icon" aria-hidden="true"><use href="/icons.svg#plus"></use></svg>Add wallet
+            </button>
+          </div>
+          <ul class="wallets" id="wallets"></ul>
+          <p class="footnote" id="quota"></p>
+        </div>
+      </div>
     </main>
 
     <dialog class="dialog" id="add-dialog" aria-labelledby="add-title">

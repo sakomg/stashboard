@@ -167,6 +167,9 @@ const state = {
   showDust: false,
   renaming: null,
   updating: false,
+  view: 'overview',
+  /** What the running collection is doing, account by account, as /api/progress reports it. */
+  progress: null,
 };
 
 async function api(path, options) {
@@ -192,13 +195,7 @@ function renderSummary() {
   const { data } = state;
   const [whole, cents] = usd(data.netWorth).split('.');
   $('net-worth').replaceChildren(whole, h('span', { class: 'cents' }, `.${cents}`));
-
-  const busy = state.updating || data.collecting;
-  $('updated').textContent = busy ? 'Updating…' : data.updatedAt ? `Updated ${ago(data.updatedAt)}` : 'Not updated yet';
-  const button = $('collect');
-  button.disabled = busy;
-  button.classList.toggle('spinning', busy);
-  button.title = busy ? 'Updating…' : `Update now. Updates on its own every ${data.collectEveryMinutes} min.`;
+  $('views-worth').textContent = usdRound(data.netWorth);
 
   const fact = (label, ...value) => h('div', {}, h('dt', {}, label), h('dd', {}, ...value));
   $('facts').replaceChildren(
@@ -208,46 +205,117 @@ function renderSummary() {
     data.fearGreed && fact('Fear & Greed', String(data.fearGreed.value), h('small', {}, data.fearGreed.label)),
   );
   $('sign-out').hidden = !data.loginEnabled;
+  renderUpdating();
+  renderNotices();
+}
 
+const busy = () => state.updating || state.data?.collecting || state.progress !== null;
+const labelOf = (id) => state.data?.sources.find((s) => s.id === id)?.label ?? 'an account';
+
+/** The line under the net worth and the account chips: what is happening right now. */
+function renderUpdating() {
+  const { data, progress } = state;
+  const button = $('collect');
+  button.disabled = busy();
+  button.classList.toggle('spinning', busy());
+  button.title = busy() ? 'Updating…' : `Update now. Updates on its own every ${data.collectEveryMinutes} min.`;
+
+  let line;
+  if (progress?.phase === 'signals') line = 'Updating signals…';
+  else if (progress) {
+    const done = progress.accounts.filter((a) => a.state === 'done' || a.state === 'failed').length;
+    const current = progress.accounts.find((a) => a.state === 'reading');
+    line = current
+      ? `${current.note ? `${labelOf(current.id)}: ${current.note}` : `Reading ${labelOf(current.id)}`} · ${done} of ${progress.accounts.length}`
+      : `Updating · ${done} of ${progress.accounts.length}`;
+  } else if (busy()) line = 'Updating…';
+  else line = data.updatedAt ? `Updated ${ago(data.updatedAt)}` : 'Not updated yet';
+  $('updated').textContent = line;
+  renderSources();
+}
+
+// Older than two scheduled updates: worth a quiet mark on the chip.
+const isOld = (s) =>
+  s.oldestRead && Date.now() - Date.parse(s.oldestRead) > 2 * state.data.collectEveryMinutes * 60_000;
+
+function renderSources() {
+  const live = new Map((state.progress?.accounts ?? []).map((a) => [a.id, a]));
   $('sources').replaceChildren(
-    ...data.sources.map((s) => {
-      const problem =
-        s.status === null ? ['clock', 'Not read yet'] : s.stale ? ['triangle-alert', 'Out of date'] : null;
+    ...state.data.sources.map((s) => {
+      const step = live.get(s.id);
+      // While an update runs, the chips show how far it has got; otherwise, anything that needs attention.
+      const mark = step
+        ? {
+            waiting: ['waiting', null, 'Waiting to be read'],
+            reading: ['reading', 'refresh-cw', step.note ?? 'Reading now'],
+            done: ['done', 'check', 'Read'],
+            failed: ['problem', 'triangle-alert', step.note ?? 'Could not be read'],
+          }[step.state]
+        : s.status === null
+          ? ['problem', 'clock', 'Not read yet']
+          : s.stale
+            ? ['problem', 'triangle-alert', 'Out of date']
+            : isOld(s)
+              ? ['aged', 'clock', `Some balances are from ${ago(s.oldestRead)}`]
+              : null;
       return h(
         'li',
         {
-          class: problem ? 'problem' : '',
-          title: problem ? problem[1] : `${usd(s.value)}, updated ${ago(s.collectedAt)}`,
+          class: mark?.[0] ?? '',
+          title: mark ? mark[2] : `${usd(s.value)}, updated ${ago(s.collectedAt)}`,
         },
         kindLogo(s.kind),
         h('span', { class: 'chip-label' }, s.label),
-        !problem && h('span', { class: 'num muted' }, usdRound(s.value)),
-        problem && icon(problem[0]),
-        problem && h('span', { class: 'sr-only' }, problem[1]),
+        (!mark || mark[0] === 'aged' || mark[0] === 'done' || mark[0] === 'waiting') &&
+          s.status !== null &&
+          h('span', { class: 'num muted' }, usdRound(s.value)),
+        mark?.[1] && icon(mark[1]),
+        mark && h('span', { class: 'sr-only' }, mark[2]),
       );
     }),
   );
+}
 
-  // What went wrong, said once and in full, instead of a tooltip nobody finds.
+const joinNames = (names) =>
+  names.length <= 2 ? names.join(' and ') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+
+/** What went wrong, said once per cause rather than once per account. */
+function renderNotices() {
+  const groups = new Map();
+  const add = (key, source, text) => {
+    if (!groups.has(key)) groups.set(key, { text, sources: [] });
+    groups.get(key).sources.push(source);
+  };
+  for (const s of state.data.sources) {
+    if (s.stale) add(`error\n${s.error}`, s, s.error ?? '');
+    // Allowance notes from a source are worth showing; routine warnings (unpriced spam) are not.
+    for (const w of s.warnings) if (/allowance|rate limiting|left out/i.test(w)) add(`warn\n${w}`, s, w);
+  }
   $('notices').replaceChildren(
-    ...data.sources
-      .filter((s) => s.stale)
-      .map((s) =>
+    ...[...groups].map(([key, { text, sources }]) => {
+      const names = joinNames(sources.map((s) => s.label));
+      const error = key.startsWith('error');
+      const oldest = sources.reduce(
+        (min, s) => (s.collectedAt && (!min || s.collectedAt < min) ? s.collectedAt : min),
+        null,
+      );
+      return h(
+        'li',
+        { class: error ? '' : 'info' },
+        icon(error ? 'triangle-alert' : 'clock'),
         h(
-          'li',
+          'span',
           {},
-          icon('triangle-alert'),
-          h(
-            'span',
-            {},
-            h('b', {}, s.label),
-            s.collectedAt
-              ? ` could not be updated. Showing its balances from ${ago(s.collectedAt)}. `
-              : ' could not be read, so it is missing from the totals. ',
-            h('span', { class: 'muted' }, s.error ?? ''),
-          ),
+          h('b', {}, names),
+          error
+            ? oldest
+              ? ` could not be updated. Showing balances from ${ago(oldest)}. `
+              : ' could not be read and are missing from the totals. '
+            : ': ',
+          h('span', { class: error ? 'muted' : '' }, text),
         ),
-      ),
+      );
+    }),
   );
 }
 
@@ -399,8 +467,10 @@ async function renderHistory() {
   chart.setOption(
     {
       animation: false,
-      textStyle: { fontFamily: token('--body'), color: token('--slate') },
-      grid: { left: 0, right: 8, top: 44, bottom: 0, containLabel: true },
+      // A font list the canvas that measures labels resolves the same way as the SVG that draws them.
+      textStyle: { fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif", color: token('--slate') },
+      // The labels are measured before the page font settles; a few pixels to spare keep "$" from being cut.
+      grid: { left: 10, right: 8, top: 44, bottom: 0, containLabel: true },
       legend: {
         top: 0,
         left: 0,
@@ -526,6 +596,7 @@ function renderPositions() {
     return sort.descending ? -order : order;
   });
 
+  $('positions-lead').textContent = 'Select an asset to see where it is held.';
   const toggle = $('dust-toggle');
   toggle.hidden = dust.length === 0;
   toggle.textContent = state.showDust
@@ -735,6 +806,18 @@ function renderSignals() {
 
 // ── DeFi ─────────────────────────────────────────────────────────────────────
 
+/** "Read 2 h ago" for positions that come from an earlier answer of the source. */
+function readNote(items) {
+  const oldest = items.reduce((min, x) => (x.readAt && (!min || x.readAt < min) ? x.readAt : min), null);
+  if (!oldest || Date.now() - Date.parse(oldest) < 30 * 60_000) return null;
+  return h(
+    'p',
+    { class: 'read-at', title: 'Positions in protocols are read less often to stay within the free allowance' },
+    icon('clock'),
+    `Read ${ago(oldest)}`,
+  );
+}
+
 function renderDefi() {
   const byProtocol = new Map();
   for (const x of state.data.holdings) {
@@ -764,6 +847,7 @@ function renderDefi() {
             h('span', {}, `${chainName(items[0].chain)}, ${[...new Set(items.map((x) => x.account))].join(', ')}`),
           ),
           h('p', { class: 'total num' }, usd(net)),
+          readNote(items),
         ),
         h(
           'ul',
@@ -797,29 +881,44 @@ function renderDefi() {
 
 // ── Wallets ──────────────────────────────────────────────────────────────────
 
-function renderWallets() {
-  const wallets = state.data.sources.filter((s) => s.kind !== 'binance');
-  $('wallets-section').hidden = wallets.length === 0;
+function accountStatus(s) {
+  if (s.status === null) return ['muted', 'Not read yet'];
+  if (s.stale) return ['warn', `Out of date, from ${ago(s.collectedAt)}. ${s.error ?? ''}`];
+  if (isOld(s)) return ['muted', `Updated ${ago(s.collectedAt)}; some balances are from ${ago(s.oldestRead)}`];
+  return ['muted', `Updated ${ago(s.collectedAt)}`];
+}
 
+function renderAccounts() {
   $('wallets').replaceChildren(
-    ...wallets.map((w) => {
+    ...state.data.sources.map((w) => {
+      const exchange = w.kind === 'binance';
+      const [tone, status] = accountStatus(w);
+      const details = h(
+        'div',
+        { class: 'details' },
+        h('p', { class: tone }, status),
+        ...w.warnings.map((text) => h('p', { class: 'muted' }, text)),
+      );
+
       if (state.renaming !== w.id) {
         return h(
           'li',
           {},
           h('span', { class: 'label name' }, kindLogo(w.kind), h('span', {}, w.label)),
-          h('span', { class: 'kind muted' }, KINDS[w.kind]),
-          h('span', { class: 'address num muted' }, w.address),
+          h('span', { class: 'kind muted' }, exchange ? 'Exchange' : KINDS[w.kind]),
+          h('span', { class: 'address num muted' }, exchange ? 'Read-only API key' : w.address),
           h('span', { class: 'num' }, w.status === null ? '—' : usd(w.value)),
           h(
             'span',
             { class: 'actions' },
-            iconButton('pencil', `Rename ${w.label}`, () => {
-              state.renaming = w.id;
-              renderWallets();
-            }),
-            iconButton('trash-2', `Remove ${w.label}`, () => openRemove(w)),
+            !exchange &&
+              iconButton('pencil', `Rename ${w.label}`, () => {
+                state.renaming = w.id;
+                renderAccounts();
+              }),
+            !exchange && iconButton('trash-2', `Remove ${w.label}`, () => openRemove(w)),
           ),
+          details,
         );
       }
 
@@ -827,7 +926,7 @@ function renderWallets() {
       const error = h('p', { class: 'form-error', role: 'alert', hidden: true });
       const cancel = () => {
         state.renaming = null;
-        renderWallets();
+        renderAccounts();
       };
       const save = async () => {
         try {
@@ -862,7 +961,76 @@ function renderWallets() {
     input.focus();
     input.select();
   }
+
+  // The free Zerion key is the tightest limit in the system; say how much of it is left.
+  const z = state.data.zerion;
+  $('quota').textContent =
+    z?.dayLimit != null
+      ? `EVM and Solana wallets are read through Zerion. Its ${z.tier ?? 'free'} key allows ${z.dayLimit} requests a day; ${z.dayRemaining ?? '?'} are left${z.dayResetsAt ? `, renewing in ${Math.max(1, Math.ceil((z.dayResetsAt - Date.now()) / 3_600_000))} h` : ''}. To stay within it, token balances are read at most every 10 minutes per wallet and DeFi positions every 3 hours.`
+      : '';
 }
+
+// ── Views ────────────────────────────────────────────────────────────────────
+
+const VIEWS = ['overview', 'positions', 'signals', 'defi', 'accounts'];
+const tabs = () => [...document.querySelectorAll('[role="tab"]')];
+
+function showView(id, focus = false) {
+  state.view = VIEWS.includes(id) ? id : 'overview';
+  for (const tab of tabs()) {
+    const on = tab.dataset.view === state.view;
+    tab.setAttribute('aria-selected', String(on));
+    tab.tabIndex = on ? 0 : -1;
+    if (on && focus) tab.focus();
+  }
+  for (const view of VIEWS) $(`view-${view}`).hidden = view !== state.view;
+  // A chart drawn while hidden has no size; give it one now that it shows.
+  if (state.view === 'overview') chart?.resize();
+}
+
+function renderCounts() {
+  const { data } = state;
+  const set = (name, text, tone = '') => {
+    const el = document.querySelector(`[data-count="${name}"]`);
+    el.textContent = text;
+    el.className = `count ${tone}`;
+  };
+  set('positions', String(data.assets.filter((a) => Math.abs(a.value) >= DUST_USD).length));
+  const hot = data.assets.filter((a) => a.signal?.zone === 'overheated' && Math.abs(a.value) >= DUST_USD).length;
+  set('signals', hot ? `${hot} hot` : '', hot ? 'hot' : '');
+  set(
+    'defi',
+    String(new Set(data.holdings.filter((x) => x.protocol && x.kind !== 'binance').map((x) => x.protocol)).size || ''),
+  );
+  const troubled = data.sources.filter((s) => s.stale || s.status === null).length;
+  set('accounts', troubled ? `${troubled} !` : String(data.sources.length), troubled ? 'warn' : '');
+}
+
+for (const tab of tabs()) {
+  tab.addEventListener('click', () => {
+    if (location.hash !== `#${tab.dataset.view}`) location.hash = tab.dataset.view;
+    showView(tab.dataset.view);
+    // Deep in a long view, the next one should open at its start, under the tab bar.
+    if ($('views').classList.contains('stuck')) $('views').scrollIntoView();
+  });
+  // Arrow keys move between tabs, as in any tab list.
+  tab.addEventListener('keydown', (e) => {
+    const list = tabs();
+    const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+    if (!step) return;
+    e.preventDefault();
+    const next = list[(list.indexOf(tab) + step + list.length) % list.length];
+    location.hash = next.dataset.view;
+    showView(next.dataset.view, true);
+  });
+}
+window.addEventListener('hashchange', () => showView(location.hash.slice(1)));
+showView(location.hash.slice(1));
+
+// Once the net worth scrolls away, the tab bar carries a small copy of it.
+new IntersectionObserver(([entry]) => $('views').classList.toggle('stuck', !entry.isIntersecting), {
+  rootMargin: '-60px 0px 0px 0px',
+}).observe($('net-worth'));
 
 // ── Dialogs ──────────────────────────────────────────────────────────────────
 
@@ -1044,7 +1212,29 @@ function showBanner(err) {
 
 // ── Loading ──────────────────────────────────────────────────────────────────
 
-let pollTimer;
+let progressTimer;
+
+/** While a collection runs, ask what it is doing every second. */
+function watchProgress() {
+  if (progressTimer) return;
+  const tick = async () => {
+    try {
+      const { collecting, progress } = await api('/api/progress');
+      state.progress = progress;
+      if (state.data) renderUpdating();
+      if (!collecting && !state.updating) {
+        progressTimer = null;
+        state.progress = null;
+        await load();
+        return;
+      }
+    } catch {
+      // A missed tick is harmless; the next one tries again.
+    }
+    progressTimer = setTimeout(tick, 1000);
+  };
+  progressTimer = setTimeout(tick, 300);
+}
 
 async function load() {
   try {
@@ -1056,25 +1246,28 @@ async function load() {
       return;
     }
     state.data = data;
+    state.progress = data.progress ?? state.progress;
     state.logos = new Map(Object.entries(data.logos.available));
     state.chainNames = data.logos.chains;
     $('banner').hidden = true;
 
-    const empty = data.holdings.length === 0;
-    $('welcome').hidden = !empty || data.collecting || state.updating;
-    $('content').hidden = empty;
+    const noAccounts = data.sources.length === 0;
+    const noBalances = data.holdings.length === 0;
+    $('welcome').hidden = !noAccounts;
+    $('content').hidden = noAccounts;
+    $('overview-empty').hidden = !noBalances;
+    $('overview-content').hidden = noBalances;
     renderSummary();
-    renderWallets();
-    if (!empty) {
+    renderAccounts();
+    renderCounts();
+    renderPositions();
+    renderSignals();
+    renderDefi();
+    if (!noBalances) {
       renderAllocation();
-      renderPositions();
-      renderSignals();
-      renderDefi();
       await renderHistory();
     }
-    // A collection started elsewhere (the schedule, another tab) is still running: look again shortly.
-    clearTimeout(pollTimer);
-    if (data.collecting) pollTimer = setTimeout(load, 4000);
+    if (data.collecting) watchProgress();
   } catch (err) {
     showBanner(err);
   }
@@ -1083,7 +1276,8 @@ async function load() {
 async function update() {
   if (state.updating) return;
   state.updating = true;
-  if (state.data) renderSummary();
+  if (state.data) renderUpdating();
+  watchProgress();
   let failure = null;
   try {
     await api('/api/collect', { method: 'POST', body: '{}' });
@@ -1091,10 +1285,11 @@ async function update() {
     failure = err;
   }
   state.updating = false;
+  state.progress = null;
   await load();
   if (failure) showBanner(failure);
-  // Logos of newly seen tokens are fetched after the update; pick them up once they are in.
-  else setTimeout(load, 15000);
+  // Logos and categories of newly seen tokens are fetched after the update; pick them up once they are in.
+  else setTimeout(load, 20000);
 }
 
 $('collect').addEventListener('click', update);
