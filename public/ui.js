@@ -225,3 +225,5 @@ export function segmented({ label, options, value, onChange }) {
     ),
   );
 }
+
+export const skeleton = (cls = 'sk-line') => h('span', { class: `skeleton ${cls}`, 'aria-hidden': 'true' });

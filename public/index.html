@@ -9,7 +9,7 @@
     <link rel="icon" href="/logo.svg" />
     <link rel="stylesheet" href="/app.css" />
   </head>
-  <body>
+  <body data-state="loading">
     <header class="top">
       <a class="brand" href="/"
         ><img src="/logo.svg" alt="" width="28" height="28" /><span>stash</span><span>board</span></a
@@ -39,32 +39,78 @@
               <svg class="icon" aria-hidden="true"><use href="/icons.svg#eye"></use></svg>
             </button>
           </div>
-          <p class="worth-value" id="net-worth">—</p>
+          <p class="worth-value" id="net-worth"><span class="skeleton sk-worth" aria-hidden="true"></span></p>
           <p class="worth-meta">
-            <span id="updated">Loading…</span>
+            <span id="updated"><span class="skeleton sk-line" aria-hidden="true"></span></span>
             <button class="icon-button" id="collect" type="button" aria-label="Update now" title="Update now">
               <svg class="icon" aria-hidden="true"><use href="/icons.svg#refresh-cw"></use></svg>
             </button>
           </p>
         </div>
-        <dl class="facts" id="facts"></dl>
+        <dl class="facts" id="facts" aria-busy="true">
+          <div>
+            <dt><span class="skeleton sk-label" aria-hidden="true"></span></dt>
+            <dd><span class="skeleton sk-fact" aria-hidden="true"></span></dd>
+          </div>
+          <div>
+            <dt><span class="skeleton sk-label" aria-hidden="true"></span></dt>
+            <dd><span class="skeleton sk-fact" aria-hidden="true"></span></dd>
+          </div>
+          <div>
+            <dt><span class="skeleton sk-label" aria-hidden="true"></span></dt>
+            <dd><span class="skeleton sk-fact" aria-hidden="true"></span></dd>
+          </div>
+          <div>
+            <dt><span class="skeleton sk-label" aria-hidden="true"></span></dt>
+            <dd><span class="skeleton sk-fact" aria-hidden="true"></span></dd>
+          </div>
+        </dl>
       </section>
 
-      <ul class="sources" id="sources" aria-label="Accounts"></ul>
+      <ul class="sources" id="sources" aria-label="Accounts">
+        <li class="skeleton sk-chip" aria-hidden="true"></li>
+        <li class="skeleton sk-chip" aria-hidden="true"></li>
+        <li class="skeleton sk-chip" aria-hidden="true"></li>
+      </ul>
       <ul class="notices" id="notices"></ul>
 
-      <section class="welcome" id="welcome" hidden>
-        <h2>Nothing to show yet</h2>
-        <p>
-          Add a wallet address and Stashboard reads its balances. Only public addresses are needed: no keys, no seed
-          phrases.
+      <section class="onboarding" id="welcome" aria-labelledby="welcome-title">
+        <h2 id="welcome-title">Put your whole stash on one board</h2>
+        <p class="lead">
+          Add the wallets and exchanges you hold crypto in. Stashboard reads their balances, merges them into one
+          portfolio and keeps its history. It only reads: a wallet needs its public address, an exchange a read-only API
+          key.
         </p>
-        <button class="button primary" type="button" data-open-add>
-          <svg class="icon" aria-hidden="true"><use href="/icons.svg#plus"></use></svg>Add wallet or exchange
-        </button>
+        <div class="paths">
+          <button class="path" type="button" data-open-add="wallet">
+            <span class="path-icon"
+              ><svg class="icon" aria-hidden="true"><use href="/icons.svg#wallet"></use></svg
+            ></span>
+            <b>Add a wallet</b>
+            <span>EVM, Solana or TON. The public address is all it needs.</span>
+          </button>
+          <button class="path" type="button" data-open-add="exchange">
+            <span class="path-icon"
+              ><svg class="icon" aria-hidden="true"><use href="/icons.svg#landmark"></use></svg
+            ></span>
+            <b>Add an exchange</b>
+            <span>Binance, with an API key that can only read.</span>
+          </button>
+        </div>
+        <ol class="next">
+          <li>
+            <span><b>Balances</b> are read as soon as an account is added, usually within a minute.</span>
+          </li>
+          <li>
+            <span><b>History</b> begins with the next scheduled update.</span>
+          </li>
+          <li>
+            <span><b>Changes</b> over 24 hours, 7 and 30 days fill in as the history grows.</span>
+          </li>
+        </ol>
       </section>
 
-      <div id="content" hidden>
+      <div id="content">
         <nav class="views" id="views" aria-label="Sections">
           <span class="views-worth num" id="views-worth" aria-hidden="true"></span>
           <div class="tabs" role="tablist" aria-label="Sections">
@@ -87,7 +133,7 @@
         </nav>
 
         <div class="view" id="view-overview" role="tabpanel" aria-labelledby="tab-overview" tabindex="0">
-          <p class="empty" id="overview-empty" hidden>Balances appear here after the first update.</p>
+          <div class="overview-empty" id="overview-empty" hidden></div>
           <div id="overview-content">
             <section aria-labelledby="allocation-title">
               <div class="section-head">
@@ -99,10 +145,21 @@
                   </button>
                 </div>
               </div>
-              <div class="strip" id="strip" role="img" aria-label="Allocation of the portfolio"></div>
+              <div class="strip" id="strip" role="img" aria-label="Allocation of the portfolio">
+                <span class="skeleton sk-strip" aria-hidden="true"></span>
+              </div>
               <div class="allocation">
-                <ul class="legend" id="legend"></ul>
-                <aside class="notes" id="allocation-notes"></aside>
+                <ul class="legend" id="legend">
+                  <li class="sk-legend"><span class="skeleton sk-line wide" aria-hidden="true"></span></li>
+                  <li class="sk-legend"><span class="skeleton sk-line wide" aria-hidden="true"></span></li>
+                  <li class="sk-legend"><span class="skeleton sk-line wide" aria-hidden="true"></span></li>
+                  <li class="sk-legend"><span class="skeleton sk-line wide" aria-hidden="true"></span></li>
+                  <li class="sk-legend"><span class="skeleton sk-line wide" aria-hidden="true"></span></li>
+                  <li class="sk-legend"><span class="skeleton sk-line wide" aria-hidden="true"></span></li>
+                </ul>
+                <aside class="notes" id="allocation-notes">
+                  <span class="skeleton sk-block" aria-hidden="true"></span>
+                </aside>
               </div>
             </section>
 
@@ -111,7 +168,7 @@
                 <h2 id="history-title">History</h2>
                 <div class="segmented" id="period" role="group" aria-label="History period"></div>
               </div>
-              <div class="chart" id="history"></div>
+              <div class="chart" id="history"><span class="skeleton sk-chart" aria-hidden="true"></span></div>
               <p class="empty" id="history-empty" hidden></p>
             </section>
           </div>
@@ -126,14 +183,33 @@
           <div class="table-wrap">
             <table class="positions" id="positions-table">
               <thead></thead>
-              <tbody></tbody>
+              <tbody>
+                <tr class="sk-row">
+                  <td colspan="10"><span class="skeleton sk-line wide" aria-hidden="true"></span></td>
+                </tr>
+                <tr class="sk-row">
+                  <td colspan="10"><span class="skeleton sk-line wide" aria-hidden="true"></span></td>
+                </tr>
+                <tr class="sk-row">
+                  <td colspan="10"><span class="skeleton sk-line wide" aria-hidden="true"></span></td>
+                </tr>
+                <tr class="sk-row">
+                  <td colspan="10"><span class="skeleton sk-line wide" aria-hidden="true"></span></td>
+                </tr>
+                <tr class="sk-row">
+                  <td colspan="10"><span class="skeleton sk-line wide" aria-hidden="true"></span></td>
+                </tr>
+                <tr class="sk-row">
+                  <td colspan="10"><span class="skeleton sk-line wide" aria-hidden="true"></span></td>
+                </tr>
+              </tbody>
             </table>
           </div>
         </div>
 
         <div class="view" id="view-signals" role="tabpanel" aria-labelledby="tab-signals" tabindex="0" hidden>
           <h2 class="sr-only">Signals</h2>
-          <div class="heat-guide" id="heat-guide"></div>
+          <div class="heat-guide" id="heat-guide"><span class="skeleton sk-block" aria-hidden="true"></span></div>
           <div class="table-wrap">
             <table class="signal-table" id="signal-table">
               <thead></thead>
@@ -144,7 +220,7 @@
 
         <div class="view" id="view-defi" role="tabpanel" aria-labelledby="tab-defi" tabindex="0" hidden>
           <h2 class="sr-only">DeFi</h2>
-          <div id="defi-list"></div>
+          <div id="defi-list"><span class="skeleton sk-card" aria-hidden="true"></span></div>
         </div>
 
         <div class="view" id="view-accounts" role="tabpanel" aria-labelledby="tab-accounts" tabindex="0" hidden>
@@ -155,7 +231,11 @@
               <svg class="icon" aria-hidden="true"><use href="/icons.svg#plus"></use></svg>Add wallet or exchange
             </button>
           </div>
-          <ul class="wallets" id="wallets"></ul>
+          <ul class="wallets" id="wallets">
+            <li class="sk-row"><span class="skeleton sk-line wide" aria-hidden="true"></span></li>
+            <li class="sk-row"><span class="skeleton sk-line wide" aria-hidden="true"></span></li>
+            <li class="sk-row"><span class="skeleton sk-line wide" aria-hidden="true"></span></li>
+          </ul>
         </div>
       </div>
     </main>

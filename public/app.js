@@ -1,6 +1,6 @@
 const $ = (id) => document.getElementById(id);
 
-import { h, help, icon, iconButton, segmented as segmentedControl, select } from '/ui.js';
+import { h, help, icon, iconButton, segmented as segmentedControl, select, skeleton } from '/ui.js';
 
 const SOURCES = {
   rsi: {
@@ -229,13 +229,34 @@ async function api(path, options) {
   return body;
 }
 
+const hasBalances = () => state.data.holdings.length > 0;
+const firstRead = () => !hasBalances() && busy();
+
+function inTime(ms) {
+  const minutes = Math.max(1, Math.round(ms / 60_000));
+  if (minutes < 90) return `${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  return hours < 36 ? `${hours} h` : `${Math.round(hours / 24)} days`;
+}
+
+function pendingChange(days) {
+  const since = state.data.historySince;
+  if (!since) return h('span', { class: 'pending' }, 'after the first update');
+  const due = Date.parse(since) + days * 86_400_000 - Date.now();
+  return h('span', { class: 'pending' }, due > 0 ? `in ${inTime(due)}` : 'soon');
+}
+
+const changeOrPending = (value, days) => (value == null ? pendingChange(days) : change(value));
+
 function renderSummary() {
   const { data } = state;
   const [whole, cents] = usd(data.netWorth).split('.');
   $('net-worth').replaceChildren(
-    ...(state.hideAmounts
-      ? ['$', h('span', { class: 'cents' }, MASK)]
-      : [whole, h('span', { class: 'cents' }, `.${cents}`)]),
+    ...(firstRead()
+      ? [skeleton('sk-worth')]
+      : state.hideAmounts
+        ? ['$', h('span', { class: 'cents' }, MASK)]
+        : [whole, h('span', { class: 'cents' }, `.${cents}`)]),
   );
   const privacy = $('privacy');
   const label = state.hideAmounts ? 'Show amounts' : 'Hide amounts';
@@ -247,9 +268,9 @@ function renderSummary() {
 
   const fact = (label, ...value) => h('div', {}, h('dt', {}, label), h('dd', {}, ...value));
   $('facts').replaceChildren(
-    fact('24 hours', change(data.changes.d1)),
-    fact('7 days', change(data.changes.d7)),
-    fact('30 days', change(data.changes.d30)),
+    fact('24 hours', changeOrPending(data.changes.d1, 1)),
+    fact('7 days', changeOrPending(data.changes.d7, 7)),
+    fact('30 days', changeOrPending(data.changes.d30, 30)),
     data.fearGreed &&
       h(
         'div',
@@ -515,10 +536,21 @@ async function renderHistory() {
   $('history').hidden = !enough;
   $('history-empty').hidden = enough;
   if (!enough) {
-    $('history-empty').textContent =
-      'History appears after the second update. Stashboard records the portfolio on every update, so this chart fills in on its own.';
+    const { updatedAt, collectEveryMinutes } = state.data;
+    const due = updatedAt ? Date.parse(updatedAt) + collectEveryMinutes * 60_000 - Date.now() : null;
+    $('history-empty').replaceChildren(
+      h('span', { class: 'ghost-line', 'aria-hidden': 'true' }),
+      h(
+        'span',
+        {},
+        h('b', {}, 'History starts with the next update'),
+        due === null ? '.' : due > 60_000 ? `, due in about ${inTime(due)}.` : ', due any minute now.',
+        ' Every update adds a point, so this chart fills in on its own.',
+      ),
+    );
     return;
   }
+  if (!chart) $('history').replaceChildren();
 
   const peak = Math.max(...points.map((p) => p.total), 0);
   const present = new Set(
@@ -746,7 +778,25 @@ function renderPositions() {
     if (open) body.append(placesRow(a.key));
   }
   if (sorted.length === 0) {
-    body.append(h('tr', {}, h('td', { colspan: COLUMNS.length, class: 'muted' }, 'No positions yet.')));
+    body.append(
+      ...(firstRead()
+        ? Array.from({ length: 6 }, () =>
+            h('tr', { class: 'sk-row' }, h('td', { colspan: COLUMNS.length }, skeleton('sk-line wide'))),
+          )
+        : [
+            h(
+              'tr',
+              {},
+              h(
+                'td',
+                { colspan: COLUMNS.length, class: 'muted' },
+                hasBalances()
+                  ? 'Nothing here is worth a dollar or more.'
+                  : 'No positions yet. They appear after the next update.',
+              ),
+            ),
+          ]),
+    );
   }
 }
 
@@ -1045,11 +1095,13 @@ function renderDefi() {
   );
   if (protocols.length === 0) {
     $('defi-list').replaceChildren(
-      h(
-        'p',
-        { class: 'empty' },
-        'No DeFi positions found. Deposits, loans, staking and rewards in protocols appear here.',
-      ),
+      firstRead()
+        ? skeleton('sk-card')
+        : h(
+            'p',
+            { class: 'empty' },
+            'No DeFi positions found. Deposits, loans, staking and rewards in protocols appear here.',
+          ),
     );
   }
 }
@@ -1158,14 +1210,14 @@ function renderCounts() {
     el.textContent = text;
     el.className = `count ${tone}`;
   };
-  set('positions', String(data.assets.filter((a) => Math.abs(a.value) >= DUST_USD).length));
+  set('positions', String(data.assets.filter((a) => Math.abs(a.value) >= DUST_USD).length || ''));
   const hot = data.assets.filter((a) => a.signal?.zone === 'overheated' && Math.abs(a.value) >= DUST_USD).length;
   set('signals', hot ? `${hot} hot` : '', hot ? 'hot' : '');
   set(
     'defi',
     String(new Set(data.holdings.filter((x) => x.protocol && x.kind !== 'binance').map((x) => x.protocol)).size || ''),
   );
-  const troubled = data.sources.filter((s) => s.stale || s.status === null).length;
+  const troubled = data.sources.filter((s) => s.stale || (s.status === null && !busy())).length;
   set('accounts', troubled ? `${troubled} !` : String(data.sources.length), troubled ? 'warn' : '');
 }
 
@@ -1289,14 +1341,16 @@ function showDetected() {
 
 addForm.address.addEventListener('input', showDetected);
 
-function openAdd() {
+function openAdd(kind = 'wallet') {
   addForm.reset();
   showDetected();
   $('add-dialog').showModal();
-  setAddKind('wallet');
+  setAddKind(kind);
 }
 
-for (const trigger of document.querySelectorAll('[data-open-add]')) trigger.addEventListener('click', openAdd);
+for (const trigger of document.querySelectorAll('[data-open-add]')) {
+  trigger.addEventListener('click', () => openAdd(trigger.dataset.openAdd || 'wallet'));
+}
 
 addForm.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -1879,8 +1933,11 @@ function watchProgress() {
     try {
       const { collecting, progress, update: gate } = await api('/api/progress');
       state.progress = progress;
-      if (state.data) state.data.update = gate;
-      if (state.data) renderUpdating();
+      if (state.data) {
+        state.data.update = gate;
+        setPhase(false);
+        renderUpdating();
+      }
       if (!collecting && !state.updating) {
         progressTimer = null;
         state.progress = null;
@@ -1893,7 +1950,44 @@ function watchProgress() {
   progressTimer = setTimeout(tick, 300);
 }
 
+function setPhase(redraw = true) {
+  const { data } = state;
+  const phase = data.sources.length === 0 ? 'empty' : firstRead() ? 'reading' : 'ready';
+  const changed = document.body.dataset.state !== phase;
+  if (changed) document.body.dataset.state = phase;
+  if (!changed && !redraw) return;
+  $('facts').removeAttribute('aria-busy');
+  $('overview-empty').hidden = hasBalances();
+  $('overview-content').hidden = !hasBalances();
+  if (hasBalances()) return;
+  const failed = data.sources.filter((s) => s.status === 'error').length;
+  $('overview-empty').replaceChildren(
+    ...(firstRead()
+      ? [
+          skeleton('sk-strip'),
+          h(
+            'p',
+            { class: 'reading-note' },
+            h('b', {}, 'Reading your accounts.'),
+            ' Balances appear here as soon as the first update finishes, usually within a minute.',
+          ),
+        ]
+      : [
+          h(
+            'p',
+            { class: 'empty' },
+            h('b', {}, 'No balances found yet.'),
+            failed
+              ? ` ${failed === 1 ? 'One account' : `${failed} accounts`} could not be read. The notice above says why.`
+              : ' The accounts added so far hold nothing Stashboard can price.',
+            ' Update again, or add another wallet or exchange.',
+          ),
+        ]),
+  );
+}
+
 async function renderAll() {
+  setPhase();
   renderSummary();
   renderAccounts();
   renderCounts();
@@ -1921,12 +2015,6 @@ async function load() {
     state.chainNames = data.logos.chains;
     $('banner').hidden = true;
 
-    const noAccounts = data.sources.length === 0;
-    const noBalances = data.holdings.length === 0;
-    $('welcome').hidden = !noAccounts;
-    $('content').hidden = noAccounts;
-    $('overview-empty').hidden = !noBalances;
-    $('overview-content').hidden = noBalances;
     await renderAll();
     if ($('account').open) renderAccountPanel();
     if (data.collecting) watchProgress();

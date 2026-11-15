@@ -17,11 +17,19 @@
     </header>
     <main>
       <section class="shared" aria-labelledby="share-title">
-        <h1 id="share-title">Loading…</h1>
-        <p class="muted" id="share-meta"></p>
+        <h1 id="share-title"><span class="skeleton sk-title" aria-hidden="true"></span></h1>
+        <p class="muted" id="share-meta"><span class="skeleton sk-line" aria-hidden="true"></span></p>
         <p class="shared-total num" id="share-total" hidden></p>
-        <div class="strip" id="strip" role="img" aria-label="Allocation"></div>
-        <ul class="legend" id="legend"></ul>
+        <div class="strip" id="strip" role="img" aria-label="Allocation">
+          <span class="skeleton sk-strip" aria-hidden="true"></span>
+        </div>
+        <ul class="legend" id="legend">
+          <li class="sk-legend"><span class="skeleton sk-line wide" aria-hidden="true"></span></li>
+          <li class="sk-legend"><span class="skeleton sk-line wide" aria-hidden="true"></span></li>
+          <li class="sk-legend"><span class="skeleton sk-line wide" aria-hidden="true"></span></li>
+          <li class="sk-legend"><span class="skeleton sk-line wide" aria-hidden="true"></span></li>
+          <li class="sk-legend"><span class="skeleton sk-line wide" aria-hidden="true"></span></li>
+        </ul>
       </section>
     </main>
     <script type="module" src="/share.js"></script>

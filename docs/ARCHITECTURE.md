@@ -177,7 +177,9 @@ hours; summing first makes it independent of the contract's funding interval (8,
 interest change is measured in contracts over seven days; some contracts have no history, which is a missing
 reading rather than a failure.
 
-The Fear & Greed index changes once a day and is cached; the page works without it.
+The Fear & Greed index changes once a day. It is kept for six hours and then served stale while a fresh copy is
+fetched in the background, so the dashboard never waits on alternative.me. With nothing kept yet (just after a
+start, which also warms it), the dashboard waits at most 1.5 seconds and shows the index on its next refresh.
 
 ## Assets and categories
 
@@ -296,6 +298,19 @@ at `/s/<token>/logo/<kind>/<key>` for logos that link's rows name, and the files
 
 No build step: plain HTML, CSS and ES modules. ECharts and the font are served from `node_modules`.
 
+- **Loading, empty and first read.** The page has four states, set on `<body data-state>`:
+  - `loading`, before the first answer: every block already holds a skeleton of its own shape in the HTML (the
+    net worth, the facts, three account chips, the strip, legend, notes, chart, table rows, cards), so the layout
+    does not jump when data arrives and the skeleton shows even before the script has loaded;
+  - `empty`, with no account yet: the numbers and tabs are hidden and an onboarding screen offers _Add a wallet_
+    or _Add an exchange_ (each opens the dialog in that mode) and says what happens next;
+  - `reading`, while the first update of a new setup runs: skeletons stay where balances will go, the line under
+    the net worth names the account being read, and accounts not read yet are not flagged as problems;
+  - `ready`.
+    The summary and the views fade in when the state changes, except with reduced motion, and skeletons do not
+    shimmer then. Past the first read, empty places say when they fill: the 24-hour, 7-day and 30-day changes count
+    down from when history began (`historySince` in `/api/portfolio`), the history chart says when the next update
+    is due, and the overview says why there are no balances when accounts exist but none could be priced.
 - **Core components.** `public/ui.js` is the one place controls are built, for the dashboard and the shared
   page alike: `h` (elements, never `innerHTML`), `icon` and `iconButton`, `button` in four variants
   (primary for the one main action of a view or dialog, secondary, ghost for quiet actions, danger for removal), `select` (a listbox that replaces the native select: arrow keys, Home, End,
