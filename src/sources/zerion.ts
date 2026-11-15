@@ -1,7 +1,7 @@
 // Zerion API (free tier): wallet tokens and DeFi positions for EVM chains and Solana.
 import { setTimeout as sleep } from 'node:timers/promises';
 import { getJson, HttpError } from '../http.ts';
-import type { CollectResult, Holding, HoldingType } from '../types.ts';
+import type { CollectResult, Holding, HoldingType, LogoHint } from '../types.ts';
 
 export interface ZerionPosition {
   chain: string;
@@ -11,6 +11,8 @@ export interface ZerionPosition {
   symbol: string;
   quantity: number;
   price: number | null;
+  icon: string | null;
+  protocolIcon: string | null;
   /** USD; null when Zerion has no price for the token. */
   value: number | null;
 }
@@ -24,7 +26,8 @@ interface ApiPage {
       quantity: { float: number };
       price?: number | null;
       value?: number | null;
-      fungible_info?: { symbol?: string };
+      fungible_info?: { symbol?: string; icon?: { url?: string } | null };
+      application_metadata?: { icon?: { url?: string } | null } | null;
     };
     relationships?: { chain?: { data?: { id?: string } } };
   }[];
@@ -73,6 +76,8 @@ export async function fetchPositions(
         type: a.position_type,
         protocol: a.protocol ?? null,
         symbol: a.fungible_info?.symbol ?? '?',
+        icon: a.fungible_info?.icon?.url ?? null,
+        protocolIcon: a.application_metadata?.icon?.url ?? null,
         quantity: a.quantity.float,
         price: a.price ?? null,
         value: a.value ?? null,
@@ -97,6 +102,7 @@ const TYPES: Record<string, HoldingType> = {
 export async function collectZerion(apiKey: string, address: string, kind: 'evm' | 'solana'): Promise<CollectResult> {
   const positions = await fetchPositions(apiKey, address, kind);
   const holdings: Holding[] = [];
+  const logos: LogoHint[] = [];
   let unpriced = 0;
   for (const p of positions) {
     // Tokens Zerion cannot price are almost always airdropped spam, so they are counted but not listed.
@@ -105,6 +111,8 @@ export async function collectZerion(apiKey: string, address: string, kind: 'evm'
       continue;
     }
     const type = TYPES[p.type] ?? 'wallet';
+    if (p.icon) logos.push({ kind: 'token', key: p.symbol, url: p.icon });
+    if (p.protocol && p.protocolIcon) logos.push({ kind: 'protocol', key: p.protocol, url: p.protocolIcon });
     holdings.push({
       chain: p.chain,
       protocol: p.protocol,
@@ -115,5 +123,18 @@ export async function collectZerion(apiKey: string, address: string, kind: 'evm'
       type,
     });
   }
-  return { holdings, warnings: unpriced > 0 ? [`${unpriced} tokens without a price skipped`] : [] };
+  return { holdings, logos, warnings: unpriced > 0 ? [`${unpriced} tokens without a price skipped`] : [] };
+}
+
+/** Names and logos of every chain Zerion knows. */
+export async function fetchChains(apiKey: string): Promise<LogoHint[]> {
+  const headers = { authorization: `Basic ${Buffer.from(`${apiKey}:`).toString('base64')}` };
+  const page = await zerionGet<{
+    data: { id: string; attributes: { name?: string; icon?: { url?: string } | null } }[];
+  }>('https://api.zerion.io/v1/chains/', headers);
+  return page.data.flatMap((c) =>
+    c.attributes.icon?.url
+      ? [{ kind: 'chain' as const, key: c.id, url: c.attributes.icon.url, name: c.attributes.name }]
+      : [],
+  );
 }

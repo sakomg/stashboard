@@ -1,13 +1,13 @@
 // TonAPI: TON balance and whitelisted jettons of one wallet.
 import { getJson } from '../http.ts';
-import type { CollectResult, Holding } from '../types.ts';
+import type { CollectResult, Holding, LogoHint } from '../types.ts';
 
 const API = 'https://tonapi.io/v2';
 
 interface JettonBalance {
   balance: string;
   price?: { prices?: { USD?: number } };
-  jetton: { symbol: string; decimals: number; verification?: string };
+  jetton: { symbol: string; decimals: number; verification?: string; image?: string };
 }
 
 export async function collectTon(apiKey: string, address: string): Promise<CollectResult> {
@@ -15,6 +15,7 @@ export async function collectTon(apiKey: string, address: string): Promise<Colle
   const headers: Record<string, string> = apiKey ? { authorization: `Bearer ${apiKey}` } : {};
   const holdings: Holding[] = [];
   const warnings: string[] = [];
+  const logos: LogoHint[] = [];
 
   const account = await getJson<{ balance: number }>(`${API}/accounts/${address}`, headers);
   const rates = await getJson<{ rates: { TON?: { prices?: { USD?: number } } } }>(
@@ -52,6 +53,7 @@ export async function collectTon(apiKey: string, address: string): Promise<Colle
       warnings.push(`no price for ${quantity} ${j.jetton.symbol}`);
       continue;
     }
+    if (j.jetton.image) logos.push({ kind: 'token', key: j.jetton.symbol, url: j.jetton.image });
     holdings.push({
       chain: 'ton',
       protocol: null,
@@ -63,5 +65,5 @@ export async function collectTon(apiKey: string, address: string): Promise<Colle
     });
   }
 
-  return { holdings, warnings };
+  return { holdings, warnings, logos };
 }

@@ -14,83 +14,146 @@
       <a class="brand" href="/"
         ><img src="/logo.svg" alt="" width="28" height="28" /><span>stash</span><span>board</span></a
       >
-      <ul class="sources" id="sources" aria-label="Data sources"></ul>
-      <button class="button" id="collect" type="button">Update now</button>
-      <button class="link" id="sign-out" type="button" hidden>Sign out</button>
+      <div class="top-actions">
+        <button class="button primary" type="button" data-open-add>
+          <svg class="icon" aria-hidden="true"><use href="/icons.svg#plus"></use></svg>Add wallet
+        </button>
+        <button class="icon-button" id="sign-out" type="button" aria-label="Sign out" title="Sign out" hidden>
+          <svg class="icon" aria-hidden="true"><use href="/icons.svg#log-out"></use></svg>
+        </button>
+      </div>
     </header>
 
     <main>
+      <p class="banner" id="banner" role="alert" hidden></p>
+
       <section class="summary" aria-labelledby="net-worth-label">
         <div class="worth">
           <h1 id="net-worth-label">Net worth</h1>
           <p class="worth-value" id="net-worth">—</p>
-          <p class="worth-meta" id="updated"></p>
+          <p class="worth-meta">
+            <span id="updated">Loading…</span>
+            <button class="icon-button" id="collect" type="button" aria-label="Update now" title="Update now">
+              <svg class="icon" aria-hidden="true"><use href="/icons.svg#refresh-cw"></use></svg>
+            </button>
+          </p>
         </div>
         <dl class="facts" id="facts"></dl>
       </section>
 
-      <section aria-labelledby="allocation-title">
+      <ul class="sources" id="sources" aria-label="Accounts"></ul>
+      <ul class="notices" id="notices"></ul>
+
+      <section class="welcome" id="welcome" hidden>
+        <h2>Nothing to show yet</h2>
+        <p>
+          Add a wallet address and Stashboard reads its balances. Only public addresses are needed: no keys, no seed
+          phrases.
+        </p>
+        <button class="button primary" type="button" data-open-add>
+          <svg class="icon" aria-hidden="true"><use href="/icons.svg#plus"></use></svg>Add wallet
+        </button>
+      </section>
+
+      <div id="content" hidden>
+        <section aria-labelledby="allocation-title">
+          <div class="section-head">
+            <h2 id="allocation-title">Allocation</h2>
+            <div class="segmented" id="dimension" role="group" aria-label="Group allocation by"></div>
+          </div>
+          <div class="strip" id="strip" role="img" aria-label="Allocation of the portfolio"></div>
+          <div class="allocation">
+            <ul class="legend" id="legend"></ul>
+            <aside class="notes" id="allocation-notes"></aside>
+          </div>
+        </section>
+
+        <section aria-labelledby="history-title">
+          <div class="section-head">
+            <h2 id="history-title">History</h2>
+            <div class="segmented" id="period" role="group" aria-label="History period"></div>
+          </div>
+          <div class="chart" id="history"></div>
+          <p class="empty" id="history-empty" hidden></p>
+        </section>
+
+        <section aria-labelledby="positions-title">
+          <div class="section-head">
+            <h2 id="positions-title">Positions</h2>
+            <button class="link" id="dust-toggle" type="button" hidden></button>
+          </div>
+          <div class="table-wrap">
+            <table class="positions" id="positions">
+              <thead></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section aria-labelledby="signals-title">
+          <div class="section-head"><h2 id="signals-title">Signals</h2></div>
+          <div class="signals" id="signals"></div>
+          <p class="signals-note" id="signals-note"></p>
+        </section>
+
+        <section aria-labelledby="defi-title">
+          <div class="section-head"><h2 id="defi-title">DeFi</h2></div>
+          <div id="defi"></div>
+        </section>
+      </div>
+
+      <section aria-labelledby="wallets-title" id="wallets-section" hidden>
         <div class="section-head">
-          <h2 id="allocation-title">Allocation</h2>
-          <div class="segmented" id="dimension" role="group" aria-label="Group allocation by"></div>
+          <h2 id="wallets-title">Wallets</h2>
+          <button class="button" type="button" data-open-add>
+            <svg class="icon" aria-hidden="true"><use href="/icons.svg#plus"></use></svg>Add wallet
+          </button>
         </div>
-        <div class="strip" id="strip" role="img" aria-label="Allocation of the portfolio"></div>
-        <div class="allocation">
-          <ul class="legend" id="legend"></ul>
-          <aside class="notes" id="allocation-notes"></aside>
-        </div>
-      </section>
-
-      <section aria-labelledby="history-title">
-        <div class="section-head">
-          <h2 id="history-title">History</h2>
-          <div class="segmented" id="period" role="group" aria-label="History period"></div>
-        </div>
-        <div class="chart" id="history"></div>
-        <p class="empty" id="history-empty" hidden></p>
-      </section>
-
-      <section aria-labelledby="positions-title">
-        <div class="section-head">
-          <h2 id="positions-title">Positions</h2>
-          <button class="link" id="dust-toggle" type="button" hidden></button>
-        </div>
-        <div class="table-wrap">
-          <table class="positions" id="positions">
-            <thead></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </section>
-
-      <section aria-labelledby="signals-title">
-        <div class="section-head"><h2 id="signals-title">Signals</h2></div>
-        <div class="signals" id="signals"></div>
-        <p class="signals-note" id="signals-note"></p>
-      </section>
-
-      <section aria-labelledby="defi-title">
-        <div class="section-head"><h2 id="defi-title">DeFi</h2></div>
-        <div id="defi"></div>
-      </section>
-
-      <section aria-labelledby="wallets-title">
-        <div class="section-head"><h2 id="wallets-title">Wallets</h2></div>
         <ul class="wallets" id="wallets"></ul>
-        <form class="add-wallet" id="add-wallet" autocomplete="off">
-          <label>
-            <span>Address</span>
-            <input name="address" required spellcheck="false" placeholder="EVM, Solana or TON address" />
-          </label>
-          <label>
-            <span>Name</span>
-            <input name="label" maxlength="40" placeholder="Optional" />
-          </label>
-          <button class="button" type="submit">Add wallet</button>
-          <p class="form-error" id="add-wallet-error" role="alert" hidden></p>
-        </form>
       </section>
     </main>
+
+    <dialog class="dialog" id="add-dialog" aria-labelledby="add-title">
+      <form id="add-wallet" autocomplete="off">
+        <header>
+          <h2 id="add-title">Add wallet</h2>
+          <button class="icon-button" type="button" data-close aria-label="Close" title="Close">
+            <svg class="icon" aria-hidden="true"><use href="/icons.svg#x"></use></svg>
+          </button>
+        </header>
+        <label>
+          <span>Address</span>
+          <input name="address" required spellcheck="false" placeholder="EVM, Solana or TON address" />
+        </label>
+        <p class="detected" id="detected" aria-live="polite"></p>
+        <label>
+          <span>Name</span>
+          <input name="label" maxlength="40" placeholder="Optional, for example Ledger" />
+        </label>
+        <p class="form-error" id="add-error" role="alert" hidden></p>
+        <footer>
+          <button class="button" type="button" data-close>Cancel</button>
+          <button class="button primary" type="submit">Add wallet</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog class="dialog" id="remove-dialog" aria-labelledby="remove-title">
+      <form id="remove-wallet">
+        <header>
+          <h2 id="remove-title">Remove wallet</h2>
+          <button class="icon-button" type="button" data-close aria-label="Close" title="Close">
+            <svg class="icon" aria-hidden="true"><use href="/icons.svg#x"></use></svg>
+          </button>
+        </header>
+        <p id="remove-text"></p>
+        <p class="form-error" id="remove-error" role="alert" hidden></p>
+        <footer>
+          <button class="button" type="button" data-close>Keep wallet</button>
+          <button class="button danger" type="submit">Remove wallet</button>
+        </footer>
+      </form>
+    </dialog>
 
     <div class="tip" id="tip" role="tooltip" hidden></div>
     <script src="/vendor/echarts.js"></script>

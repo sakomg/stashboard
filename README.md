@@ -24,6 +24,7 @@ what to trim and what to leave alone.
 | Binance: Spot, Funding, Earn, Futures, tokenized stocks | Binance API (read-only key) |
 | EVM chains: tokens and DeFi positions                   | Zerion API                  |
 | Solana: tokens, staking, tokenized stocks               | Zerion API                  |
+| Lighter and Lighter on Robinhood Chain: account equity  | Lighter public API          |
 | TON: TON and jettons                                    | TonAPI                      |
 | Fallback prices                                         | CoinGecko                   |
 | RSI, funding, open interest                             | Binance public API          |
@@ -80,8 +81,19 @@ This is a description of market conditions, not advice to buy or sell.
 
 [`assets.json`](assets.json) decides how holdings are merged and grouped: which wrappers count as the same
 asset (WETH and stETH as ETH), which category an asset belongs to, and which tickers are stocks. Tokenized
-stocks are matched by suffix, so `NVDAx`, `NVDAB` and `NVDAon` all count as NVDA. Edit the file to fit your
+stocks are matched by suffix, so `NVDAx`, `NVDAB` and `NVDAon` all count as NVDA. Aave deposit receipts
+count as the token that was lent: `aEthWETH` is ETH, `aEthWBTC` is BTC. Edit the file to fit your
 portfolio; anything it does not mention lands in "Other".
+
+### Logos and icons
+
+Token, chain and protocol logos are not part of the repository. Zerion and TonAPI name a logo for what they
+return, and CoinGecko fills in the rest by ticker. The server downloads each image once, checks that it
+really is an image, keeps it in `data/logos` and serves it from its own address. Your browser never asks a
+third party for a logo, so nobody outside learns what the portfolio holds. An asset without a logo shows its
+first letters instead.
+
+Interface icons come from [Lucide](https://lucide.dev) (ISC licence), built into one sprite by the server.
 
 ### API keys
 

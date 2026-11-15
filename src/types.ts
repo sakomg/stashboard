@@ -15,10 +15,23 @@ export interface Holding {
   type: HoldingType;
 }
 
+export type LogoKind = 'token' | 'chain' | 'protocol';
+
+export interface LogoHint {
+  kind: LogoKind;
+  /** Token symbol as the source spells it, chain id, or protocol name. */
+  key: string;
+  url: string;
+  /** Display name, for chains. */
+  name?: string;
+}
+
 export interface CollectResult {
   holdings: Holding[];
   /** Non-fatal problems: an unpriced asset, a sub-wallet that could not be read. */
   warnings: string[];
+  /** Logos the source offers for what it returned; fetched later, once, and served from this server. */
+  logos?: LogoHint[];
   /** Total as the source itself reports it, when available. Used to cross-check our sum. */
   reportedTotal?: number;
 }
