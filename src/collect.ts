@@ -2,6 +2,7 @@
 // Run: npm run collect            collect, then print
 //      npm run collect -- --show  print the stored portfolio without calling any API
 import { createResolver, loadAssetRules } from './assets.ts';
+import { loadLearned } from './categories.ts';
 import { runCollection } from './collector.ts';
 import { loadConfig } from './config.ts';
 import { currentState, openDb, type AccountState } from './db.ts';
@@ -53,7 +54,7 @@ function printSources(states: AccountState[]): void {
 }
 
 function printAssets(states: AccountState[]): void {
-  const { netWorth, assets } = buildPortfolio(states, createResolver(loadAssetRules()));
+  const { netWorth, assets } = buildPortfolio(states, createResolver(loadAssetRules(), loadLearned(db)));
   const shown = assets.filter((a) => Math.abs(a.value) >= DUST_USD);
   const dust = assets.filter((a) => Math.abs(a.value) < DUST_USD);
 
@@ -94,7 +95,7 @@ const READING_LABELS = {
 
 /** npm run collect -- --signals: recompute signals for the stored portfolio and print them. */
 async function printSignals(db: ReturnType<typeof openDb>): Promise<void> {
-  const rows = await runSignals(db, loadConfig(), createResolver(loadAssetRules()));
+  const rows = await runSignals(db, loadConfig(), createResolver(loadAssetRules(), loadLearned(db)));
   const names = Object.keys(READING_LABELS) as (keyof typeof READING_LABELS)[];
   console.log('Signals');
   table(
