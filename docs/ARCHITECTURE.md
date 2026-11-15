@@ -32,11 +32,13 @@ it live here, next to the user-facing [README](../README.md).
 | `src/qr.ts`                            | QR code as SVG for the authenticator link                                                  |
 | `src/check.ts`                         | `npm run check`: one request per source to prove the keys                                  |
 | `src/collect.ts`                       | `npm run collect`: collect once and print, `--show` prints only, `--signals` scores        |
+| `src/demo.ts`                          | `npm run demo`: a made-up portfolio and the server in demo mode                            |
 | `src/wallets.ts`                       | `npm run wallets`: list, `add <address> [label]`, `rm <id>`                                |
 | `src/auth-reset.ts`                    | `npm run auth:reset`: remove the account so it can be set up again                         |
 | `public/`                              | The page: plain HTML, CSS and ES modules, no build step                                    |
 | `public/ui.js`                         | The core components every page builds on                                                   |
 | `public/share.html`, `public/share.js` | The public page a shared link opens                                                        |
+| `install.sh`, `deploy.sh`              | Install or update on a server, and deploy from a computer                                  |
 
 ## Collection
 
@@ -394,25 +396,51 @@ and `PRAGMA user_version` records how many have run.
 Removing a wallet removes its history with it. Once a day, at start and then checked hourly, the database is
 copied with `VACUUM INTO`, which takes a consistent copy while it is in use; the newest 14 copies are kept.
 
-## Deploy and CI
+## Install, deploy and CI
 
-CI checks formatting, types and tests on every pull request and push to `main`. Production is deployed only
-when a pull request into `main` is merged: the deploy job runs on the merged pull request, checks out its
-merge commit and runs the checks first. A commit pushed straight to `main` is checked but not deployed.
-
+`install.sh` is the one place that brings a server up, whether it runs there by hand or is called by
 `deploy.sh`:
 
-- removes the old sources on the server first, so files deleted from the repository do not linger;
-- uploads `config.json` and a `.env` naming the domain when run from a machine that has them; from CI, which
-  has neither, the copy already on the server is kept;
-- makes secrets readable only by the `node` user (uid 1000) inside the container;
-- runs the key check in a throwaway container first. A failing source is reported but does not stop the
-  deploy, since a third-party outage must not block shipping a fix. The check gets `/dev/null` as input,
-  because the deploy script itself arrives over standard input and the container must not read the rest of it;
-- prints the setup code while no account exists.
+- checks for Docker, Compose, and that the user may use Docker;
+- without `config.json`, asks in the terminal for the host name and the keys (validated by pattern, so the
+  JSON it writes needs no escaping) and writes it with mode 600; without a terminal it stops and says what to do;
+- writes `.env` with the domain for Caddy, and warns when the host name does not resolve to an address of this
+  machine (fine behind NAT, a mistake otherwise);
+- makes `config.json` readable by the container's `node` user (uid 1000): owned by it when run as root, mode 644
+  with a warning otherwise;
+- builds the image and runs the key check in a throwaway container. A failing source is reported but does not
+  stop the install, since a third-party outage must not block shipping a fix;
+- starts the containers, waits up to 90 seconds for the health check, and prints the address and, while no
+  account exists, the setup code from the log.
+
+Run again, it updates: nothing is asked because `config.json` exists. `deploy.sh` copies the sources (after
+removing the old ones, so deleted files do not linger), `config.json` when the machine running it has one, and
+`install.sh`, then runs `install.sh` on the server with `/dev/null` as input, since the SSH session must not
+feed it anything. From CI, which has no `config.json`, the server's copy is kept.
+
+CI (`.github/workflows/ci.yml`) checks formatting, types, tests and the shell scripts' syntax on every pull
+request and push to `main`. The deploy workflow (`.github/workflows/deploy.yml`) runs on pushes to `main` but
+deploys only when the pushed commit belongs to a merged pull request into `main`, which it asks the GitHub API
+(`/commits/<sha>/pulls`). That works the same for merge, squash and rebase merges and for pull requests from
+forks, whose own events never see the deploy secrets. A commit pushed straight to `main` is checked but not
+deployed. It can also be started by hand. It stays off until `DEPLOY_HOST` is set, so forks do not try to
+deploy, and it runs the checks again before deploying.
 
 The image runs TypeScript directly on Node 24, so there is no build step; the config is mounted from the
 host, and other entry points run the same way (`docker compose run --rm stashboard src/check.ts`). The app
 publishes no port: only Caddy reaches it on the compose network. The image is built on the server, so a
 Watchtower running there is told to leave it alone. Caddy obtains and renews the HTTPS certificate, which
 needs ports 80 and 443 reachable from the internet.
+
+## Demo
+
+`npm run demo` (`src/demo.ts`) writes a made-up portfolio into `data-demo` and starts the server on it with
+`DEMO=1` and `config.example.json`. The data is deterministic: four accounts (an exchange, an EVM wallet with
+an Aave deposit and loan, a Solana wallet with Jito staking, a TON wallet), 90 days of snapshots every six
+hours from a seeded random walk ending at fixed prices, a few quantity changes so the history moves, and
+signals in all four zones. The addresses are test vectors or random bytes, not anyone's wallet.
+
+In demo mode the server never collects: no schedule, no collection on start, the update gate is closed with a
+reason, and adding or removing accounts, collecting and starting history over answer 403. Logos are still
+fetched, so the demo looks like the real thing when online. The page shows a dismissible notice that the data
+is not real. The README screenshots come from the demo.

@@ -1,14 +1,16 @@
 {
   "name": "stashboard",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "Self-hosted, read-only portfolio dashboard for Binance, EVM, Solana, TON and DeFi",
+  "license": "MIT",
   "engines": {
     "node": ">=24"
   },
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning src/server.ts",
+    "demo": "node --disable-warning=ExperimentalWarning src/demo.ts",
     "auth:reset": "node --disable-warning=ExperimentalWarning src/auth-reset.ts",
     "check": "node --disable-warning=ExperimentalWarning src/check.ts",
     "collect": "node --disable-warning=ExperimentalWarning src/collect.ts",

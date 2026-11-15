@@ -1,275 +1,123 @@
 <p><img src="assets/logo-wordmark.svg" alt="Stashboard" height="56"></p>
 
-**Your whole stash on one board.** A self-hosted, read-only portfolio dashboard for people whose money is
+**Your whole stash on one board.** A self-hosted, read-only portfolio dashboard for people whose crypto is
 spread across an exchange, several chains and a handful of DeFi protocols.
 
-Stashboard pulls balances from Binance, EVM chains, Solana and TON into one net-worth view, shows how the
-portfolio is allocated, keeps its history, and scores every position from cold to overheated so you can see
-what to trim and what to leave alone.
+![The Stashboard overview with demo data: net worth, accounts, allocation by category and 30 days of history](assets/screenshots/overview.png)
 
-> **Status:** working end to end: collection, dashboard, signals, login and a one-command deploy.
-> See [PLAN.md](PLAN.md).
+Stashboard reads your balances from Binance, EVM chains, Solana and TON, merges them into one portfolio,
+shows how it is allocated, keeps its history, and scores every position from cold to overheated. It runs on
+your own server, needs only free API keys, and never asks for anything that can move your money.
+
+## What it does
+
+- **One net worth** across an exchange, wallets on any EVM chain, Solana and TON, positions in DeFi
+  protocols, and perpetuals on Lighter.
+- **Allocation** by category, asset, chain, account or kind, with every place an asset is held.
+- **History** of the whole portfolio, and changes over 24 hours, 7 and 30 days.
+- **Heat signals**: RSI, funding, distance from the 200-day average and open interest blended into one score
+  per asset, with each reading explained and sourced.
+- **Privacy**: hide every amount on every device in one click, and share an allocation picture or a
+  time-limited link without amounts.
+- **Read-only by design**: wallets need a public address, exchanges a key that can only read, which is
+  checked before it is saved and stored encrypted.
 
 ## Principles
 
-- **Read-only.** A read-only exchange key and public wallet addresses. No seed phrases, no signatures, no trading.
-- **Yours.** One SQLite file on your own server. Nothing is sent to third-party trackers.
-- **Free.** Every data source works on a free tier. No paid APIs, ever.
-- **Small.** One container, one database file, a frontend with no build step.
+- **Read-only.** No seed phrases, no signatures, no trading or withdrawal permissions.
+- **Yours.** One SQLite file on your own server. No analytics, no third-party trackers, no account with us.
+- **Free.** Every data source works on a free tier.
+- **Small.** One app container behind Caddy, one database file, a frontend with no build step.
+
+## Try it in a minute
+
+The demo runs with made-up data and calls no balance API. It needs [Node.js 24](https://nodejs.org) or newer.
+
+```sh
+git clone https://github.com/sakomg/stashboard.git
+cd stashboard
+npm ci
+npm run demo
+```
+
+Open http://127.0.0.1:8787.
+
+## Install on your server
+
+You need a small Linux server with [Docker](https://docs.docker.com/engine/install/), and a host name pointing
+at it (a free [DuckDNS](https://www.duckdns.org) subdomain works).
+
+```sh
+git clone https://github.com/sakomg/stashboard.git
+cd stashboard
+./install.sh
+```
+
+The installer asks for the host name and the free API keys, starts Stashboard behind Caddy with automatic
+HTTPS, and prints a setup code. Open `https://your-host/setup`, enter the code, choose a password and scan
+the authenticator QR code. Then add your wallets and exchanges on the page.
+
+To update later: `git pull && ./install.sh`.
+
+The full guide, with DNS, firewall, API keys, backups, moving servers and troubleshooting, is in
+[docs/self-hosting.md](docs/self-hosting.md).
+
+## Run it on your own computer
+
+With Node.js 24:
+
+```sh
+npm ci
+cp config.example.json config.json
+npm start
+```
+
+The dashboard is at http://127.0.0.1:8787 and, without an account, listens on this machine only. Add your API
+keys to `config.json` first; [docs/self-hosting.md](docs/self-hosting.md#api-keys) says where to get them.
+
+## Screenshots
+
+| Signals                                                                                                                         | Phone                                                     |
+| ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| ![Signals: the heat scale with the share of the portfolio in each zone, and readings per asset](assets/screenshots/signals.png) | ![The dashboard on a phone](assets/screenshots/phone.png) |
+
+All screenshots use the demo data.
 
 ## Data sources
 
-| What                                                    | Source                      |
-| ------------------------------------------------------- | --------------------------- |
-| Binance: Spot, Funding, Earn, Futures, tokenized stocks | Binance API (read-only key) |
-| EVM chains: tokens and DeFi positions                   | Zerion API                  |
-| Solana: tokens, staking, tokenized stocks               | Zerion API                  |
-| Lighter and Lighter on Robinhood Chain: account equity  | Lighter public API          |
-| TON: TON and jettons                                    | TonAPI                      |
-| Fallback prices                                         | CoinGecko                   |
-| RSI, funding, open interest                             | Binance public API          |
-| Fear & Greed                                            | alternative.me              |
-
-### Free-tier limits
-
-The tightest limit is Zerion's free key: about one request a second, a daily allowance, and a quarter of it
-for reads of DeFi positions. Stashboard reads it from Zerion's response headers and keeps within it:
-
-- token balances of a wallet are read at most every 10 minutes, so adding a wallet or a second click on
-  _Update_ does not re-read every other wallet;
-- DeFi positions are read on every hourly update when the key allows 1,000 or more requests a day, and
-  every 3 hours on a smaller key, repriced in between with the prices of the latest update;
-- answers are kept in the database, so a restart or a deploy costs nothing;
-- when Zerion refuses, the last answer is used and the dashboard says how old it is, instead of retrying
-  until the allowance renews.
-
-The _Accounts_ view shows how much of the day's allowance is left.
-
-## Quick start
-
-Requires Node.js 24 or newer.
-
-```sh
-npm install
-cp config.example.json config.json    # then fill in the API keys
-npm run check
-npm start                             # dashboard at http://127.0.0.1:8787
-```
-
-Wallets and exchanges are added, renamed and removed on the page (_Add wallet or exchange_). The dashboard
-collects on start and then on a schedule.
-
-### Configuration
-
-`config.json` holds the keys of the data services and a few settings. Exchange keys are not in it: they are
-added on the page and stored encrypted in the database.
-
-| Key                        | Needed for                                                         | Default                       |
-| -------------------------- | ------------------------------------------------------------------ | ----------------------------- |
-| `zerion.apiKey`            | EVM and Solana wallets                                             |                               |
-| `tonapi.apiKey`            | TON wallets. Works without it at a much lower rate                 |                               |
-| `coingecko.apiKey`         | Fallback prices, logos and categories. Works without it, slower    |                               |
-| `domain`                   | The public host name for HTTPS when deployed. Empty to run locally |                               |
-| `schedule.balancesMinutes` | How often balances are read (at least 5)                           | 60                            |
-| `schedule.signalsMinutes`  | How often heat signals are recomputed                              | 240                           |
-| `heat.weights`             | Weight of each reading in the heat score                           | see [Heat score](#heat-score) |
-| `heat.overheated`          | The reading at which each one counts as overheated                 | see [Heat score](#heat-score) |
-| `heat.zones`               | Where neutral, warm and overheated begin                           | 30, 60, 80                    |
-
-A `binance` block with `apiKey` and `apiSecret`, from setups that predate the page, is imported into the
-database once on start. After that it can be deleted from `config.json`.
-
-Without a login the server listens on localhost only and refuses any other address.
-
-### Console
-
-`npm run wallets` lists, adds and removes wallets; the network (EVM, Solana or TON) is detected from the
-address format. `npm run check` calls every source once and reports which keys and wallets work.
-
-`npm run collect` reads every account, stores a snapshot in `data/stashboard.db` and prints the portfolio:
-value per source, merged assets, categories and net worth. For Binance it also prints the exchange's own
-valuation next to the collected sum. `npm run collect -- --show` prints the stored portfolio without calling
-any API. If a source fails, its last good data is shown and marked, and the command exits with an error.
-
-### Heat score
-
-Every asset with a Binance market gets a heat score from 0 (cold) to 100 (overheated). It blends five
-readings, each scored 50 at its neutral value and 80 at its overheated threshold:
-
-| Reading                                 | Weight | Neutral | Overheated |
-| --------------------------------------- | ------ | ------- | ---------- |
-| Daily RSI(14)                           | 30%    | 50      | 70         |
-| Weekly RSI(14)                          | 25%    | 50      | 75         |
-| Funding rate, 3-day average, per 8 h    | 20%    | 0.01%   | 0.03%      |
-| Price against its 200-day average       | 15%    | 0%      | +50%       |
-| Open interest over 7 days, price rising | 10%    | 0%      | +30%       |
-
-Under 30 is cold, 30–60 neutral, 60–80 warm, 80 and above overheated. A reading that does not exist for an
-asset (no perpetual, a short price history) hands its weight to the others; tokenized stocks use RSI and the
-average only. Weights, thresholds and zones are set under `heat` in `config.json`. Signals refresh every
-`schedule.signalsMinutes`; `npm run collect -- --signals` recomputes and prints them.
-
-This is a description of market conditions, not advice to buy or sell.
-
-### Asset rules
-
-[`assets.json`](assets.json) decides how holdings are merged and grouped: which wrappers count as the same
-asset (WETH and stETH as ETH), which category an asset belongs to, and which tickers are stocks. Tokenized
-stocks are matched by suffix, so `NVDAx`, `NVDAB` and `NVDAon` all count as NVDA. Aave deposit receipts
-count as the token that was lent: `aEthWETH` is ETH, `aEthWBTC` is BTC. Edit the file to fit your
-portfolio.
-
-An asset the file does not mention is looked up on CoinGecko by ticker, and the coin's tags decide its
-category: a meme coin goes to Memes, a launchpad or an exchange token to DeFi, a chain's own coin to L1 or
-L2. The answer is stored, so each asset is looked up once. Where the lookup is wrong or finds nothing, click
-the category next to the asset in the positions table and choose one; a category chosen by hand wins over
-both the file and the lookup. Only what is left after all three lands in "Other".
-
-### Logos and icons
-
-Token, chain and protocol logos are not part of the repository. Zerion and TonAPI name a logo for what they
-return, and CoinGecko fills in the rest by ticker. The server downloads each image once, checks that it
-really is an image, keeps it in `data/logos` and serves it from its own address. Your browser never asks a
-third party for a logo, so nobody outside learns what the portfolio holds. An asset without a logo shows its
-first letters instead.
-
-Interface icons come from [Lucide](https://lucide.dev) (ISC licence), built into one sprite by the server.
-
-### Privacy and sharing
-
-The eye next to the net worth, or _Hide amounts_ in Settings, turns every dollar
-amount and quantity into dots on every device, leaving shares and changes. It is meant for screens other
-people can see.
-
-_Share_ in Allocation makes a picture of the allocation to copy, download or send, grouped any way the strip
-can be. It can also make a link: a snapshot anyone with the link can open, without signing in, for 1, 7 or
-30 days. Amounts are left out unless you tick _Show amounts_. Links can be turned off in Settings.
-
-Added your accounts one at a time? _Start history over_ in Settings keeps the current balances and
-drops the staircase before them, after saving a copy of the database.
-
-The update button is unavailable for a minute after an update, and while Zerion's daily allowance is used up;
-hovering it says why.
-
-### API keys
-
-All free:
-
-- **Binance:** create a _System generated_ (HMAC) key with only _Enable Reading_ ticked and restrict it to
-  the server's IP address, then add it on the page with _Add wallet or exchange_, _Exchange_. Stashboard checks
-  the key is read-only before saving it and stores the secret encrypted.
-- **Zerion:** [developers.zerion.io](https://developers.zerion.io)
-- **TonAPI:** [tonconsole.com](https://tonconsole.com)
-- **CoinGecko:** a Demo API key from [coingecko.com/en/api](https://www.coingecko.com/en/api)
-
-`config.json` and the `data/` directory hold your keys and addresses and are ignored by git.
-
-## Login
-
-There is nothing to configure by hand. The first time the dashboard is opened on a server, it asks you to
-create the account:
-
-1. Enter the **setup code**. The server prints it in its log on every start until the account exists, and
-   `deploy.sh` shows it at the end. It proves the server is yours, so whoever finds the address first cannot
-   claim it.
-2. Choose a password of at least 12 characters.
-3. Scan the QR code with an authenticator app and enter one code to confirm it works.
-
-From then on every page and API call needs a session; only the sign-in page is served without one. Sessions
-last 30 days. Five wrong attempts from one address lock it out for 15 minutes, and each authenticator code
-works once. The account (an argon2id hash of the password and the authenticator secret) lives in the
-database, never in `config.json`.
-
-Run on your own machine with `npm start`, the dashboard listens on localhost only and stays open until you
-create an account at `/setup`. Set `REQUIRE_LOGIN=1` to demand one from the start.
-
-Forgot the password or lost the phone? Remove the account and set it up again:
-
-```sh
-docker compose run --rm stashboard src/auth-reset.ts && docker compose restart stashboard   # on the server
-npm run auth:reset                                                                          # locally
-```
-
-## Deploy
-
-You need a server with Docker, ports 80 and 443 reachable from the internet, and a host name pointing at it
-(a free [DuckDNS](https://www.duckdns.org) subdomain works). Set the host name in `config.json`:
-
-```json
-"domain": "example.duckdns.org"
-```
-
-Then:
-
-```sh
-./deploy.sh user@host            # SSH_PORT=2222 ./deploy.sh user@host for a non-standard port
-```
-
-It copies the project to `/opt/stashboard`, builds the image, checks the API keys from the server and starts
-two containers: the app, and [Caddy](https://caddyserver.com) in front of it, which obtains and renews the
-HTTPS certificate. The app publishes no port of its own. Run the script again to update.
-
-On the server:
-
-```sh
-cd /opt/stashboard
-docker compose logs -f stashboard                       # what the app is doing
-docker compose run --rm stashboard src/wallets.ts       # the console commands work here too
-```
-
-### Backups
-
-Once a day the app writes a copy of the database to `backups/` inside its data volume and keeps the last 14.
-That protects against a bad update or a corrupted file, not against losing the server: copy a backup off the
-machine now and then. Exchange keys in the database are encrypted with `secret.key` in the same data
-directory. A backup restored without that file loses only the exchange keys: add the exchanges again.
-
-```sh
-docker compose cp stashboard:/data/backups ./backups
-```
-
-### Continuous deployment
-
-GitHub Actions checks formatting and types and runs the tests on every pull request and on every push to `main`
-([`.github/workflows/ci.yml`](.github/workflows/ci.yml)). Production is deployed only when a pull request into
-`main` is merged; a commit pushed straight to `main` is checked but not deployed. Deploys need the repository
-configured under _Settings → Secrets and variables → Actions_:
-
-| Kind     | Name                 | Value                                                                |
-| -------- | -------------------- | -------------------------------------------------------------------- |
-| Variable | `DEPLOY_HOST`        | Server address. Deploys stay off until this is set                   |
-| Variable | `DEPLOY_USER`        | SSH user, default `root`                                             |
-| Variable | `DEPLOY_PORT`        | SSH port, default `22`                                               |
-| Variable | `DEPLOY_DIR`         | Remote directory, default `/opt/stashboard`                          |
-| Secret   | `DEPLOY_SSH_KEY`     | Private key of a deploy-only SSH key pair                            |
-| Secret   | `DEPLOY_KNOWN_HOSTS` | Optional: output of `ssh-keyscan <host>`, pins the server's host key |
-
-The pipeline never sees `config.json`: run `./deploy.sh` once from your own machine to upload it, and CI
-deploys keep the copy that is already on the server. To change keys or the domain, deploy from your machine
-again.
-
-## Development
-
-| Command          | What it does                                      |
-| ---------------- | ------------------------------------------------- |
-| `npm run format` | Format everything with Prettier                   |
-| `npm test`       | Unit tests                                        |
-| `npm run lint`   | Formatting check, typecheck and tests, as CI runs |
-
-The code carries no comments. How it works and why it is built that way is in
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); keep it current with the code.
-
-## Brand
-
-The mark is three stacked bars: a stash, a bar chart, and the heat scale the product is built around.
-Teal is cold, bone is neutral, amber is hot.
-
-| Token | Hex       | Use                         |
-| ----- | --------- | --------------------------- |
-| Ink   | `#0B0F14` | Page background             |
-| Bone  | `#EDE8DC` | Primary text, neutral       |
-| Slate | `#8A93A0` | Secondary text              |
-| Amber | `#F2B33D` | Accent, warm and overheated |
-| Teal  | `#4CC9C0` | Cold                        |
-
-Logo files: [`assets/logo.svg`](assets/logo.svg), [`assets/logo-wordmark.svg`](assets/logo-wordmark.svg).
+| What                                                    | Source             | Key                     |
+| ------------------------------------------------------- | ------------------ | ----------------------- |
+| Binance: Spot, Funding, Earn, Futures, tokenized stocks | Binance API        | Read-only key, per user |
+| EVM chains: tokens and DeFi positions                   | Zerion API         | Free key                |
+| Solana: tokens, staking, tokenized stocks               | Zerion API         | Free key                |
+| Lighter and Lighter on Robinhood Chain                  | Lighter public API | None                    |
+| TON: TON and jettons                                    | TonAPI             | Free key, optional      |
+| Fallback prices, logos and categories                   | CoinGecko          | Free demo key, optional |
+| RSI, funding, open interest                             | Binance public API | None                    |
+| Fear & Greed                                            | alternative.me     | None                    |
+
+## Documentation
+
+- [Self-hosting](docs/self-hosting.md): install, configure, update, back up, move and troubleshoot.
+- [User guide](docs/guide.md): the views, the heat score, categories, privacy, sharing and history.
+- [Architecture](docs/ARCHITECTURE.md): how it works and why it is built that way.
+- [Security](SECURITY.md): the security model, and how to report a vulnerability.
+- [Contributing](CONTRIBUTING.md): development setup and conventions.
+- [Changelog](CHANGELOG.md).
+
+## Roadmap
+
+- A desktop app built from the same code, for people who prefer to keep everything on their computer.
+- More exchanges, through read-only API keys.
+- More chains through free sources.
+
+Ideas and bug reports are welcome in the issues.
+
+## License
+
+[MIT](LICENSE). Stashboard uses [Lucide](https://lucide.dev) icons (ISC), [Apache ECharts](https://echarts.apache.org)
+(Apache 2.0), [Bricolage Grotesque](https://github.com/ateliertriay/bricolage) (SIL Open Font License) and
+[Fastify](https://fastify.dev) (MIT). Market data comes from the providers listed above under their own terms.
+
+The mark is three stacked bars: a stash, a bar chart, and the heat scale the product is built around. Teal
+is cold, bone is neutral, amber is hot.

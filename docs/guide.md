@@ -1,0 +1,94 @@
+# Using Stashboard
+
+## The dashboard
+
+The top of the page is the net worth, the change over 24 hours, 7 and 30 days, the crypto Fear & Greed
+index, and one chip per account. A chip spins while its account is being read and shows a warning when it is
+out of date. **Add wallet or exchange** is at the end of the chips.
+
+Below, five views:
+
+- **Overview**: allocation as a strip with a legend, grouped by category, asset, chain, account or kind, the
+  largest positions, and the history chart.
+- **Positions**: every asset with its quantity, price, value, share, changes, RSI, funding and heat. Select an
+  asset to see every account, chain and protocol it is held in. Click its category to change it.
+- **Signals**: the heat of the portfolio and of each asset.
+- **DeFi**: positions in protocols, net of loans.
+- **Accounts**: every wallet and exchange, with its status and warnings, to rename or remove.
+
+**Settings** (top right) has privacy, shared links, update status, starting history over, and sign-out.
+
+Balances update on their own every hour. The button next to the update time asks for one now; it rests for a
+minute after an update.
+
+## Heat score
+
+Every asset with a Binance market gets a heat score from 0 (cold) to 100 (overheated). It blends five
+readings, each scored 50 at its neutral value and 80 at its overheated threshold:
+
+| Reading                                 | Weight | Neutral | Overheated |
+| --------------------------------------- | ------ | ------- | ---------- |
+| Daily RSI(14)                           | 30%    | 50      | 70         |
+| Weekly RSI(14)                          | 25%    | 50      | 75         |
+| Funding rate, 3-day average, per 8 h    | 20%    | 0.01%   | 0.03%      |
+| Price against its 200-day average       | 15%    | 0%      | +50%       |
+| Open interest over 7 days, price rising | 10%    | 0%      | +30%       |
+
+Under 30 is cold, 30 to 60 neutral, 60 to 80 warm, 80 and above overheated. A reading that does not exist for
+an asset (no perpetual contract, a short price history) hands its weight to the others; tokenized stocks use
+RSI and the average only. Weights, thresholds and zones are set under `heat` in `config.json`.
+
+The Signals view says how much of the portfolio sits in each zone, and lists every scored asset with its
+readings. A reading that is overheated or cold on its own is coloured. Every reading has a help button with an
+explanation and a link to its source.
+
+This describes market conditions. It is not advice to buy or sell.
+
+## Assets and categories
+
+[`assets.json`](../assets.json) decides how holdings are merged and grouped: which wrappers count as the same
+asset (WETH and stETH as ETH), which category an asset belongs to, and which tickers are stocks. Tokenized
+stocks are matched by suffix, so `NVDAx`, `NVDAB` and `NVDAon` all count as NVDA. Aave deposit receipts count
+as the token that was lent: `aEthWETH` is ETH.
+
+An asset the file does not mention is looked up on CoinGecko by ticker, and the coin's tags decide its
+category. When the lookup is wrong or finds nothing, click the category next to the asset in Positions and
+choose one. A category chosen by hand wins over the file and the lookup.
+
+## Privacy
+
+The eye next to the net worth, or **Hide amounts** in Settings, turns every dollar amount and quantity into
+dots on every device. Shares, changes and prices stay. It is meant for screens other people can see.
+
+Logos are downloaded by your server and served from it, so your browser never tells a third party which
+tokens you hold.
+
+## Sharing
+
+**Share** in Allocation makes a picture of the allocation to copy, download or send, grouped any way the
+strip can be. It can also make a link: a snapshot anyone with the link can open without signing in, for 1, 7
+or 30 days. Amounts are left out unless you tick **Show amounts**. Settings lists the links and turns them
+off.
+
+## History
+
+Every update adds a point to the history. If you added your accounts one at a time, the chart shows a
+staircase. **Start history over** in Settings keeps the current balances and deletes the earlier points,
+after saving a copy of the database.
+
+## Free-tier limits
+
+The tightest limit is Zerion's free key: about one request a second, a daily allowance, and a quarter of it
+for reads of DeFi positions. Stashboard reads the allowance from Zerion's answers and keeps within it: token
+balances of a wallet are read at most every 10 minutes, DeFi positions every hour on a larger key and every
+3 hours on a small one, and answers are kept so a restart costs nothing. When Zerion refuses, the last answer
+is used and the dashboard says how old it is. Settings shows how much of the day's allowance is left.
+
+## Signing in
+
+The account is created on the first visit with the setup code the server prints. It is a password and an
+authenticator app. Five wrong attempts from one address lock it out for 15 minutes, and each authenticator
+code works once. To reset it, see [troubleshooting](self-hosting.md#troubleshooting).
+
+Running on your own computer with `npm start`, the dashboard listens on localhost only and stays open until
+you create an account at `/setup`. Set `REQUIRE_LOGIN=1` to demand one from the start.
