@@ -12,6 +12,7 @@ import {
   otpauthUri,
   verifyPassword,
 } from './auth.ts';
+import { categoryNames, fetchMissingCategories, loadLearned, setManualCategory } from './categories.ts';
 import { runCollection } from './collector.ts';
 import { loadConfig } from './config.ts';
 import {
@@ -39,7 +40,10 @@ const config = loadConfig();
 const host = process.env.HOST ?? '127.0.0.1';
 const port = Number(process.env.PORT ?? 8787);
 const db = openDb();
-const resolve = createResolver(loadAssetRules());
+const rules = loadAssetRules();
+const categories = categoryNames(rules);
+const learned = loadLearned(db);
+const resolve = createResolver(rules, learned);
 const root = new URL('../', import.meta.url);
 
 // ── Who may see what ─────────────────────────────────────────────────────────
@@ -332,6 +336,15 @@ async function refreshSignals(): Promise<void> {
 
 let chainsFetchedAt = 0;
 
+/** Looks up categories for assets that have none. A failure is only logged; they stay in "Other" until the next run. */
+async function refreshCategories(): Promise<void> {
+  try {
+    if ((await fetchMissingCategories(db, config, resolve, categories)) > 0) loadLearned(db, learned);
+  } catch (err) {
+    app.log.warn(err);
+  }
+}
+
 /** Fetches the logos the portfolio shows and does not have yet. Cosmetic, so a failure is only logged. */
 async function refreshLogos(): Promise<void> {
   try {
@@ -352,6 +365,7 @@ function collect(): Promise<void> {
     .then(() => {
       // Logos are cosmetic: fetched in the background so they never hold up an update.
       void refreshLogos();
+      void refreshCategories();
     })
     .catch((err: unknown) => app.log.error(err))
     .finally(() => {
@@ -393,6 +407,7 @@ const build = createHash('sha1')
 app.get('/api/portfolio', async () => ({
   ...portfolioView(db, resolve),
   build,
+  categories,
   fearGreed: await fearGreed(),
   collecting: collecting !== null,
   collectEveryMinutes: intervalMs / 60_000,
@@ -427,6 +442,22 @@ app.patch<{ Params: { id: string }; Body: { label?: unknown } }>('/api/wallets/:
   if (!renameWallet(db, Number(request.params.id), label)) return reply.code(404).send({ error: 'No such wallet' });
   return { ok: true };
 });
+
+app.put<{ Params: { key: string }; Body: { category?: unknown } }>(
+  '/api/assets/:key/category',
+  async (request, reply) => {
+    const { key } = request.params;
+    const { category } = request.body ?? {};
+    if (!key || key.length > 40) return reply.code(400).send({ error: 'No such asset' });
+    // null goes back to the automatic category.
+    if (category !== null && !(typeof category === 'string' && categories.includes(category))) {
+      return reply.code(400).send({ error: 'Choose one of the listed categories' });
+    }
+    setManualCategory(db, key, category);
+    loadLearned(db, learned);
+    return { ok: true };
+  },
+);
 
 app.delete<{ Params: { id: string } }>('/api/wallets/:id', async (request, reply) => {
   if (!removeWallet(db, Number(request.params.id))) return reply.code(404).send({ error: 'No such wallet' });

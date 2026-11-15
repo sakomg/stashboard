@@ -85,6 +85,15 @@ const MIGRATIONS = [
      tried_at   TEXT,
      PRIMARY KEY (kind, key)
    );`,
+  // 8: categories from outside assets.json: chosen by hand, or looked up from a coin's tags.
+  `CREATE TABLE asset_categories (
+     key       TEXT PRIMARY KEY,
+     manual    TEXT,
+     auto      TEXT,
+     source_id TEXT,
+     tags      TEXT,
+     tried_at  TEXT
+   );`,
 ];
 
 export function openDb(dir = process.env.DATA_DIR ?? 'data'): DatabaseSync {

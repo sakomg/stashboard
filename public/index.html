@@ -155,6 +155,24 @@
       </form>
     </dialog>
 
+    <dialog class="dialog" id="category-dialog" aria-labelledby="category-title">
+      <form id="category-form">
+        <header>
+          <h2 id="category-title">Category</h2>
+          <button class="icon-button" type="button" data-close aria-label="Close" title="Close">
+            <svg class="icon" aria-hidden="true"><use href="/icons.svg#x"></use></svg>
+          </button>
+        </header>
+        <p class="muted" id="category-text"></p>
+        <div class="choices" id="category-choices" role="radiogroup" aria-labelledby="category-title"></div>
+        <p class="form-error" id="category-error" role="alert" hidden></p>
+        <footer>
+          <button class="button" type="button" id="category-auto">Choose automatically</button>
+          <button class="button primary" type="submit">Save</button>
+        </footer>
+      </form>
+    </dialog>
+
     <div class="tip" id="tip" role="tooltip" hidden></div>
     <script src="/vendor/echarts.js"></script>
     <script type="module" src="/app.js"></script>

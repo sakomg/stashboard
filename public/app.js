@@ -282,7 +282,8 @@ function groups(dimension) {
       other += value;
     }
   }
-  if (other > 0) shown.push({ name: 'Other', value: other });
+  // Dust worth less than a twentieth of a percent would only add an empty row.
+  if (other / total >= 0.0005) shown.push({ name: 'Other', value: other });
   return shown.map((r) => ({
     ...r,
     share: r.value / total,
@@ -568,8 +569,17 @@ function renderPositions() {
               a.key,
             ),
             h(
-              'span',
-              { class: 'category optional' },
+              'button',
+              {
+                class: 'category optional',
+                type: 'button',
+                title: 'Change category',
+                'aria-label': `${a.key} is in ${a.category}. Change category`,
+                onclick: (e) => {
+                  e.stopPropagation();
+                  openCategory(a);
+                },
+              },
               h('span', { class: 'swatch small', style: { background: colorOf('category', a.category) } }),
               a.category,
             ),
@@ -954,6 +964,54 @@ $('remove-wallet').addEventListener('submit', async (event) => {
   );
   if (removed) await load();
 });
+
+let categorising = null;
+
+const CATEGORY_SOURCE = {
+  manual: 'You chose this category.',
+  auto: 'This category was looked up on CoinGecko.',
+};
+
+function openCategory(asset) {
+  categorising = asset;
+  setError('category-error', null);
+  $('category-title').textContent = `Category for ${asset.key}`;
+  $('category-text').textContent =
+    CATEGORY_SOURCE[asset.source] ??
+    (asset.category === 'Other'
+      ? 'No category was found for this asset.'
+      : 'This category comes from the built-in rules.');
+  $('category-choices').replaceChildren(
+    ...state.data.categories.map((name) =>
+      h(
+        'label',
+        {},
+        h('input', { type: 'radio', name: 'category', value: name, checked: name === asset.category }),
+        h('span', { class: 'swatch', style: { background: colorOf('category', name) } }),
+        name,
+      ),
+    ),
+  );
+  // Going back to automatic only means something once a category was chosen by hand.
+  $('category-auto').hidden = asset.source !== 'manual';
+  $('category-dialog').showModal();
+}
+
+async function saveCategory(category) {
+  const saved = await submitDialog($('category-form'), 'category-error', () =>
+    api(`/api/assets/${encodeURIComponent(categorising.key)}/category`, {
+      method: 'PUT',
+      body: JSON.stringify({ category }),
+    }),
+  );
+  if (saved) await load();
+}
+
+$('category-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  saveCategory(new FormData(event.currentTarget).get('category'));
+});
+$('category-auto').addEventListener('click', () => saveCategory(null));
 
 // ── Tooltip and banner ───────────────────────────────────────────────────────
 

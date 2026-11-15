@@ -83,7 +83,13 @@ This is a description of market conditions, not advice to buy or sell.
 asset (WETH and stETH as ETH), which category an asset belongs to, and which tickers are stocks. Tokenized
 stocks are matched by suffix, so `NVDAx`, `NVDAB` and `NVDAon` all count as NVDA. Aave deposit receipts
 count as the token that was lent: `aEthWETH` is ETH, `aEthWBTC` is BTC. Edit the file to fit your
-portfolio; anything it does not mention lands in "Other".
+portfolio.
+
+An asset the file does not mention is looked up on CoinGecko by ticker, and the coin's tags decide its
+category: a meme coin goes to Memes, a launchpad or an exchange token to DeFi, a chain's own coin to L1 or
+L2. The answer is stored, so each asset is looked up once. Where the lookup is wrong or finds nothing, click
+the category next to the asset in the positions table and choose one; a category chosen by hand wins over
+both the file and the lookup. Only what is left after all three lands in "Other".
 
 ### Logos and icons
 
