@@ -111,6 +111,15 @@ export function removeWallet(db: DatabaseSync, id: number): boolean {
   );
 }
 
+export function renameWallet(db: DatabaseSync, id: number, label: string): boolean {
+  const placeholders = WALLET_KINDS.map(() => '?').join(', ');
+  return (
+    db
+      .prepare(`UPDATE accounts SET label = ? WHERE id = ? AND kind IN (${placeholders})`)
+      .run(label, id, ...WALLET_KINDS).changes > 0
+  );
+}
+
 /** The exchange is an account too, so its holdings and status are stored like a wallet's. */
 export function ensureExchangeAccount(db: DatabaseSync, kind: 'binance', label: string): Account {
   db.prepare('INSERT OR IGNORE INTO accounts (kind, label, address, address_key) VALUES (?, ?, ?, ?)').run(
@@ -183,15 +192,18 @@ export interface AccountState {
   holdings: Holding[];
 }
 
-/** Per account: the holdings of its latest successful collection, plus the status of its latest attempt. */
-export function currentState(db: DatabaseSync): AccountState[] {
+/**
+ * Per account: the holdings of its latest successful collection, plus the status of its latest attempt.
+ * `upToSnapshot` reads the portfolio as it stood at an earlier snapshot.
+ */
+export function currentState(db: DatabaseSync, upToSnapshot = Number.MAX_SAFE_INTEGER): AccountState[] {
   const lastAttempt = db.prepare(
-    'SELECT snapshot_id, status, error FROM snapshot_accounts WHERE account_id = ? ORDER BY snapshot_id DESC LIMIT 1',
+    'SELECT snapshot_id, status, error FROM snapshot_accounts WHERE account_id = ? AND snapshot_id <= ? ORDER BY snapshot_id DESC LIMIT 1',
   );
   const lastOk = db.prepare(
     `SELECT sa.snapshot_id, sa.warnings, sa.reported_total, s.started_at
        FROM snapshot_accounts sa JOIN snapshots s ON s.id = sa.snapshot_id
-      WHERE sa.account_id = ? AND sa.status = 'ok'
+      WHERE sa.account_id = ? AND sa.status = 'ok' AND sa.snapshot_id <= ?
       ORDER BY sa.snapshot_id DESC LIMIT 1`,
   );
   const holdingsOf = db.prepare(
@@ -200,9 +212,9 @@ export function currentState(db: DatabaseSync): AccountState[] {
   );
 
   return listAccounts(db).map((account) => {
-    const attempt = lastAttempt.get(account.id) as
+    const attempt = lastAttempt.get(account.id, upToSnapshot) as
       { snapshot_id: number; status: 'ok' | 'error'; error: string | null } | undefined;
-    const ok = lastOk.get(account.id) as
+    const ok = lastOk.get(account.id, upToSnapshot) as
       { snapshot_id: number; warnings: string | null; reported_total: number | null; started_at: string } | undefined;
     const rows = ok
       ? (holdingsOf.all(ok.snapshot_id, account.id) as unknown as (Holding & { type: HoldingType })[])
@@ -218,4 +230,45 @@ export function currentState(db: DatabaseSync): AccountState[] {
       holdings: rows.map((r) => ({ ...r })),
     };
   });
+}
+
+export interface SnapshotInfo {
+  id: number;
+  startedAt: string;
+}
+
+export function listSnapshots(db: DatabaseSync): SnapshotInfo[] {
+  return db
+    .prepare('SELECT id, started_at AS startedAt FROM snapshots WHERE finished_at IS NOT NULL ORDER BY id')
+    .all() as unknown as SnapshotInfo[];
+}
+
+/** The latest finished snapshot started at or before the given time, if any. */
+export function snapshotAt(db: DatabaseSync, time: Date): SnapshotInfo | undefined {
+  return db
+    .prepare(
+      'SELECT id, started_at AS startedAt FROM snapshots WHERE finished_at IS NOT NULL AND started_at <= ? ORDER BY id DESC LIMIT 1',
+    )
+    .get(time.toISOString()) as unknown as SnapshotInfo | undefined;
+}
+
+export interface SnapshotValue {
+  snapshotId: number;
+  accountId: number;
+  status: 'ok' | 'error';
+  symbol: string | null;
+  value: number | null;
+}
+
+/** Every account's result in every snapshot, summed per symbol: the raw material for the history chart. */
+export function snapshotValues(db: DatabaseSync): SnapshotValue[] {
+  return db
+    .prepare(
+      `SELECT sa.snapshot_id AS snapshotId, sa.account_id AS accountId, sa.status, h.symbol, SUM(h.value_usd) AS value
+         FROM snapshot_accounts sa
+         LEFT JOIN holdings h ON h.snapshot_id = sa.snapshot_id AND h.account_id = sa.account_id
+        GROUP BY sa.snapshot_id, sa.account_id, h.symbol
+        ORDER BY sa.snapshot_id`,
+    )
+    .all() as unknown as SnapshotValue[];
 }

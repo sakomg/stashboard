@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <meta name="color-scheme" content="dark" />
+    <title>Stashboard</title>
+    <link rel="icon" href="/logo.svg" />
+    <link rel="stylesheet" href="/app.css" />
+  </head>
+  <body>
+    <header class="top">
+      <a class="brand" href="/"
+        ><img src="/logo.svg" alt="" width="28" height="28" /><span>stash</span><span>board</span></a
+      >
+      <ul class="sources" id="sources" aria-label="Data sources"></ul>
+      <button class="button" id="collect" type="button">Update now</button>
+    </header>
+
+    <main>
+      <section class="summary" aria-labelledby="net-worth-label">
+        <div class="worth">
+          <h1 id="net-worth-label">Net worth</h1>
+          <p class="worth-value" id="net-worth">—</p>
+          <p class="worth-meta" id="updated"></p>
+        </div>
+        <dl class="facts" id="facts"></dl>
+      </section>
+
+      <section aria-labelledby="allocation-title">
+        <div class="section-head">
+          <h2 id="allocation-title">Allocation</h2>
+          <div class="segmented" id="dimension" role="group" aria-label="Group allocation by"></div>
+        </div>
+        <div class="strip" id="strip" role="img" aria-label="Allocation of the portfolio"></div>
+        <div class="allocation">
+          <ul class="legend" id="legend"></ul>
+          <aside class="notes" id="allocation-notes"></aside>
+        </div>
+      </section>
+
+      <section aria-labelledby="history-title">
+        <div class="section-head">
+          <h2 id="history-title">History</h2>
+          <div class="segmented" id="period" role="group" aria-label="History period"></div>
+        </div>
+        <div class="chart" id="history"></div>
+        <p class="empty" id="history-empty" hidden></p>
+      </section>
+
+      <section aria-labelledby="positions-title">
+        <div class="section-head">
+          <h2 id="positions-title">Positions</h2>
+          <button class="link" id="dust-toggle" type="button" hidden></button>
+        </div>
+        <div class="table-wrap">
+          <table class="positions" id="positions">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section aria-labelledby="defi-title">
+        <div class="section-head"><h2 id="defi-title">DeFi</h2></div>
+        <div id="defi"></div>
+      </section>
+
+      <section aria-labelledby="wallets-title">
+        <div class="section-head"><h2 id="wallets-title">Wallets</h2></div>
+        <ul class="wallets" id="wallets"></ul>
+        <form class="add-wallet" id="add-wallet" autocomplete="off">
+          <label>
+            <span>Address</span>
+            <input name="address" required spellcheck="false" placeholder="EVM, Solana or TON address" />
+          </label>
+          <label>
+            <span>Name</span>
+            <input name="label" maxlength="40" placeholder="Optional" />
+          </label>
+          <button class="button" type="submit">Add wallet</button>
+          <p class="form-error" id="add-wallet-error" role="alert" hidden></p>
+        </form>
+      </section>
+    </main>
+
+    <div class="tip" id="tip" role="tooltip" hidden></div>
+    <script src="/vendor/echarts.js"></script>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

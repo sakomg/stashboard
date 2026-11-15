@@ -88,7 +88,7 @@ One page, dark theme, responsive down to a phone. Visual language follows the lo
 bone text, a teal → bone → amber heat scale. Top to bottom:
 
 1. **Header.** Net worth, change over 24 h / 7 d / 30 d, Fear & Greed, last update, status of each source.
-2. **Allocation.** Donut chart with a switch: by asset / category / chain / venue / type (wallet, DeFi, exchange). Next to it: top-5 positions and the stablecoin share.
+2. **Allocation.** A segmented strip (the logo's bars laid end to end) with a switch: by asset / category / chain / venue / type (wallet, DeFi, exchange). Next to it: top-5 positions and the stablecoin share.
 3. **History.** Value over time stacked by category; 7 d / 30 d / 90 d / all.
 4. **Positions table.** Asset, quantity, price, value, share, 24 h and 7 d change, RSI, funding, heat badge. Sortable; a row expands into "where it is held".
 5. **DeFi.** By protocol: deposits, loans, LP, perps, locks, rewards; health factor for Aave.
