@@ -1239,7 +1239,10 @@ for (const tab of tabs()) {
     switchView(next.dataset.view, true);
   });
 }
-window.addEventListener('hashchange', () => showView(location.hash.slice(1)));
+window.addEventListener('hashchange', () => {
+  const id = location.hash.slice(1);
+  if (VIEWS.includes(id) && id !== state.view) showView(id);
+});
 showView(location.hash.slice(1));
 
 new IntersectionObserver(([entry]) => $('views').classList.toggle('stuck', !entry.isIntersecting), {
