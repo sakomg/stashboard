@@ -39,7 +39,7 @@ jobs:
             echo "go=false" >> "$GITHUB_OUTPUT"
             echo "This push did not come from a merged pull request, so it is not deployed."
           fi
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: steps.gate.outputs.go == 'true'
       - uses: actions/setup-node@v4
         if: steps.gate.outputs.go == 'true'
