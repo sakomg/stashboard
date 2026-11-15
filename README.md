@@ -83,6 +83,16 @@ asset (WETH and stETH as ETH), which category an asset belongs to, and which tic
 stocks are matched by suffix, so `NVDAx`, `NVDAB` and `NVDAon` all count as NVDA. Edit the file to fit your
 portfolio; anything it does not mention lands in "Other".
 
+### Logos and icons
+
+Token, chain and protocol logos are not part of the repository. Zerion and TonAPI name a logo for what they
+return, and CoinGecko fills in the rest by ticker. The server downloads each image once, checks that it
+really is an image, keeps it in `data/logos` and serves it from its own address. Your browser never asks a
+third party for a logo, so nobody outside learns what the portfolio holds. An asset without a logo shows its
+first letters instead.
+
+Interface icons come from [Lucide](https://lucide.dev) (ISC licence), built into one sprite by the server.
+
 ### API keys
 
 All free:

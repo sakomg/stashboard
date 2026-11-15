@@ -31,7 +31,9 @@ import {
 import { qrSvg } from './qr.ts';
 import { runSignals } from './signals.ts';
 import { fearGreed } from './sources/feargreed.ts';
-import { historyView, portfolioView } from './view.ts';
+import { historyView, portfolioView, wantedLogos } from './view.ts';
+import { fetchMissingLogos, logoFile, noteLogos } from './logos.ts';
+import { fetchChains } from './sources/zerion.ts';
 
 const config = loadConfig();
 const host = process.env.HOST ?? '127.0.0.1';
@@ -77,8 +79,8 @@ const STATIC: Record<string, { file: string; type: string; cache?: boolean; acce
 };
 const openTo = (access: Access): Set<string> =>
   new Set(Object.keys(STATIC).filter((path) => STATIC[path]!.access.includes(access)));
-const SIGNIN_PATHS = new Set([...openTo('signin'), '/healthz', '/api/login']);
-const SETUP_PATHS = new Set([...openTo('setup'), '/healthz', '/api/setup/start', '/api/setup/finish']);
+const SIGNIN_PATHS = new Set([...openTo('signin'), '/healthz', '/icons.svg', '/api/login']);
+const SETUP_PATHS = new Set([...openTo('setup'), '/healthz', '/icons.svg', '/api/setup/start', '/api/setup/finish']);
 
 // Behind the reverse proxy the client address and protocol come from its forwarding headers.
 const app = Fastify({ logger: { level: 'warn' }, trustProxy: process.env.TRUST_PROXY === '1' });
@@ -128,11 +130,12 @@ app.addHook('onRequest', async (request, reply) => {
 });
 
 app.addHook('onSend', async (request, reply) => {
-  reply.header(
-    'Content-Security-Policy',
-    // The chart library styles its tooltip inline; scripts are restricted to this origin.
-    "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
-  );
+  if (!reply.hasHeader('Content-Security-Policy'))
+    reply.header(
+      'Content-Security-Policy',
+      // The chart library styles its tooltip inline; scripts are restricted to this origin.
+      "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+    );
   reply.header('X-Content-Type-Options', 'nosniff');
   reply.header('Referrer-Policy', 'no-referrer');
   reply.header('X-Robots-Tag', 'noindex');
@@ -147,6 +150,47 @@ for (const [path, { file, type, cache }] of Object.entries(STATIC)) {
 }
 
 app.get('/healthz', async () => ({ ok: true }));
+
+// ── Icons and logos ──────────────────────────────────────────────────────────
+
+// Interface icons: one sprite built from the Lucide set, holding only the icons the pages use.
+const ICONS = [
+  'refresh-cw',
+  'plus',
+  'log-out',
+  'pencil',
+  'trash-2',
+  'check',
+  'x',
+  'chevron-right',
+  'arrow-up',
+  'arrow-down',
+  'triangle-alert',
+  'clock',
+  'wallet',
+];
+const sprite =
+  '<svg xmlns="http://www.w3.org/2000/svg">' +
+  ICONS.map((name) => {
+    const svg = readFileSync(new URL(`node_modules/lucide-static/icons/${name}.svg`, root), 'utf8');
+    const body = svg.slice(svg.indexOf('>', svg.indexOf('<svg')) + 1, svg.lastIndexOf('</svg>'));
+    return `<symbol id="${name}" viewBox="0 0 24 24">${body.trim()}</symbol>`;
+  }).join('') +
+  '</svg>';
+
+app.get('/icons.svg', async (_request, reply) => {
+  reply.type('image/svg+xml').header('Cache-Control', 'public, max-age=86400');
+  return sprite;
+});
+
+app.get<{ Params: { kind: string; key: string } }>('/logo/:kind/:key', async (request, reply) => {
+  const logo = logoFile(db, request.params.kind, request.params.key);
+  if (!logo) return reply.code(404).header('Cache-Control', 'no-store').send({ error: 'No logo' });
+  // Logos come from third parties. Sandboxing means that even an SVG opened directly cannot run anything here.
+  reply.header('Content-Security-Policy', "sandbox; default-src 'none'; style-src 'unsafe-inline'");
+  reply.type(logo.type).header('Cache-Control', 'private, max-age=604800');
+  return readFileSync(logo.path);
+});
 
 // ── Attempt limiting, shared by setup and sign-in ────────────────────────────
 
@@ -286,10 +330,29 @@ async function refreshSignals(): Promise<void> {
   await runSignals(db, config, resolve);
 }
 
+let chainsFetchedAt = 0;
+
+/** Fetches the logos the portfolio shows and does not have yet. Cosmetic, so a failure is only logged. */
+async function refreshLogos(): Promise<void> {
+  try {
+    if (config.zerion.apiKey && Date.now() - chainsFetchedAt > 24 * 60 * 60_000) {
+      noteLogos(db, await fetchChains(config.zerion.apiKey));
+      chainsFetchedAt = Date.now();
+    }
+    await fetchMissingLogos(db, config, wantedLogos(db, resolve));
+  } catch (err) {
+    app.log.warn(err);
+  }
+}
+
 /** Starts a collection unless one is already running; either way resolves when it has finished. */
 function collect(): Promise<void> {
   collecting ??= runCollection(db, config)
     .then(refreshSignals)
+    .then(() => {
+      // Logos are cosmetic: fetched in the background so they never hold up an update.
+      void refreshLogos();
+    })
     .catch((err: unknown) => app.log.error(err))
     .finally(() => {
       collecting = null;
@@ -301,7 +364,10 @@ const intervalMs = Math.max(config.schedule.balancesMinutes, 5) * 60_000;
 setInterval(collect, intervalMs).unref();
 const lastSnapshot = listSnapshots(db).at(-1);
 if (!lastSnapshot || Date.now() - Date.parse(lastSnapshot.startedAt) > intervalMs) void collect();
-else void refreshSignals().catch((err: unknown) => app.log.error(err));
+else
+  void refreshSignals()
+    .then(refreshLogos)
+    .catch((err: unknown) => app.log.error(err));
 
 // One copy of the database a day, taken at start and then checked hourly.
 const backup = (): void => {
@@ -362,7 +428,7 @@ app.delete<{ Params: { id: string } }>('/api/wallets/:id', async (request, reply
 await app.listen({ host, port });
 console.log(`Stashboard is running at http://${host}:${port}`);
 if (setupCode) {
-  const where = config.domain ? `https://${config.domain}/setup` : `http://${host}:${port}/setup`;
+  const where = config.domain && !local ? `https://${config.domain}/setup` : `http://${host}:${port}/setup`;
   // The marker lets the deploy script find this line in the log.
   console.log(`No account yet. Create one at ${where} with this setup code: ${formatCode(setupCode)}  [setup-code]`);
   if (local) console.log('Until then the dashboard is open on this machine only.');

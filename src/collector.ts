@@ -2,6 +2,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import type { Config } from './config.ts';
 import { ensureExchangeAccount, finishSnapshot, listAccounts, saveOutcome, startSnapshot, type Account } from './db.ts';
+import { noteLogos } from './logos.ts';
 import { collectBinance } from './sources/binance.ts';
 import { collectTon } from './sources/ton.ts';
 import { collectZerion } from './sources/zerion.ts';
@@ -29,6 +30,7 @@ export async function runCollection(db: DatabaseSync, config: Config): Promise<n
     try {
       const result = await collectAccount(config, account);
       saveOutcome(db, snapshotId, account.id, { status: 'ok', ...result });
+      if (result.logos) noteLogos(db, result.logos);
     } catch (err) {
       saveOutcome(db, snapshotId, account.id, {
         status: 'error',

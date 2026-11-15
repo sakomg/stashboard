@@ -75,6 +75,16 @@ const MIGRATIONS = [
      key   TEXT PRIMARY KEY,
      value TEXT NOT NULL
    );`,
+  `CREATE TABLE logos (
+     kind       TEXT NOT NULL,
+     key        TEXT NOT NULL,
+     name       TEXT,
+     source_url TEXT,
+     file       TEXT,
+     media_type TEXT,
+     tried_at   TEXT,
+     PRIMARY KEY (kind, key)
+   );`,
 ];
 
 export function openDb(dir = process.env.DATA_DIR ?? 'data'): DatabaseSync {

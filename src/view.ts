@@ -2,6 +2,8 @@
 import type { DatabaseSync } from 'node:sqlite';
 import type { Asset } from './assets.ts';
 import { currentState, latestSignals, listSnapshots, snapshotAt, snapshotValues } from './db.ts';
+import { STOCKS_CATEGORY } from './assets.ts';
+import { logoIndex, type Wanted } from './logos.ts';
 import { buildPortfolio } from './portfolio.ts';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -25,6 +27,7 @@ export function portfolioView(db: DatabaseSync, resolve: (symbol: string) => Ass
   const signals = new Map(latestSignals(db).map((s) => [s.asset, s]));
 
   return {
+    logos: logoIndex(db),
     updatedAt: states.reduce<string | null>(
       (max, s) => (s.collectedAt && (!max || s.collectedAt > max) ? s.collectedAt : max),
       null,
@@ -130,4 +133,40 @@ export function historyView(
   const thinned = Array.from({ length: MAX_POINTS - 1 }, (_, i) => inRange[Math.floor(i * step)]!);
   thinned.push(inRange.at(-1)!);
   return thinned;
+}
+
+// Accounts and the two non-EVM venues are drawn with the logo of their native coin.
+export const NATIVE_TOKENS = ['BNB', 'ETH', 'SOL', 'TON'];
+
+/** Every logo the current portfolio can show: its assets, the chains they sit on and the protocols they are in. */
+export function wantedLogos(db: DatabaseSync, resolve: (symbol: string) => Asset): Wanted[] {
+  const tokens = new Map<string, { category: string; symbols: Set<string> }>();
+  const chains = new Set<string>();
+  const protocols = new Set<string>();
+  for (const key of NATIVE_TOKENS) tokens.set(key, { category: resolve(key).category, symbols: new Set() });
+
+  for (const { account, holdings } of currentState(db)) {
+    for (const h of holdings) {
+      const asset = resolve(h.symbol);
+      let entry = tokens.get(asset.key);
+      if (!entry) tokens.set(asset.key, (entry = { category: asset.category, symbols: new Set() }));
+      if (h.symbol !== asset.key) entry.symbols.add(h.symbol);
+      if (account.kind !== 'binance') {
+        chains.add(h.chain);
+        if (h.protocol) protocols.add(h.protocol);
+      }
+    }
+  }
+
+  return [
+    ...[...tokens].map(([key, { category, symbols }]) => ({
+      kind: 'token' as const,
+      key,
+      alternatives: [...symbols],
+      // Tokenized stocks are listed under their wrapper's ticker (NVDAx), not the company's.
+      lookup: category === STOCKS_CATEGORY ? [`${key}x`, key] : [key],
+    })),
+    ...[...chains].map((key) => ({ kind: 'chain' as const, key })),
+    ...[...protocols].map((key) => ({ kind: 'protocol' as const, key })),
+  ];
 }

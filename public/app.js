@@ -17,6 +17,59 @@ function h(tag, props = {}, ...children) {
   return el;
 }
 
+// ── Icons and logos ──────────────────────────────────────────────────────────
+
+const SVG = 'http://www.w3.org/2000/svg';
+
+/** An interface icon from the sprite. Decorative: the control that holds it carries the label. */
+function icon(name) {
+  const svg = document.createElementNS(SVG, 'svg');
+  svg.setAttribute('class', 'icon');
+  svg.setAttribute('aria-hidden', 'true');
+  const use = document.createElementNS(SVG, 'use');
+  use.setAttribute('href', `/icons.svg#${name}`);
+  svg.append(use);
+  return svg;
+}
+
+/** A button that shows only an icon; the label is read out and shown on hover. */
+const iconButton = (name, label, onclick, cls = '') =>
+  h('button', { class: `icon-button ${cls}`, type: 'button', 'aria-label': label, title: label, onclick }, icon(name));
+
+/** The first letters of a name, shown where there is no logo. */
+function monogram(label) {
+  return h(
+    'span',
+    { class: 'logo mono', 'aria-hidden': 'true' },
+    String(label)
+      .replace(/[^\p{L}\p{N}]/gu, '')
+      .slice(0, 2)
+      .toUpperCase() || '?',
+  );
+}
+
+/** A logo the server has stored, or a monogram when it has none or the image fails to load. */
+function logo(kind, key, label = key) {
+  if (!state.logos.has(`${kind}/${key}`)) return monogram(label);
+  const img = h('img', {
+    class: 'logo',
+    src: `/logo/${kind}/${encodeURIComponent(key)}`,
+    alt: '',
+    width: 20,
+    height: 20,
+    loading: 'lazy',
+  });
+  img.addEventListener('error', () => img.replaceWith(monogram(label)));
+  return img;
+}
+
+// Accounts and the two non-EVM venues are drawn with the logo of their native coin.
+const KIND_TOKEN = { binance: 'BNB', evm: 'ETH', solana: 'SOL', ton: 'TON' };
+const CHAIN_TOKEN = { binance: 'BNB', ton: 'TON' };
+const kindLogo = (kind) => logo('token', KIND_TOKEN[kind], KINDS[kind]);
+const chainLogo = (id) =>
+  CHAIN_TOKEN[id] ? logo('token', CHAIN_TOKEN[id], chainName(id)) : logo('chain', id, chainName(id));
+
 // ── Formatting ───────────────────────────────────────────────────────────────
 
 const usd = (n) =>
@@ -28,6 +81,7 @@ const price = (n) => (n == null ? '—' : `$${n.toLocaleString('en-US', { maximu
 const fixed = (n, digits) =>
   (Number(n.toFixed(digits)) === 0 ? (0).toFixed(digits) : n.toFixed(digits)).replace('-', '−');
 const percent = (n) => `${(n * 100).toFixed(1)}%`;
+const dash = () => h('span', { class: 'muted' }, '—');
 
 function change(n) {
   if (n == null) return h('span', { class: 'num muted' }, '—');
@@ -60,8 +114,11 @@ const TYPES = {
   locked: 'Locked',
   reward: 'Reward',
 };
-const CHAINS = { 'binance-smart-chain': 'BNB Chain', binance: 'Binance', ton: 'TON', 'zksync-era': 'zkSync Era' };
-const chainName = (id) => CHAINS[id] ?? id.replace(/(^|-)(\w)/g, (_, dash, c) => (dash ? ' ' : '') + c.toUpperCase());
+const CHAINS = { binance: 'Binance', ton: 'TON' };
+const chainName = (id) =>
+  CHAINS[id] ??
+  state.chainNames[id] ??
+  id.replace(/(^|-)(\w)/g, (_, hyphen, c) => (hyphen ? ' ' : '') + c.toUpperCase());
 
 // ── Colour ───────────────────────────────────────────────────────────────────
 // Eight categorical hues validated for this dark surface, used in this fixed order; a ninth group is "Other".
@@ -81,12 +138,13 @@ function colorOf(dimension, name) {
 
 // ── State ────────────────────────────────────────────────────────────────────
 
+// [id, label, group of a holding, logo of a group given one of its holdings]
 const DIMENSIONS = [
-  ['category', 'Category', (x) => x.category],
-  ['asset', 'Asset', (x) => x.asset],
-  ['chain', 'Chain', (x) => chainName(x.chain)],
-  ['venue', 'Account', (x) => x.account],
-  ['place', 'Kind', (x) => (x.kind === 'binance' ? 'Exchange' : x.protocol ? 'DeFi' : 'Wallet')],
+  ['category', 'Category', (x) => x.category, null],
+  ['asset', 'Asset', (x) => x.asset, (x) => logo('token', x.asset)],
+  ['chain', 'Chain', (x) => chainName(x.chain), (x) => chainLogo(x.chain)],
+  ['venue', 'Account', (x) => x.account, (x) => kindLogo(x.kind)],
+  ['place', 'Kind', (x) => (x.kind === 'binance' ? 'Exchange' : x.protocol ? 'DeFi' : 'Wallet'), null],
 ];
 const PERIODS = [
   ['7', '7 d'],
@@ -98,17 +156,24 @@ const DUST_USD = 1;
 
 const state = {
   data: null,
+  logos: new Set(),
+  chainNames: {},
   dimension: 'category',
   period: '30',
   sort: { key: 'value', descending: true },
   expanded: new Set(),
   showDust: false,
   renaming: null,
-  removing: null,
+  updating: false,
 };
 
 async function api(path, options) {
-  const response = await fetch(path, options && { ...options, headers: { 'content-type': 'application/json' } });
+  let response;
+  try {
+    response = await fetch(path, options && { ...options, headers: { 'content-type': 'application/json' } });
+  } catch {
+    throw new Error('The server did not answer. Check the connection.');
+  }
   // The session ended or was never there: the sign-in page is the only useful place to be.
   if (response.status === 401) {
     location.replace('/login');
@@ -119,29 +184,19 @@ async function api(path, options) {
   return body;
 }
 
-// ── Header ───────────────────────────────────────────────────────────────────
+// ── Summary ──────────────────────────────────────────────────────────────────
 
-function renderHeader() {
+function renderSummary() {
   const { data } = state;
-  $('sources').replaceChildren(
-    ...data.sources.map((s) => {
-      const never = s.status === null;
-      const note = never ? 'not collected yet' : s.stale ? 'out of date' : null;
-      return h(
-        'li',
-        { title: s.stale ? s.error : s.collectedAt ? `Updated ${ago(s.collectedAt)}` : null },
-        h('span', { class: `dot ${never ? 'never' : s.stale ? 'stale' : ''}` }),
-        s.label,
-        note && h('span', { class: 'state' }, note),
-      );
-    }),
-  );
-
   const [whole, cents] = usd(data.netWorth).split('.');
   $('net-worth').replaceChildren(whole, h('span', { class: 'cents' }, `.${cents}`));
-  $('updated').textContent = data.updatedAt
-    ? `Updated ${ago(data.updatedAt)}. Refreshes every ${data.collectEveryMinutes} min.`
-    : 'Nothing collected yet. Add a wallet below, then choose Update now.';
+
+  const busy = state.updating || data.collecting;
+  $('updated').textContent = busy ? 'Updating…' : data.updatedAt ? `Updated ${ago(data.updatedAt)}` : 'Not updated yet';
+  const button = $('collect');
+  button.disabled = busy;
+  button.classList.toggle('spinning', busy);
+  button.title = busy ? 'Updating…' : `Update now. Updates on its own every ${data.collectEveryMinutes} min.`;
 
   const fact = (label, ...value) => h('div', {}, h('dt', {}, label), h('dd', {}, ...value));
   $('facts').replaceChildren(
@@ -150,20 +205,63 @@ function renderHeader() {
     fact('30 days', change(data.changes.d30)),
     data.fearGreed && fact('Fear & Greed', String(data.fearGreed.value), h('small', {}, data.fearGreed.label)),
   );
-
   $('sign-out').hidden = !data.loginEnabled;
-  const button = $('collect');
-  button.disabled = data.collecting;
-  button.textContent = data.collecting ? 'Updating…' : 'Update now';
+
+  $('sources').replaceChildren(
+    ...data.sources.map((s) => {
+      const problem =
+        s.status === null ? ['clock', 'Not read yet'] : s.stale ? ['triangle-alert', 'Out of date'] : null;
+      return h(
+        'li',
+        {
+          class: problem ? 'problem' : '',
+          title: problem ? problem[1] : `${usd(s.value)}, updated ${ago(s.collectedAt)}`,
+        },
+        kindLogo(s.kind),
+        h('span', { class: 'chip-label' }, s.label),
+        !problem && h('span', { class: 'num muted' }, usdRound(s.value)),
+        problem && icon(problem[0]),
+        problem && h('span', { class: 'sr-only' }, problem[1]),
+      );
+    }),
+  );
+
+  // What went wrong, said once and in full, instead of a tooltip nobody finds.
+  $('notices').replaceChildren(
+    ...data.sources
+      .filter((s) => s.stale)
+      .map((s) =>
+        h(
+          'li',
+          {},
+          icon('triangle-alert'),
+          h(
+            'span',
+            {},
+            h('b', {}, s.label),
+            s.collectedAt
+              ? ` could not be updated. Showing its balances from ${ago(s.collectedAt)}. `
+              : ' could not be read, so it is missing from the totals. ',
+            h('span', { class: 'muted' }, s.error ?? ''),
+          ),
+        ),
+      ),
+  );
 }
 
 // ── Allocation ───────────────────────────────────────────────────────────────
 
 function groups(dimension) {
-  const [, , keyOf] = DIMENSIONS.find(([id]) => id === dimension);
+  const [, , keyOf, logoOf] = DIMENSIONS.find(([id]) => id === dimension);
   const totals = new Map();
+  const samples = new Map();
   // Debts are left out: a strip can only divide up what is held.
-  for (const x of state.data.holdings) if (x.value > 0) totals.set(keyOf(x), (totals.get(keyOf(x)) ?? 0) + x.value);
+  for (const x of state.data.holdings) {
+    if (x.value <= 0) continue;
+    const key = keyOf(x);
+    totals.set(key, (totals.get(key) ?? 0) + x.value);
+    if (!samples.has(key)) samples.set(key, x);
+  }
   const sorted = [...totals].sort((a, b) => b[1] - a[1]);
   const total = sorted.reduce((s, [, v]) => s + v, 0);
 
@@ -183,28 +281,29 @@ function groups(dimension) {
     }
   }
   if (other > 0) shown.push({ name: 'Other', value: other });
-  return { total, rows: shown.map((r) => ({ ...r, share: r.value / total, color: colorOf(dimension, r.name) })) };
+  return shown.map((r) => ({
+    ...r,
+    share: r.value / total,
+    color: colorOf(dimension, r.name),
+    logo: logoOf && r.name !== 'Other' && samples.has(r.name) ? logoOf(samples.get(r.name)) : null,
+  }));
+}
+
+function segmented(id, options, current, choose) {
+  $(id).replaceChildren(
+    ...options.map(([value, label]) =>
+      h('button', { type: 'button', 'aria-pressed': String(current === value), onclick: () => choose(value) }, label),
+    ),
+  );
 }
 
 function renderAllocation() {
-  $('dimension').replaceChildren(
-    ...DIMENSIONS.map(([id, label]) =>
-      h(
-        'button',
-        {
-          type: 'button',
-          'aria-pressed': String(state.dimension === id),
-          onclick: () => {
-            state.dimension = id;
-            renderAllocation();
-          },
-        },
-        label,
-      ),
-    ),
-  );
+  segmented('dimension', DIMENSIONS, state.dimension, (id) => {
+    state.dimension = id;
+    renderAllocation();
+  });
 
-  const { total, rows } = groups(state.dimension);
+  const rows = groups(state.dimension);
   const strip = $('strip');
   const legend = $('legend');
   const focus = (index) => {
@@ -220,7 +319,7 @@ function renderAllocation() {
         style: { flex: `${r.share} 1 0`, background: r.color },
         onmousemove: (e) => {
           focus(i);
-          showTip(e, r.name, `${usd(r.value)} · ${percent(r.share)}`);
+          showTip(e, r.name, `${usd(r.value)}, ${percent(r.share)}`);
         },
         onmouseleave: () => {
           focus(null);
@@ -237,13 +336,12 @@ function renderAllocation() {
         'li',
         { onmouseenter: () => focus(i), onmouseleave: () => focus(null) },
         h('span', { class: 'swatch', style: { background: r.color } }),
-        h('span', { class: 'name' }, r.name),
+        h('span', { class: 'name' }, r.logo, h('span', {}, r.name)),
         h('span', { class: 'num' }, usd(r.value)),
         h('span', { class: 'num share' }, percent(r.share)),
       ),
     ),
   );
-  if (total === 0) legend.replaceChildren(h('li', { class: 'muted' }, 'Nothing to show yet.'));
 
   const top = state.data.assets.filter((a) => a.value > 0).slice(0, 5);
   const stable = state.data.assets.filter((a) => a.category === 'Stablecoins').reduce((s, a) => s + a.value, 0);
@@ -252,7 +350,14 @@ function renderAllocation() {
     h(
       'ol',
       {},
-      ...top.map((a) => h('li', {}, h('span', {}, a.key), h('span', { class: 'num muted' }, percent(a.share)))),
+      ...top.map((a) =>
+        h(
+          'li',
+          {},
+          h('span', { class: 'name' }, logo('token', a.key), h('span', {}, a.key)),
+          h('span', { class: 'num muted' }, percent(a.share)),
+        ),
+      ),
     ),
     h('h3', {}, 'Held in stablecoins'),
     h('p', { class: 'stable num' }, state.data.netWorth ? percent(stable / state.data.netWorth) : '—'),
@@ -264,22 +369,10 @@ function renderAllocation() {
 let chart;
 
 async function renderHistory() {
-  $('period').replaceChildren(
-    ...PERIODS.map(([id, label]) =>
-      h(
-        'button',
-        {
-          type: 'button',
-          'aria-pressed': String(state.period === id),
-          onclick: () => {
-            state.period = id;
-            renderHistory();
-          },
-        },
-        label,
-      ),
-    ),
-  );
+  segmented('period', PERIODS, state.period, (id) => {
+    state.period = id;
+    renderHistory().catch(showBanner);
+  });
 
   const points = await api(`/api/history${state.period ? `?days=${state.period}` : ''}`);
   const enough = points.length >= 2;
@@ -382,7 +475,7 @@ const READINGS = {
 
 /** The heat score with its zone spelled out, so the colour is never the only cue. */
 function heatBadge(signal) {
-  if (!signal) return h('span', { class: 'muted' }, '—');
+  if (!signal) return dash();
   return h(
     'span',
     { class: `heat ${signal.zone}`, title: `Heat ${signal.score.toFixed(0)} of 100, from ${signal.pair}` },
@@ -399,34 +492,32 @@ function renderPositions() {
     h(
       'tr',
       {},
-      ...COLUMNS.map(([key, label, cls]) =>
-        h(
+      ...COLUMNS.map(([key, label, cls]) => {
+        const active = sort.key === key;
+        return h(
           'th',
-          {
-            class: cls,
-            scope: 'col',
-            'aria-sort': sort.key === key ? (sort.descending ? 'descending' : 'ascending') : null,
-          },
+          { class: cls, scope: 'col', 'aria-sort': active ? (sort.descending ? 'descending' : 'ascending') : null },
           h(
             'button',
             {
               type: 'button',
               onclick: () => {
-                state.sort = { key, descending: sort.key === key ? !sort.descending : key !== 'key' };
+                state.sort = { key, descending: active ? !sort.descending : key !== 'key' };
                 renderPositions();
               },
             },
-            label + (sort.key === key ? (sort.descending ? ' ↓' : ' ↑') : ''),
+            label,
+            active && icon(sort.descending ? 'arrow-down' : 'arrow-up'),
           ),
-        ),
-      ),
+        );
+      }),
     ),
   );
 
   const dust = data.assets.filter((a) => Math.abs(a.value) < DUST_USD);
   const visible = state.showDust ? data.assets : data.assets.filter((a) => Math.abs(a.value) >= DUST_USD);
+  const valueOf = COLUMNS.find(([key]) => key === sort.key)[3];
   const sorted = [...visible].sort((a, b) => {
-    const valueOf = COLUMNS.find(([key]) => key === sort.key)[3];
     const [x, y] = [valueOf(a), valueOf(b)];
     const order = typeof x === 'string' ? x.localeCompare(y) : (x ?? -Infinity) - (y ?? -Infinity);
     return sort.descending ? -order : order;
@@ -449,20 +540,37 @@ function renderPositions() {
       else state.expanded.add(a.key);
       renderPositions();
     };
+    const funding = reading(a, 'funding');
     body.append(
       h(
         'tr',
-        { 'aria-expanded': String(open) },
+        { class: 'position', 'aria-expanded': String(open), onclick: flip },
         h(
           'td',
           {},
           h(
             'div',
             { class: 'asset' },
-            h('span', { class: 'chevron', 'aria-hidden': 'true' }, '›'),
-            h('span', { class: 'swatch', style: { background: colorOf('category', a.category) }, title: a.category }),
-            h('button', { type: 'button', onclick: flip, 'aria-label': `${a.key}: show where it is held` }, a.key),
-            h('span', { class: 'category optional' }, a.category),
+            h('span', { class: 'chevron' }, icon('chevron-right')),
+            logo('token', a.key),
+            h(
+              'button',
+              {
+                type: 'button',
+                'aria-label': `${a.key}: ${open ? 'hide' : 'show'} where it is held`,
+                onclick: (e) => {
+                  e.stopPropagation();
+                  flip();
+                },
+              },
+              a.key,
+            ),
+            h(
+              'span',
+              { class: 'category optional' },
+              h('span', { class: 'swatch small', style: { background: colorOf('category', a.category) } }),
+              a.category,
+            ),
           ),
         ),
         h('td', { class: 'num optional' }, quantity(a.quantity)),
@@ -484,12 +592,8 @@ function renderPositions() {
         ),
         h('td', {}, change(a.change1d)),
         h('td', { class: 'optional' }, change(a.change7d)),
-        h('td', { class: 'num optional' }, reading(a, 'rsiDaily')?.toFixed(0) ?? h('span', { class: 'muted' }, '—')),
-        h(
-          'td',
-          { class: 'num optional' },
-          reading(a, 'funding') === null ? h('span', { class: 'muted' }, '—') : `${fixed(reading(a, 'funding'), 3)}%`,
-        ),
+        h('td', { class: 'num optional' }, reading(a, 'rsiDaily')?.toFixed(0) ?? dash()),
+        h('td', { class: 'num optional' }, funding === null ? dash() : `${fixed(funding, 3)}%`),
         h('td', {}, heatBadge(a.signal)),
       ),
     );
@@ -524,11 +628,18 @@ function placesRow(asset) {
             h(
               'tr',
               {},
-              h('td', {}, x.account),
+              h('td', {}, h('span', { class: 'name' }, kindLogo(x.kind), h('span', {}, x.account))),
               h(
                 'td',
                 {},
-                x.kind === 'binance' ? x.protocol : [chainName(x.chain), x.protocol].filter(Boolean).join(', '),
+                x.kind === 'binance'
+                  ? x.protocol
+                  : h(
+                      'span',
+                      { class: 'name' },
+                      chainLogo(x.chain),
+                      h('span', {}, [chainName(x.chain), x.protocol].filter(Boolean).join(', ')),
+                    ),
               ),
               h('td', {}, `${TYPES[x.type] ?? x.type}${x.symbol !== asset ? ` (${x.symbol})` : ''}`),
               h('td', { class: 'num' }, quantity(x.quantity)),
@@ -571,7 +682,13 @@ function renderSignals() {
               return h(
                 'li',
                 {},
-                h('span', { class: 'who' }, h('b', {}, a.key), h('span', { class: 'num muted' }, percent(a.share))),
+                h(
+                  'span',
+                  { class: 'who' },
+                  logo('token', a.key),
+                  h('b', {}, a.key),
+                  h('span', { class: 'num muted' }, percent(a.share)),
+                ),
                 heatBadge(a.signal),
                 h(
                   'p',
@@ -593,7 +710,7 @@ function renderSignals() {
   const newest = scored.reduce((max, a) => (a.signal.time > max ? a.signal.time : max), '');
   $('signals-note').textContent = newest
     ? `Heat runs from 0 (cold) to 100 (overheated) and blends RSI, funding, distance from the 200-day average and open interest. Updated ${ago(newest)}.`
-    : 'Signals appear after the first update.';
+    : 'Signals appear a few minutes after the first update.';
 }
 
 // ── DeFi ─────────────────────────────────────────────────────────────────────
@@ -619,11 +736,12 @@ function renderDefi() {
         h(
           'div',
           {},
-          h('h3', {}, items[0].protocol),
+          h('h3', { class: 'name' }, logo('protocol', items[0].protocol), h('span', {}, items[0].protocol)),
           h(
             'p',
-            { class: 'where' },
-            `${chainName(items[0].chain)}, ${[...new Set(items.map((x) => x.account))].join(', ')}`,
+            { class: 'where name' },
+            chainLogo(items[0].chain),
+            h('span', {}, `${chainName(items[0].chain)}, ${[...new Set(items.map((x) => x.account))].join(', ')}`),
           ),
           h('p', { class: 'total num' }, usd(net)),
         ),
@@ -637,7 +755,7 @@ function renderDefi() {
                 'li',
                 {},
                 h('span', { class: 'kind' }, TYPES[x.type] ?? x.type),
-                h('span', {}, x.symbol),
+                h('span', { class: 'name' }, logo('token', x.asset, x.symbol), h('span', {}, x.symbol)),
                 h('span', { class: 'num muted' }, quantity(x.quantity)),
                 h('span', { class: 'num' }, usd(x.value)),
               ),
@@ -661,88 +779,173 @@ function renderDefi() {
 
 function renderWallets() {
   const wallets = state.data.sources.filter((s) => s.kind !== 'binance');
-  const act = async (request) => {
-    try {
-      await request();
-      state.renaming = state.removing = null;
-      await load();
-    } catch (err) {
-      showFormError(err.message);
-    }
-  };
+  $('wallets-section').hidden = wallets.length === 0;
 
   $('wallets').replaceChildren(
     ...wallets.map((w) => {
-      const renaming = state.renaming === w.id;
-      const removing = state.removing === w.id;
-      const input = renaming && h('input', { value: w.label, maxlength: 40, 'aria-label': 'Wallet name' });
-      const save = () =>
-        act(() => api(`/api/wallets/${w.id}`, { method: 'PATCH', body: JSON.stringify({ label: input.value }) }));
-      if (input) input.addEventListener('keydown', (e) => e.key === 'Enter' && save());
-      const button = (label, onclick) => h('button', { class: 'link', type: 'button', onclick }, label);
-      const set = (patch) => () => {
-        Object.assign(state, { renaming: null, removing: null }, patch);
+      if (state.renaming !== w.id) {
+        return h(
+          'li',
+          {},
+          h('span', { class: 'label name' }, kindLogo(w.kind), h('span', {}, w.label)),
+          h('span', { class: 'kind muted' }, KINDS[w.kind]),
+          h('span', { class: 'address num muted' }, w.address),
+          h('span', { class: 'num' }, w.status === null ? '—' : usd(w.value)),
+          h(
+            'span',
+            { class: 'actions' },
+            iconButton('pencil', `Rename ${w.label}`, () => {
+              state.renaming = w.id;
+              renderWallets();
+            }),
+            iconButton('trash-2', `Remove ${w.label}`, () => openRemove(w)),
+          ),
+        );
+      }
+
+      const input = h('input', { value: w.label, maxlength: 40, 'aria-label': 'Wallet name' });
+      const error = h('p', { class: 'form-error', role: 'alert', hidden: true });
+      const cancel = () => {
+        state.renaming = null;
         renderWallets();
       };
-
+      const save = async () => {
+        try {
+          await api(`/api/wallets/${w.id}`, { method: 'PATCH', body: JSON.stringify({ label: input.value }) });
+          state.renaming = null;
+          await load();
+        } catch (err) {
+          error.textContent = err.message;
+          error.hidden = false;
+        }
+      };
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') save();
+        if (e.key === 'Escape') cancel();
+      });
       return h(
         'li',
-        {},
-        renaming ? input : h('span', { class: 'label' }, w.label),
-        h('span', { class: 'kind muted' }, KINDS[w.kind]),
-        h('span', { class: 'address num muted' }, w.address),
-        h('span', { class: 'num' }, w.status === null ? '—' : usd(w.value)),
+        { class: 'renaming' },
+        h('span', { class: 'label name' }, kindLogo(w.kind), input),
         h(
           'span',
           { class: 'actions' },
-          ...(renaming
-            ? [button('Save name', save), button('Cancel', set({}))]
-            : removing
-              ? [
-                  button('Remove wallet and its history', () =>
-                    act(() => api(`/api/wallets/${w.id}`, { method: 'DELETE' })),
-                  ),
-                  button('Keep', set({})),
-                ]
-              : [button('Rename', set({ renaming: w.id })), button('Remove', set({ removing: w.id }))]),
+          iconButton('check', 'Save name', save, 'confirm'),
+          iconButton('x', 'Cancel', cancel),
         ),
-        w.stale && h('p', { class: 'problem' }, `Last update failed, showing earlier data. ${w.error}`),
-        w.status === null && h('p', { class: 'problem' }, 'Not collected yet. Choose Update now.'),
+        error,
       );
     }),
   );
-  if (wallets.length === 0) {
-    $('wallets').replaceChildren(
-      h('li', { class: 'muted' }, 'No wallets yet. Paste an address below to add the first one.'),
-    );
+  const input = $('wallets').querySelector('input');
+  if (input) {
+    input.focus();
+    input.select();
   }
-  $('wallets').querySelector('input')?.focus();
 }
 
-function showFormError(message) {
-  const el = $('add-wallet-error');
+// ── Dialogs ──────────────────────────────────────────────────────────────────
+
+function setError(id, message) {
+  const el = $(id);
   el.textContent = message ?? '';
   el.hidden = !message;
+}
+
+for (const dialog of document.querySelectorAll('dialog')) {
+  for (const button of dialog.querySelectorAll('[data-close]')) button.addEventListener('click', () => dialog.close());
+  // A click on the backdrop lands on the dialog element itself.
+  dialog.addEventListener('click', (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+}
+
+/** Runs a dialog's request with its buttons disabled; an error stays in the dialog. */
+async function submitDialog(form, errorId, request) {
+  const buttons = [...form.querySelectorAll('button')];
+  setError(errorId, null);
+  buttons.forEach((b) => (b.disabled = true));
+  try {
+    await request();
+    form.closest('dialog').close();
+    return true;
+  } catch (err) {
+    setError(errorId, err.message);
+    return false;
+  } finally {
+    buttons.forEach((b) => (b.disabled = false));
+  }
+}
+
+const NETWORKS = [
+  [
+    'evm',
+    /^0x[0-9a-fA-F]{40}$/,
+    'EVM address. Ethereum, Base, Arbitrum, BNB Chain and the other EVM chains are read at once.',
+  ],
+  ['ton', /^(?:[A-Za-z0-9_-]{48}|-?\d+:[0-9a-fA-F]{64})$/, 'TON address.'],
+  ['solana', /^[1-9A-HJ-NP-Za-km-z]{32,44}$/, 'Solana address.'],
+];
+
+function showDetected() {
+  const address = $('add-wallet').address.value.trim();
+  const found = NETWORKS.find(([, pattern]) => pattern.test(address));
+  $('detected').replaceChildren(
+    ...(found
+      ? [kindLogo(found[0]), h('span', {}, found[2])]
+      : [
+          address
+            ? 'This does not look like an EVM, Solana or TON address yet.'
+            : 'The network is recognised from the address.',
+        ]),
+  );
+}
+
+$('add-wallet').address.addEventListener('input', showDetected);
+
+for (const button of document.querySelectorAll('[data-open-add]')) {
+  button.addEventListener('click', () => {
+    $('add-wallet').reset();
+    setError('add-error', null);
+    showDetected();
+    $('add-dialog').showModal();
+    $('add-wallet').address.focus();
+  });
 }
 
 $('add-wallet').addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
-  showFormError(null);
-  try {
-    await api('/api/wallets', {
+  const added = await submitDialog(form, 'add-error', () =>
+    api('/api/wallets', {
       method: 'POST',
-      body: JSON.stringify({ address: form.address.value, label: form.label.value }),
-    });
-    form.reset();
-    await load();
-    await update(); // read the new wallet straight away
-  } catch (err) {
-    showFormError(err.message);
-  }
+      body: JSON.stringify({ address: form.address.value.trim(), label: form.label.value.trim() }),
+    }),
+  );
+  if (added) await update(); // read the new wallet straight away
 });
 
-// ── Tooltip ──────────────────────────────────────────────────────────────────
+let removing = null;
+
+function openRemove(wallet) {
+  removing = wallet;
+  setError('remove-error', null);
+  $('remove-text').replaceChildren(
+    h('b', {}, wallet.label),
+    ` (${wallet.address}) leaves the dashboard together with its recorded history. Nothing changes on chain, and you can add the wallet again later.`,
+  );
+  $('remove-dialog').showModal();
+}
+
+$('remove-wallet').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const removed = await submitDialog(event.currentTarget, 'remove-error', () =>
+    api(`/api/wallets/${removing.id}`, { method: 'DELETE' }),
+  );
+  if (removed) await load();
+});
+
+// ── Tooltip and banner ───────────────────────────────────────────────────────
 
 function showTip(event, title, text) {
   const tip = $('tip');
@@ -755,30 +958,69 @@ function showTip(event, title, text) {
 
 const hideTip = () => ($('tip').hidden = true);
 
+/** A failure of the page itself, as opposed to one account being out of date. */
+function showBanner(err) {
+  const banner = $('banner');
+  banner.replaceChildren(
+    icon('triangle-alert'),
+    h(
+      'span',
+      {},
+      `${state.data ? 'The dashboard could not be refreshed.' : 'The dashboard could not be loaded.'} ${err.message} `,
+    ),
+    h('button', { class: 'link', type: 'button', onclick: () => load() }, 'Try again'),
+  );
+  banner.hidden = false;
+  if (!state.data) $('updated').textContent = 'Not loaded';
+}
+
 // ── Loading ──────────────────────────────────────────────────────────────────
 
+let pollTimer;
+
 async function load() {
-  state.data = await api('/api/portfolio');
-  renderHeader();
-  renderAllocation();
-  renderPositions();
-  renderSignals();
-  renderDefi();
-  renderWallets();
-  await renderHistory();
-  // A collection started elsewhere (the schedule, another tab) is still running: look again shortly.
-  if (state.data.collecting) setTimeout(load, 4000);
+  try {
+    const data = await api('/api/portfolio');
+    state.data = data;
+    state.logos = new Set(data.logos.available);
+    state.chainNames = data.logos.chains;
+    $('banner').hidden = true;
+
+    const empty = data.holdings.length === 0;
+    $('welcome').hidden = !empty || data.collecting || state.updating;
+    $('content').hidden = empty;
+    renderSummary();
+    renderWallets();
+    if (!empty) {
+      renderAllocation();
+      renderPositions();
+      renderSignals();
+      renderDefi();
+      await renderHistory();
+    }
+    // A collection started elsewhere (the schedule, another tab) is still running: look again shortly.
+    clearTimeout(pollTimer);
+    if (data.collecting) pollTimer = setTimeout(load, 4000);
+  } catch (err) {
+    showBanner(err);
+  }
 }
 
 async function update() {
-  const button = $('collect');
-  button.disabled = true;
-  button.textContent = 'Updating…';
+  if (state.updating) return;
+  state.updating = true;
+  if (state.data) renderSummary();
+  let failure = null;
   try {
     await api('/api/collect', { method: 'POST', body: '{}' });
-  } finally {
-    await load();
+  } catch (err) {
+    failure = err;
   }
+  state.updating = false;
+  await load();
+  if (failure) showBanner(failure);
+  // Logos of newly seen tokens are fetched after the update; pick them up once they are in.
+  else setTimeout(load, 15000);
 }
 
 $('collect').addEventListener('click', update);
@@ -788,7 +1030,4 @@ $('sign-out').addEventListener('click', async () => {
 });
 setInterval(load, 5 * 60 * 1000);
 
-load().catch((err) => {
-  $('updated').textContent =
-    `Could not load the portfolio: ${err.message}. Check that the server is running, then reload.`;
-});
+load();
