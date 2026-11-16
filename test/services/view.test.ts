@@ -47,6 +47,25 @@ test('history carries a failed account forward instead of dropping it', () => {
   );
 });
 
+test('accounts come largest first, whatever order they were added in', () => {
+  const db = openDb(mkdtempSync(join(tmpdir(), 'stashboard-test-')));
+  const small = addWallet(db, '0x52908400098527886E0F7030069857D2E4169EE7');
+  const large = addWallet(db, '0x8617E340B3D01FA5F11F306F4090FD50E238070D');
+  const unread = addWallet(db, '0x2F62F2B4c5fcd7570a709DeC05D68EA19c82A9ec');
+  const snapshot = startSnapshot(db);
+  saveOutcome(db, snapshot, small.id, { status: 'ok', holdings: [holding('USDC', 50, 1)], warnings: [] });
+  saveOutcome(db, snapshot, large.id, { status: 'ok', holdings: [holding('ETH', 1, 2000)], warnings: [] });
+  finishSnapshot(db, snapshot);
+  assert.deepEqual(
+    portfolioView(db, resolve).sources.map((s) => [s.id, s.value]),
+    [
+      [large.id, 2000],
+      [small.id, 50],
+      [unread.id, 0],
+    ],
+  );
+});
+
 test('portfolio view merges accounts, flags the stale one and hides full addresses', () => {
   const view = portfolioView(seeded(), resolve);
   assert.equal(view.netWorth, 2700);

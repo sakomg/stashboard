@@ -918,13 +918,13 @@ tr[aria-expanded='true'] .chevron {
   }
 }
 
-.sources .add-chip {
+.sources :is(.add-chip, .more-chip) {
   padding: 0;
   background: none;
   box-shadow: none;
 }
 
-.sources .add-chip button {
+.sources :is(.add-chip, .more-chip) button {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -937,9 +937,44 @@ tr[aria-expanded='true'] .chevron {
   cursor: pointer;
 }
 
-.sources .add-chip button:hover {
+.sources .more-chip button {
+  gap: 2px;
+  padding: 5px 8px 5px 12px;
+  border-style: solid;
+}
+
+.sources :is(.add-chip, .more-chip) button:hover {
   color: var(--bone);
   border-color: var(--slate);
+}
+
+@media (max-width: 760px) {
+  .sources {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    margin-top: 20px;
+  }
+
+  .sources li {
+    gap: 7px;
+    padding: 5px 10px 5px 5px;
+    border-radius: 10px;
+  }
+
+  .sources .chip-label {
+    flex: 1;
+  }
+
+  .sources :is(.add-chip, .more-chip) button {
+    width: 100%;
+    justify-content: center;
+    border-radius: 10px;
+  }
+
+  .sources .add-chip {
+    grid-column: 1 / -1;
+  }
 }
 
 .heat-scale .band {
