@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
-import { setManualCategory, loadLearned } from '../../services/categories.ts';
+import { setManualCategory } from '../../services/categories.ts';
 import { addExchange, checkBinanceKey, EXCHANGES, type ExchangeKind } from '../../services/exchanges.ts';
-import { addWallet, backupNow, removeAccount, renameAccount, resetHistory } from '../../storage/index.ts';
+import { addWallet, removeAccount, renameAccount } from '../../storage/index.ts';
 import type { Collection } from '../collection.ts';
 import type { Context } from '../context.ts';
 
@@ -13,7 +13,12 @@ export function registerAccountRoutes(app: FastifyInstance, ctx: Context, collec
     if (typeof address !== 'string' || address.trim() === '')
       return reply.code(400).send({ error: 'Enter a wallet address' });
     try {
-      const wallet = addWallet(ctx.db, address, typeof label === 'string' ? label.slice(0, 40) : undefined);
+      const wallet = addWallet(
+        ctx.db,
+        request.userId,
+        address,
+        typeof label === 'string' ? label.slice(0, 40) : undefined,
+      );
       collection.collectAfterCurrent();
       return { id: wallet.id, kind: wallet.kind, label: wallet.label };
     } catch (err) {
@@ -45,6 +50,7 @@ export function registerAccountRoutes(app: FastifyInstance, ctx: Context, collec
         }
         const account = addExchange(
           ctx.db,
+          request.userId,
           exchange as ExchangeKind,
           keys,
           typeof label === 'string' ? label.slice(0, 40) : undefined,
@@ -66,20 +72,16 @@ export function registerAccountRoutes(app: FastifyInstance, ctx: Context, collec
   app.patch<{ Params: { id: string }; Body: { label?: unknown } }>('/api/accounts/:id', async (request, reply) => {
     const label = typeof request.body?.label === 'string' ? request.body.label.trim().slice(0, 40) : '';
     if (!label) return reply.code(400).send({ error: 'Enter a name for the account' });
-    if (!renameAccount(ctx.db, Number(request.params.id), label)) {
+    if (!renameAccount(ctx.db, request.userId, Number(request.params.id), label)) {
       return reply.code(404).send({ error: 'No such account' });
     }
     return { ok: true };
   });
 
   app.delete<{ Params: { id: string } }>('/api/accounts/:id', async (request, reply) => {
-    if (!removeAccount(ctx.db, Number(request.params.id))) return reply.code(404).send({ error: 'No such account' });
+    if (!removeAccount(ctx.db, request.userId, Number(request.params.id)))
+      return reply.code(404).send({ error: 'No such account' });
     return { ok: true };
-  });
-
-  app.post('/api/history/reset', async () => {
-    const backup = backupNow(ctx.db, 'before-history-reset');
-    return { removed: resetHistory(ctx.db), backup: backup.split('/').pop() };
   });
 
   app.put<{ Params: { key: string }; Body: { category?: unknown } }>(
@@ -91,8 +93,7 @@ export function registerAccountRoutes(app: FastifyInstance, ctx: Context, collec
       if (category !== null && !(typeof category === 'string' && ctx.categories.includes(category))) {
         return reply.code(400).send({ error: 'Choose one of the listed categories' });
       }
-      setManualCategory(ctx.db, key, category);
-      loadLearned(ctx.db, ctx.learned);
+      setManualCategory(ctx.db, request.userId, key, category);
       return { ok: true };
     },
   );

@@ -10,7 +10,7 @@ form.addEventListener('submit', async (event) => {
     const response = await fetch('/api/login', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ password: form.password.value, code: form.code.value }),
+      body: JSON.stringify({ name: form.username.value, password: form.password.value, code: form.code.value }),
     });
     if (response.ok) {
       location.replace('/');

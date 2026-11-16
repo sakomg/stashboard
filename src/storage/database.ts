@@ -94,23 +94,110 @@ const MIGRATIONS = [
      key_hint   TEXT NOT NULL,
      sealed     TEXT NOT NULL
    );`,
+  `CREATE TABLE users (
+     id            INTEGER PRIMARY KEY,
+     name          TEXT NOT NULL,
+     name_key      TEXT NOT NULL UNIQUE,
+     password_hash TEXT,
+     totp_secret   TEXT,
+     totp_step     INTEGER NOT NULL DEFAULT 0,
+     admin         INTEGER NOT NULL DEFAULT 0,
+     hide_amounts  INTEGER NOT NULL DEFAULT 0,
+     created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+   );
+   INSERT INTO users (id, name, name_key, password_hash, totp_secret, admin, hide_amounts)
+   VALUES (
+     1, 'admin', 'admin',
+     (SELECT json_extract(value, '$.passwordHash') FROM settings WHERE key = 'owner'),
+     (SELECT json_extract(value, '$.totpSecret') FROM settings WHERE key = 'owner'),
+     1,
+     COALESCE((SELECT value = '1' FROM settings WHERE key = 'hide_amounts'), 0)
+   );
+   DELETE FROM settings WHERE key IN ('owner', 'hide_amounts');
+
+   CREATE TABLE invites (
+     id         INTEGER PRIMARY KEY,
+     token_hash TEXT NOT NULL UNIQUE,
+     created_by INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+     created_at TEXT NOT NULL,
+     expires_at TEXT NOT NULL
+   );
+
+   CREATE TABLE accounts_new (
+     id          INTEGER PRIMARY KEY,
+     user_id     INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+     kind        TEXT NOT NULL,
+     label       TEXT NOT NULL,
+     address     TEXT NOT NULL,
+     address_key TEXT NOT NULL,
+     created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+     UNIQUE (user_id, kind, address_key)
+   );
+   INSERT INTO accounts_new (id, user_id, kind, label, address, address_key, created_at)
+     SELECT id, 1, kind, label, address, address_key, created_at FROM accounts;
+   DROP TABLE accounts;
+   ALTER TABLE accounts_new RENAME TO accounts;
+
+   CREATE TABLE sessions_new (
+     token_hash TEXT PRIMARY KEY,
+     user_id    INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+     created_at TEXT NOT NULL,
+     expires_at TEXT NOT NULL
+   );
+   INSERT INTO sessions_new (token_hash, user_id, created_at, expires_at)
+     SELECT token_hash, 1, created_at, expires_at FROM sessions;
+   DROP TABLE sessions;
+   ALTER TABLE sessions_new RENAME TO sessions;
+
+   CREATE TABLE shares_new (
+     token      TEXT PRIMARY KEY,
+     user_id    INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+     created_at TEXT NOT NULL,
+     expires_at TEXT NOT NULL,
+     payload    TEXT NOT NULL
+   );
+   INSERT INTO shares_new (token, user_id, created_at, expires_at, payload)
+     SELECT token, 1, created_at, expires_at, payload FROM shares;
+   DROP TABLE shares;
+   ALTER TABLE shares_new RENAME TO shares;
+
+   CREATE TABLE user_categories (
+     user_id  INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+     key      TEXT NOT NULL,
+     category TEXT NOT NULL,
+     PRIMARY KEY (user_id, key)
+   );
+   INSERT INTO user_categories (user_id, key, category)
+     SELECT 1, key, manual FROM asset_categories WHERE manual IS NOT NULL;
+   ALTER TABLE asset_categories DROP COLUMN manual;`,
 ];
+
+export function migrate(db: DatabaseSync, target = MIGRATIONS.length): void {
+  db.exec('PRAGMA foreign_keys = OFF');
+  try {
+    const { user_version: version } = db.prepare('PRAGMA user_version').get() as { user_version: number };
+    for (let v = version; v < target; v++) {
+      db.exec('BEGIN');
+      try {
+        db.exec(MIGRATIONS[v]!);
+        const broken = db.prepare('PRAGMA foreign_key_check').all();
+        if (broken.length > 0) throw new Error(`Migration ${v + 1} would leave ${broken.length} rows pointing nowhere`);
+        db.exec(`PRAGMA user_version = ${v + 1}`);
+        db.exec('COMMIT');
+      } catch (err) {
+        db.exec('ROLLBACK');
+        throw err;
+      }
+    }
+  } finally {
+    db.exec('PRAGMA foreign_keys = ON');
+  }
+}
 
 export function openDb(dir = process.env.DATA_DIR ?? 'data'): DatabaseSync {
   mkdirSync(dir, { recursive: true });
   const db = new DatabaseSync(join(dir, 'stashboard.db'));
-  db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
-  const { user_version: version } = db.prepare('PRAGMA user_version').get() as { user_version: number };
-  for (let v = version; v < MIGRATIONS.length; v++) {
-    db.exec('BEGIN');
-    try {
-      db.exec(MIGRATIONS[v]!);
-      db.exec(`PRAGMA user_version = ${v + 1}`);
-      db.exec('COMMIT');
-    } catch (err) {
-      db.exec('ROLLBACK');
-      throw err;
-    }
-  }
+  db.exec('PRAGMA journal_mode = WAL');
+  migrate(db);
   return db;
 }

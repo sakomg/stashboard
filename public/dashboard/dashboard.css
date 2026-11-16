@@ -703,6 +703,33 @@ tr[aria-expanded='true'] .chevron {
   gap: 2px;
 }
 
+.name-form {
+  margin: 4px 0 14px;
+}
+
+.name-form label > span:first-child {
+  display: block;
+  font-size: 13px;
+  color: var(--slate);
+  margin-bottom: 5px;
+}
+
+.name-row {
+  display: flex;
+  gap: 8px;
+}
+
+#invite {
+  margin-top: 8px;
+}
+
+.invite-status {
+  margin: 10px 0 0;
+  font-size: 13.5px;
+  color: var(--slate);
+  overflow-wrap: anywhere;
+}
+
 .panel-facts {
   display: grid;
   gap: 10px;

@@ -1,6 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite';
 import type { AccountState, Holding, HoldingType } from '../domain/types.ts';
-import { listAccounts } from './accounts.ts';
+import { listAccounts, type Owner } from './accounts.ts';
 
 export type { AccountState } from '../domain/types.ts';
 
@@ -58,7 +58,7 @@ export function finishSnapshot(db: DatabaseSync, snapshotId: number): void {
   db.prepare('UPDATE snapshots SET finished_at = ? WHERE id = ?').run(new Date().toISOString(), snapshotId);
 }
 
-export function currentState(db: DatabaseSync, upToSnapshot = Number.MAX_SAFE_INTEGER): AccountState[] {
+export function currentState(db: DatabaseSync, owner: Owner, upToSnapshot = Number.MAX_SAFE_INTEGER): AccountState[] {
   const lastAttempt = db.prepare(
     'SELECT snapshot_id, status, error FROM snapshot_accounts WHERE account_id = ? AND snapshot_id <= ? ORDER BY snapshot_id DESC LIMIT 1',
   );
@@ -73,7 +73,7 @@ export function currentState(db: DatabaseSync, upToSnapshot = Number.MAX_SAFE_IN
        FROM holdings WHERE snapshot_id = ? AND account_id = ? ORDER BY value_usd DESC`,
   );
 
-  return listAccounts(db).map((account) => {
+  return listAccounts(db, owner).map((account) => {
     const attempt = lastAttempt.get(account.id, upToSnapshot) as
       { snapshot_id: number; status: 'ok' | 'error'; error: string | null } | undefined;
     const ok = lastOk.get(account.id, upToSnapshot) as
@@ -121,26 +121,29 @@ export interface SnapshotValue {
   value: number | null;
 }
 
-export function snapshotValues(db: DatabaseSync): SnapshotValue[] {
+export function snapshotValues(db: DatabaseSync, userId: number): SnapshotValue[] {
   return db
     .prepare(
       `SELECT sa.snapshot_id AS snapshotId, sa.account_id AS accountId, sa.status, h.symbol, SUM(h.value_usd) AS value
          FROM snapshot_accounts sa
+         JOIN accounts a ON a.id = sa.account_id
          LEFT JOIN holdings h ON h.snapshot_id = sa.snapshot_id AND h.account_id = sa.account_id
+        WHERE a.user_id = ?
         GROUP BY sa.snapshot_id, sa.account_id, h.symbol
         ORDER BY sa.snapshot_id`,
     )
-    .all() as unknown as SnapshotValue[];
+    .all(userId) as unknown as SnapshotValue[];
 }
 
-export function resetHistory(db: DatabaseSync): number {
-  const from = db
+export function historySince(db: DatabaseSync, userId: number): string | null {
+  const row = db
     .prepare(
-      `SELECT MIN(last_ok) AS id FROM (
-         SELECT MAX(snapshot_id) AS last_ok FROM snapshot_accounts WHERE status = 'ok' GROUP BY account_id
-       )`,
+      `SELECT MIN(s.started_at) AS since
+         FROM snapshots s
+         JOIN snapshot_accounts sa ON sa.snapshot_id = s.id
+         JOIN accounts a ON a.id = sa.account_id
+        WHERE a.user_id = ?`,
     )
-    .get() as { id: number | null };
-  if (from.id === null) return 0;
-  return Number(db.prepare('DELETE FROM snapshots WHERE id < ?').run(from.id).changes);
+    .get(userId) as { since: string | null };
+  return row.since;
 }

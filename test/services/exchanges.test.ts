@@ -7,8 +7,7 @@ import { test } from 'node:test';
 const dir = mkdtempSync(join(tmpdir(), 'stashboard-test-'));
 process.env.DATA_DIR = dir;
 
-const { finishSnapshot, listAccounts, openDb, removeAccount, resetHistory, saveOutcome, startSnapshot } =
-  await import('../../src/storage/index.ts');
+const { ADMIN_ID, listAccounts, openDb, removeAccount } = await import('../../src/storage/index.ts');
 const { addExchange, exchangeHints, exchangeKeys, importConfigExchange } =
   await import('../../src/services/exchanges.ts');
 const { seal, unseal, vaultKey } = await import('../../src/storage/vault.ts');
@@ -33,68 +32,26 @@ test('secrets are sealed with a key file only the owner can read', () => {
 test('the key from config.json is imported once, onto the existing exchange account', () => {
   const db = openDb(mkdtempSync(join(tmpdir(), 'stashboard-test-')));
   db.prepare(
-    "INSERT INTO accounts (kind, label, address, address_key) VALUES ('binance', 'Binance', '', 'binance')",
+    "INSERT INTO accounts (user_id, kind, label, address, address_key) VALUES (1, 'binance', 'Binance', '', 'binance')",
   ).run();
-  const legacy = listAccounts(db)[0]!;
+  const legacy = listAccounts(db, 'all')[0]!;
 
   const imported = importConfigExchange(db, keys);
   assert.equal(imported?.id, legacy.id, 'history stays with the same account');
   assert.deepEqual(exchangeKeys(db, legacy.id), keys);
   assert.equal(exchangeHints(db).get(legacy.id), '…wxyz');
 
-  assert.ok(removeAccount(db, legacy.id));
+  assert.ok(removeAccount(db, ADMIN_ID, legacy.id));
   assert.equal(exchangeKeys(db, legacy.id), null, 'the key goes with the account');
   assert.equal(importConfigExchange(db, keys), null, 'a removed exchange does not come back from config.json');
-  assert.equal(listAccounts(db).length, 0);
+  assert.equal(listAccounts(db, 'all').length, 0);
 });
 
 test('the same API key cannot be added twice', () => {
   const db = openDb(mkdtempSync(join(tmpdir(), 'stashboard-test-')));
-  addExchange(db, 'binance', keys, 'Main');
-  assert.throws(() => addExchange(db, 'binance', keys), /already added/);
-  const other = addExchange(db, 'binance', { ...keys, apiKey: 'B'.repeat(64) });
+  addExchange(db, ADMIN_ID, 'binance', keys, 'Main');
+  assert.throws(() => addExchange(db, ADMIN_ID, 'binance', keys), /already added/);
+  const other = addExchange(db, ADMIN_ID, 'binance', { ...keys, apiKey: 'B'.repeat(64) });
   assert.equal(other.label, 'Binance');
-  assert.equal(listAccounts(db).length, 2);
-});
-
-test('starting history over keeps the latest good read of every account', () => {
-  const db = openDb(mkdtempSync(join(tmpdir(), 'stashboard-test-')));
-  const a = addExchange(db, 'binance', keys);
-  const b = addExchange(db, 'binance', { ...keys, apiKey: 'C'.repeat(64) });
-  const holding = {
-    chain: 'binance',
-    protocol: 'Spot',
-    symbol: 'BTC',
-    quantity: 1,
-    price: 1,
-    value: 1,
-    type: 'wallet' as const,
-  };
-  const run = (outcomes: [number, boolean][]) => {
-    const id = startSnapshot(db);
-    for (const [account, ok] of outcomes) {
-      saveOutcome(
-        db,
-        id,
-        account,
-        ok ? { status: 'ok', holdings: [holding], warnings: [] } : { status: 'error', error: 'down' },
-      );
-    }
-    finishSnapshot(db, id);
-    return id;
-  };
-  run([[a.id, true]]);
-  const bLastGood = run([
-    [a.id, true],
-    [b.id, true],
-  ]);
-  run([
-    [a.id, true],
-    [b.id, false],
-  ]);
-
-  assert.equal(resetHistory(db), 1);
-  const left = db.prepare('SELECT id FROM snapshots ORDER BY id').all() as { id: number }[];
-  assert.equal(left[0]?.id, bLastGood);
-  assert.equal(left.length, 2);
+  assert.equal(listAccounts(db, 'all').length, 2);
 });

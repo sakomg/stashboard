@@ -6,6 +6,7 @@ import { registerAccountRoutes } from './routes/accounts.ts';
 import { registerAuthRoutes } from './routes/auth.ts';
 import { registerDashboardRoutes } from './routes/dashboard.ts';
 import { registerShareRoutes } from './routes/shares.ts';
+import { registerUserRoutes } from './routes/users.ts';
 import { buildStamp, registerStatic, staticFiles } from './static.ts';
 
 export function createApp(ctx: Context): { app: FastifyInstance; collection: Collection } {
@@ -19,5 +20,6 @@ export function createApp(ctx: Context): { app: FastifyInstance; collection: Col
   registerDashboardRoutes(app, ctx, collection, buildStamp(ctx.root));
   registerAccountRoutes(app, ctx, collection);
   registerShareRoutes(app, ctx);
+  registerUserRoutes(app, ctx);
   return { app, collection };
 }

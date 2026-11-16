@@ -1,4 +1,5 @@
 import './dialogs.js';
+import './people.js';
 import './settings.js';
 import './share-dialog.js';
 import './views.js';

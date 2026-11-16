@@ -3,14 +3,30 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
+import { totpCode } from '../../src/auth/index.ts';
 import { loadConfig } from '../../src/lib/config.ts';
 import { createApp } from '../../src/server/app.ts';
 import { createContext } from '../../src/server/context.ts';
-import { createSession, openDb, saveOwner } from '../../src/storage/index.ts';
+import {
+  ADMIN_ID,
+  addUser,
+  addWallet,
+  claimAdmin,
+  createSession,
+  listAccounts,
+  openDb,
+} from '../../src/storage/index.ts';
+
+process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'stashboard-test-'));
+globalThis.fetch = (async () => {
+  throw new Error('No network in these tests');
+}) as typeof fetch;
+
+const EVM = '0x52908400098527886E0F7030069857D2E4169EE7';
 
 function server(env: NodeJS.ProcessEnv = {}, withOwner = false) {
   const db = openDb(mkdtempSync(join(tmpdir(), 'stashboard-test-')));
-  if (withOwner) saveOwner(db, { passwordHash: 'x', totpSecret: 'JBSWY3DPEHPK3PXP' });
+  if (withOwner) claimAdmin(db, { name: 'admin', passwordHash: 'x', totpSecret: 'JBSWY3DPEHPK3PXP', totpStep: 0 });
   const ctx = createContext({ config: loadConfig('config.example.json'), db, env: { HOST: '0.0.0.0', ...env } });
   return { ...createApp(ctx), db };
 }
@@ -40,7 +56,7 @@ test('with an account, everything but sign-in needs a session', async () => {
   assert.equal(await status(app, '/dashboard/main.js'), '302 /login');
   assert.equal(await status(app, '/api/progress'), '401');
 
-  const cookie = `stashboard_session=${createSession(db, 60_000)}`;
+  const cookie = `stashboard_session=${createSession(db, ADMIN_ID, 60_000)}`;
   assert.equal(await status(app, '/', { cookie }), '200');
   assert.equal(await status(app, '/dashboard/main.js', { cookie }), '200');
   assert.equal(await status(app, '/api/progress', { cookie }), '200');
@@ -82,16 +98,119 @@ test('every answer carries the security headers', async () => {
   assert.equal(res.headers['referrer-policy'], 'no-referrer');
 });
 
-test('the demo refuses to change accounts or collect', async () => {
+test('the demo refuses to change accounts or people, or collect', async () => {
   const { app } = server({ DEMO: '1', HOST: '127.0.0.1' });
   for (const [method, url] of [
     ['POST', '/api/wallets'],
     ['POST', '/api/exchanges'],
     ['POST', '/api/collect'],
-    ['POST', '/api/history/reset'],
+    ['POST', '/api/invites'],
     ['DELETE', '/api/accounts/1'],
+    ['DELETE', '/api/users/2'],
+    ['PATCH', '/api/me'],
   ] as const) {
     const res = await app.inject({ method, url, payload: {} });
     assert.equal(res.statusCode, 403, `${method} ${url}`);
   }
+});
+
+type App = ReturnType<typeof server>['app'];
+const call = (app: App, method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, cookie?: string, payload?: object) =>
+  app.inject({ method, url, headers: cookie ? { cookie } : {}, ...(payload ? { payload } : {}) });
+const sessionOf = (db: ReturnType<typeof openDb>, userId: number) =>
+  `stashboard_session=${createSession(db, userId, 60_000)}`;
+const cookieFrom = (res: { headers: Record<string, unknown> }) =>
+  `stashboard_session=${/stashboard_session=([^;]+)/.exec(String(res.headers['set-cookie']))![1]}`;
+
+test('a friend joins with an invite, signs in by name, and sees and changes only their own accounts', async () => {
+  const { app, db } = server({}, true);
+  const admin = sessionOf(db, ADMIN_ID);
+  const mine = addWallet(db, ADMIN_ID, EVM, 'Main');
+  const step = Math.floor(Date.now() / 30_000);
+
+  const invite = (await call(app, 'POST', '/api/invites', admin, {})).json();
+  assert.match(invite.token, /^[A-Za-z0-9_-]{32}$/);
+  assert.equal(await status(app, '/join'), '200');
+  assert.equal(await status(app, '/join/join.js'), '200');
+
+  const started = await call(app, 'POST', '/api/join/start', undefined, {
+    token: invite.token,
+    name: 'Kate',
+    password: 'kate password 1',
+  });
+  assert.equal(started.statusCode, 200);
+  const secret = started.json().key.replaceAll(' ', '');
+  const joined = await call(app, 'POST', '/api/join/finish', undefined, {
+    token: invite.token,
+    code: totpCode(secret, step),
+  });
+  assert.equal(joined.statusCode, 200);
+  const kate = cookieFrom(joined);
+
+  const reused = await call(app, 'POST', '/api/join/start', undefined, {
+    token: invite.token,
+    name: 'Bob',
+    password: 'bob password 12',
+  });
+  assert.equal(reused.statusCode, 401, 'an invite works once');
+
+  const theirs = (await call(app, 'GET', '/api/portfolio', kate)).json();
+  assert.deepEqual(theirs.sources, []);
+  assert.deepEqual(theirs.me, { name: 'Kate', admin: false });
+  assert.equal((await call(app, 'PATCH', `/api/accounts/${mine.id}`, kate, { label: 'Mine' })).statusCode, 404);
+  assert.equal((await call(app, 'DELETE', `/api/accounts/${mine.id}`, kate)).statusCode, 404);
+  assert.equal(listAccounts(db, ADMIN_ID)[0]?.label, 'Main');
+  assert.equal((await call(app, 'POST', '/api/invites', kate, {})).statusCode, 403);
+  assert.equal((await call(app, 'GET', '/api/users', kate)).statusCode, 403);
+
+  const own = (await call(app, 'GET', '/api/portfolio', admin)).json();
+  assert.deepEqual(
+    own.sources.map((s: { label: string }) => s.label),
+    ['Main'],
+  );
+  assert.deepEqual(own.me, { name: 'admin', admin: true });
+
+  const login = (name: string, code: string) =>
+    call(app, 'POST', '/api/login', undefined, { name, password: 'kate password 1', code });
+  assert.equal((await login('Kate', totpCode(secret, step))).statusCode, 401, 'the code used to join is spent');
+  assert.equal((await login('Nobody', totpCode(secret, step + 1))).statusCode, 401);
+  assert.equal((await login(' KATE ', totpCode(secret, step + 1))).statusCode, 200);
+});
+
+test('the admin renames themselves, lists people and removes a friend with all they had, but not themselves', async () => {
+  const { app, db } = server({}, true);
+  const friend = addUser(db, { name: 'Kate', passwordHash: 'h', totpSecret: 'S', totpStep: 0 });
+  addWallet(db, friend.id, EVM);
+  const admin = sessionOf(db, ADMIN_ID);
+  const kate = sessionOf(db, friend.id);
+
+  const people = (await call(app, 'GET', '/api/users', admin)).json();
+  assert.deepEqual(
+    people.map((p: { name: string; admin: boolean; you: boolean; accounts: number }) => [
+      p.name,
+      p.admin,
+      p.you,
+      p.accounts,
+    ]),
+    [
+      ['admin', true, true, 0],
+      ['Kate', false, false, 1],
+    ],
+  );
+  assert.equal((await call(app, 'PATCH', '/api/me', admin, { name: 'kate' })).statusCode, 400, 'the name is taken');
+  assert.equal((await call(app, 'PATCH', '/api/me', admin, { name: ' Alexander ' })).statusCode, 200);
+  assert.deepEqual((await call(app, 'GET', '/api/portfolio', admin)).json().me, { name: 'Alexander', admin: true });
+  assert.equal((await call(app, 'DELETE', `/api/users/${ADMIN_ID}`, admin)).statusCode, 404);
+  assert.equal((await call(app, 'DELETE', `/api/users/${friend.id}`, admin)).statusCode, 200);
+  assert.equal((await call(app, 'GET', '/api/progress', kate)).statusCode, 401);
+  assert.equal(listAccounts(db, 'all').length, 0);
+});
+
+test('on this machine alone, without sign-in, the dashboard is the admin’s and nobody can be invited yet', async () => {
+  const { app } = server({ HOST: '127.0.0.1' });
+  const view = (await call(app, 'GET', '/api/portfolio')).json();
+  assert.deepEqual(view.me, { name: 'admin', admin: true });
+  assert.equal(view.loginEnabled, false);
+  assert.equal((await call(app, 'POST', '/api/invites', undefined, {})).statusCode, 409);
+  assert.equal(await status(app, '/join'), '302 /setup');
 });

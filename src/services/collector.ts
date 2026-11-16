@@ -68,7 +68,7 @@ export function repriceEarlierReads(holdings: Holding[]): Holding[] {
 }
 
 export async function runCollection(db: DatabaseSync, config: Config, notify: Notify = () => {}): Promise<number> {
-  const accounts = listAccounts(db);
+  const accounts = listAccounts(db, 'all');
   notify({ type: 'start', accounts });
   const results: { account: Account; result?: CollectResult; error?: string }[] = [];
   for (const account of accounts) {
@@ -85,14 +85,16 @@ export async function runCollection(db: DatabaseSync, config: Config, notify: No
   }
 
   const repriced = repriceEarlierReads(results.flatMap((r) => r.result?.holdings ?? []));
+  const present = new Set(listAccounts(db, 'all').map((a) => a.id));
   const snapshotId = startSnapshot(db);
   let next = 0;
   for (const { account, result, error } of results) {
+    const holdings = result ? repriced.slice(next, (next += result.holdings.length)) : [];
+    if (!present.has(account.id)) continue;
     if (!result) {
       saveOutcome(db, snapshotId, account.id, { status: 'error', error: error ?? 'unknown error' });
       continue;
     }
-    const holdings = repriced.slice(next, (next += result.holdings.length));
     saveOutcome(db, snapshotId, account.id, { status: 'ok', ...result, holdings });
     if (result.logos) noteLogos(db, result.logos);
   }

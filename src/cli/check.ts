@@ -117,15 +117,15 @@ try {
 }
 
 const db = openDb();
-const exchanges = listAccounts(db)
+const exchanges = listAccounts(db, 'all')
   .filter((a) => a.kind === 'binance')
   .flatMap((a) => {
     const keys = exchangeKeys(db, a.id);
     return keys ? [{ label: a.label, keys }] : [];
   });
 await checkBinance(config.binance, exchanges);
-await checkZerion(config.zerion, [...listWallets(db, 'evm'), ...listWallets(db, 'solana')]);
-await checkTon(config.tonapi, listWallets(db, 'ton'));
+await checkZerion(config.zerion, [...listWallets(db, 'all', 'evm'), ...listWallets(db, 'all', 'solana')]);
+await checkTon(config.tonapi, listWallets(db, 'all', 'ton'));
 await checkCoingecko(config.coingecko);
 await checkFearGreed();
 

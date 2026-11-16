@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { createResolver, loadAssetRules } from '../../src/domain/assets.ts';
-import { addWallet, finishSnapshot, openDb, saveOutcome, startSnapshot } from '../../src/storage/index.ts';
+import { ADMIN_ID, addWallet, finishSnapshot, openDb, saveOutcome, startSnapshot } from '../../src/storage/index.ts';
 import type { Holding } from '../../src/domain/types.ts';
 import { historyView, portfolioView } from '../../src/services/view.ts';
 
@@ -21,8 +21,8 @@ const holding = (symbol: string, quantity: number, price: number): Holding => ({
 
 function seeded() {
   const db = openDb(mkdtempSync(join(tmpdir(), 'stashboard-test-')));
-  const a = addWallet(db, '0x52908400098527886E0F7030069857D2E4169EE7');
-  const b = addWallet(db, '0x8617E340B3D01FA5F11F306F4090FD50E238070D');
+  const a = addWallet(db, ADMIN_ID, '0x52908400098527886E0F7030069857D2E4169EE7');
+  const b = addWallet(db, ADMIN_ID, '0x8617E340B3D01FA5F11F306F4090FD50E238070D');
 
   const first = startSnapshot(db);
   saveOutcome(db, first, a.id, { status: 'ok', holdings: [holding('ETH', 1, 2000)], warnings: [] });
@@ -37,7 +37,7 @@ function seeded() {
 }
 
 test('history carries a failed account forward instead of dropping it', () => {
-  const points = historyView(seeded(), resolve, null);
+  const points = historyView(seeded(), ADMIN_ID, resolve, null);
   assert.deepEqual(
     points.map((p) => [p.total, p.categories]),
     [
@@ -49,15 +49,15 @@ test('history carries a failed account forward instead of dropping it', () => {
 
 test('accounts come largest first, whatever order they were added in', () => {
   const db = openDb(mkdtempSync(join(tmpdir(), 'stashboard-test-')));
-  const small = addWallet(db, '0x52908400098527886E0F7030069857D2E4169EE7');
-  const large = addWallet(db, '0x8617E340B3D01FA5F11F306F4090FD50E238070D');
-  const unread = addWallet(db, '0x2F62F2B4c5fcd7570a709DeC05D68EA19c82A9ec');
+  const small = addWallet(db, ADMIN_ID, '0x52908400098527886E0F7030069857D2E4169EE7');
+  const large = addWallet(db, ADMIN_ID, '0x8617E340B3D01FA5F11F306F4090FD50E238070D');
+  const unread = addWallet(db, ADMIN_ID, '0x2F62F2B4c5fcd7570a709DeC05D68EA19c82A9ec');
   const snapshot = startSnapshot(db);
   saveOutcome(db, snapshot, small.id, { status: 'ok', holdings: [holding('USDC', 50, 1)], warnings: [] });
   saveOutcome(db, snapshot, large.id, { status: 'ok', holdings: [holding('ETH', 1, 2000)], warnings: [] });
   finishSnapshot(db, snapshot);
   assert.deepEqual(
-    portfolioView(db, resolve).sources.map((s) => [s.id, s.value]),
+    portfolioView(db, ADMIN_ID, resolve).sources.map((s) => [s.id, s.value]),
     [
       [large.id, 2000],
       [small.id, 50],
@@ -67,7 +67,7 @@ test('accounts come largest first, whatever order they were added in', () => {
 });
 
 test('portfolio view merges accounts, flags the stale one and hides full addresses', () => {
-  const view = portfolioView(seeded(), resolve);
+  const view = portfolioView(seeded(), ADMIN_ID, resolve);
   assert.equal(view.netWorth, 2700);
   assert.deepEqual(
     view.sources.map((s) => [s.stale, s.value]),

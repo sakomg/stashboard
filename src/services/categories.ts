@@ -39,25 +39,32 @@ export const categoryNames = (rules: AssetRules): string[] => [
 ];
 
 export function loadLearned(db: DatabaseSync, into: Learned = { manual: new Map(), auto: new Map() }): Learned {
-  into.manual.clear();
   into.auto.clear();
-  const rows = db.prepare('SELECT key, manual, auto FROM asset_categories').all() as unknown as {
+  const rows = db.prepare('SELECT key, auto FROM asset_categories WHERE auto IS NOT NULL').all() as unknown as {
     key: string;
-    manual: string | null;
-    auto: string | null;
+    auto: string;
   }[];
-  for (const r of rows) {
-    if (r.manual) into.manual.set(r.key, r.manual);
-    if (r.auto) into.auto.set(r.key, r.auto);
-  }
+  for (const r of rows) into.auto.set(r.key, r.auto);
   return into;
 }
 
-export function setManualCategory(db: DatabaseSync, key: string, category: string | null): void {
+export function manualCategories(db: DatabaseSync, userId: number): Map<string, string> {
+  const rows = db.prepare('SELECT key, category FROM user_categories WHERE user_id = ?').all(userId) as unknown as {
+    key: string;
+    category: string;
+  }[];
+  return new Map(rows.map((r) => [r.key, r.category]));
+}
+
+export function setManualCategory(db: DatabaseSync, userId: number, key: string, category: string | null): void {
+  if (category === null) {
+    db.prepare('DELETE FROM user_categories WHERE user_id = ? AND key = ?').run(userId, key);
+    return;
+  }
   db.prepare(
-    `INSERT INTO asset_categories (key, manual) VALUES (?, ?)
-     ON CONFLICT (key) DO UPDATE SET manual = excluded.manual`,
-  ).run(key, category);
+    `INSERT INTO user_categories (user_id, key, category) VALUES (?, ?, ?)
+     ON CONFLICT (user_id, key) DO UPDATE SET category = excluded.category`,
+  ).run(userId, key, category);
 }
 
 interface MarketRow {
@@ -83,7 +90,7 @@ export async function fetchMissingCategories(
     ).map((r) => [r.key, r.tried_at]),
   );
   const values = new Map<string, number>();
-  for (const { holdings } of currentState(db)) {
+  for (const { holdings } of currentState(db, 'all')) {
     for (const h of holdings) {
       const asset = resolve(h.symbol);
       if (asset.category === OTHER_CATEGORY) values.set(asset.key, (values.get(asset.key) ?? 0) + h.value);

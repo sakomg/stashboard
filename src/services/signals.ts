@@ -54,7 +54,7 @@ export async function runSignals(
   config: Config,
   resolve: (symbol: string) => Asset,
 ): Promise<SignalRow[]> {
-  const { assets } = buildPortfolio(currentState(db), resolve);
+  const { assets } = buildPortfolio(currentState(db, 'all'), resolve);
   const markets = await listMarkets();
   const time = new Date().toISOString();
   const rows: SignalRow[] = [];
