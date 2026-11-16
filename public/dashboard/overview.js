@@ -3,19 +3,14 @@ import { api } from './api.js';
 import { CATEGORY_ORDER, OTHER_COLOR, PALETTE, colorOf } from './colors.js';
 import { hideTip, showBanner, showTip } from './feedback.js';
 import { inTime, money, percent, usdRound } from './format.js';
-import { CHAIN_TOKEN, KIND_TOKEN, chainName, isExchange, logo } from './logos.js';
+import { chainLogoSpec, chainName, isExchange, kindLogoSpec, logo } from './logos.js';
 import { $, state } from './state.js';
 
 export const DIMENSIONS = [
   ['category', 'Category', (x) => x.category, null],
   ['asset', 'Asset', (x) => x.asset, (x) => ({ kind: 'token', key: x.asset })],
-  [
-    'chain',
-    'Chain',
-    (x) => chainName(x.chain),
-    (x) => (CHAIN_TOKEN[x.chain] ? { kind: 'token', key: CHAIN_TOKEN[x.chain] } : { kind: 'chain', key: x.chain }),
-  ],
-  ['venue', 'Account', (x) => x.account, (x) => ({ kind: 'token', key: KIND_TOKEN[x.kind] })],
+  ['chain', 'Chain', (x) => chainName(x.chain), (x) => chainLogoSpec(x.chain)],
+  ['venue', 'Account', (x) => x.account, (x) => kindLogoSpec(x.kind)],
   ['place', 'Kind', (x) => (isExchange(x.kind) ? 'Exchange' : x.protocol ? 'DeFi' : 'Wallet'), null],
 ];
 export const PERIODS = [

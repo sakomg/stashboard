@@ -94,6 +94,7 @@ export function buildStamp(root: URL): string {
 
 const ICONS = [
   'chevron-down',
+  'chevron-up',
   'circle-help',
   'external-link',
   'circle-user',

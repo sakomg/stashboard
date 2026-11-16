@@ -9,9 +9,9 @@ import {
   snapshotValues,
   type AccountState,
 } from '../storage/index.ts';
-import { exchangeHints, isExchange } from './exchanges.ts';
+import { EXCHANGE_KINDS, exchangeHints, isExchange } from './exchanges.ts';
 import { STOCKS_CATEGORY } from '../domain/assets.ts';
-import { logoIndex, type Wanted } from './logos.ts';
+import { COINGECKO_EXCHANGES, logoIndex, type Wanted } from './logos.ts';
 import { buildPortfolio } from '../domain/portfolio.ts';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -146,10 +146,11 @@ export function historyView(
 }
 
 export const NATIVE_TOKENS = ['BNB', 'OKB', 'ETH', 'SOL', 'TON'];
+export const NETWORK_CHAINS = ['ethereum', 'base', 'arbitrum', 'binance-smart-chain', 'optimism', 'polygon', 'solana'];
 
 export function wantedLogos(states: AccountState[], resolve: (symbol: string) => Asset): Wanted[] {
   const tokens = new Map<string, { category: string; symbols: Set<string> }>();
-  const chains = new Set<string>();
+  const chains = new Set<string>(NETWORK_CHAINS);
   const protocols = new Set<string>();
   for (const key of NATIVE_TOKENS) tokens.set(key, { category: resolve(key).category, symbols: new Set() });
 
@@ -175,5 +176,6 @@ export function wantedLogos(states: AccountState[], resolve: (symbol: string) =>
     })),
     ...[...chains].map((key) => ({ kind: 'chain' as const, key })),
     ...[...protocols].map((key) => ({ kind: 'protocol' as const, key })),
+    ...EXCHANGE_KINDS.map((key) => ({ kind: 'exchange' as const, key, lookup: [COINGECKO_EXCHANGES[key]] })),
   ];
 }

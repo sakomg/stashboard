@@ -15,7 +15,7 @@ export interface Holding {
   readAt?: string | null;
 }
 
-export type LogoKind = 'token' | 'chain' | 'protocol';
+export type LogoKind = 'token' | 'chain' | 'protocol' | 'exchange';
 
 export interface LogoHint {
   kind: LogoKind;

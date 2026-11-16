@@ -27,6 +27,7 @@
 
 html {
   overscroll-behavior-x: none;
+  scrollbar-gutter: stable;
   background: var(--ink);
   color: var(--bone);
   font: 15px/1.5 var(--body);
@@ -126,6 +127,20 @@ input {
   border-radius: 50%;
   object-fit: cover;
   background: var(--raised);
+}
+
+.logo-stack {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+
+.logo-stack > * + * {
+  margin-left: -5px;
+}
+
+.logo-stack .logo {
+  box-shadow: 0 0 0 2px var(--stack-ring, var(--surface));
 }
 
 .logo.mono {

@@ -1,8 +1,8 @@
-import { h, iconButton } from '/common/ui.js';
+import { h, icon, iconButton } from '/common/ui.js';
 import { checkName, validate } from '/common/checks.js';
 import { api } from './api.js';
 import { setError, submitDialog } from './dialogs.js';
-import { renderAccountPanel, timeLeft } from './settings.js';
+import { fillList, timeLeft } from './settings.js';
 import { $, state } from './state.js';
 
 let removing = null;
@@ -42,8 +42,9 @@ export async function renderPeople() {
     setError('people-error', err.message);
     return;
   }
-  $('people-list').replaceChildren(
-    ...people.map((person) =>
+  fillList(
+    $('people-list'),
+    people.map((person) =>
       h(
         'li',
         {},
@@ -61,7 +62,11 @@ export async function renderPeople() {
           ),
       ),
     ),
-    ...invites.map((invite) =>
+    4,
+  );
+  fillList(
+    $('invite-list'),
+    invites.map((invite) =>
       h(
         'li',
         {},
@@ -78,6 +83,7 @@ export async function renderPeople() {
         ),
       ),
     ),
+    2,
   );
 }
 
@@ -116,29 +122,87 @@ $('remove-person-form').addEventListener('submit', async (event) => {
   if (removed) renderPeople();
 });
 
-const nameForm = $('name-form');
-nameForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  if (!validate(nameForm, [['username', checkName]], (message) => setError('name-error', message))) return;
-  const button = nameForm.querySelector('button[type=submit]');
-  button.disabled = true;
-  setError('name-error', null);
-  try {
-    const { name } = await api('/api/me', { method: 'PATCH', body: JSON.stringify({ name: nameForm.username.value }) });
-    state.data.me.name = name;
-    nameForm.username.value = name;
-    renderAccountPanel();
-    renderPeople();
-  } catch (err) {
-    setError('name-error', err.message);
-  } finally {
-    button.disabled = false;
+let editingName = false;
+
+export function renderMe() {
+  const { me, loginEnabled } = state.data ?? {};
+  const box = $('me');
+  box.hidden = !(loginEnabled && me);
+  if (box.hidden) return;
+  if (!editingName) {
+    box.replaceChildren(
+      h('b', { class: 'me-name' }, me.name),
+      iconButton(
+        'pencil',
+        'Change the name you sign in with',
+        () => {
+          editingName = true;
+          renderMe();
+        },
+        'small',
+      ),
+    );
+    return;
   }
-});
+  const form = h(
+    'form',
+    { class: 'name-form', novalidate: true },
+    h(
+      'div',
+      { class: 'name-row' },
+      h('input', {
+        name: 'username',
+        value: me.name,
+        autocomplete: 'username',
+        autocapitalize: 'off',
+        spellcheck: 'false',
+        'aria-label': 'Name you sign in with',
+      }),
+      h(
+        'button',
+        { class: 'icon-button confirm', type: 'submit', 'aria-label': 'Save name', title: 'Save name' },
+        icon('check'),
+      ),
+      iconButton('x', 'Cancel', () => stopEditing()),
+    ),
+    h('p', { class: 'form-error', id: 'name-error', role: 'alert', hidden: true }),
+  );
+  const input = form.elements.namedItem('username');
+  input.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    event.stopPropagation();
+    stopEditing();
+  });
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!validate(form, [['username', checkName]], (message) => setError('name-error', message))) return;
+    const buttons = [...form.querySelectorAll('button')];
+    buttons.forEach((b) => (b.disabled = true));
+    try {
+      const { name } = await api('/api/me', { method: 'PATCH', body: JSON.stringify({ name: input.value }) });
+      state.data.me.name = name;
+      stopEditing();
+      renderPeople();
+    } catch (err) {
+      setError('name-error', err.message);
+      buttons.forEach((b) => (b.disabled = false));
+    }
+  });
+  box.replaceChildren(form);
+  input.focus();
+  input.select();
+}
+
+function stopEditing() {
+  editingName = false;
+  renderMe();
+  $('me').querySelector('button')?.focus();
+}
 
 $('open-account').addEventListener('click', () => {
-  setError('name-error', null);
-  nameForm.username.value = state.data?.me?.name ?? '';
+  editingName = false;
+  renderMe();
   setError('people-error', null);
   $('invite-status').hidden = true;
   renderPeople();

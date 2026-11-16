@@ -109,7 +109,12 @@ export function select({ label, options, value, onChange = null }) {
     icon('chevron-down'),
   );
   const items = options.map((option, i) =>
-    h('li', { id: `${id}-${i}`, role: 'option', 'aria-selected': 'false' }, h('span', {}, option.label), icon('check')),
+    h(
+      'li',
+      { id: `${id}-${i}`, role: 'option', 'aria-selected': 'false' },
+      h('span', { class: 'select-option' }, option.media?.(), option.label),
+      icon('check'),
+    ),
   );
   const list = h(
     'ul',
@@ -123,7 +128,8 @@ export function select({ label, options, value, onChange = null }) {
       item.setAttribute('aria-selected', String(options[i].value === current));
       item.classList.toggle('active', i === active);
     });
-    shown.textContent = options.find((o) => o.value === current)?.label ?? '';
+    const chosen = options.find((o) => o.value === current);
+    shown.replaceChildren(...(chosen ? [chosen.media?.(), chosen.label].filter(Boolean) : []));
     list.setAttribute('aria-activedescendant', items[active]?.id ?? '');
   };
   const open = () => {
@@ -220,8 +226,8 @@ export function segmented({ label, options, value, onChange }) {
   return h(
     'div',
     { class: 'segmented', role: 'group', 'aria-label': label },
-    options.map(([id, text]) =>
-      h('button', { type: 'button', 'aria-pressed': String(id === value), onclick: () => onChange(id) }, text),
+    options.map(([id, text, media]) =>
+      h('button', { type: 'button', 'aria-pressed': String(id === value), onclick: () => onChange(id) }, media, text),
     ),
   );
 }

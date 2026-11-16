@@ -297,9 +297,17 @@ arriving again is not taken for a new one. The page asks for each logo under a v
 image, because browsers keep logos for a week. Logos are served with a sandbox policy, so even an SVG opened
 directly cannot run anything.
 
-Accounts are drawn with the logo of their native coin: Binance with BNB, OKX with OKB, EVM with ETH, Solana with
-SOL, TON with TON. Bybit has no coin of its own and is drawn with its initials. Interface icons come from Lucide; the server builds one sprite, `/icons.svg`, with only the icons
-the pages use.
+Exchanges are drawn with their own logo. No exchange API names one, so it comes from CoinGecko's list of
+exchanges, one request for all of them, by CoinGecko's id (`binance`, `bybit_spot`, `okex`). Until it is
+stored, Binance falls back to BNB, OKX to OKB and Bybit, which has no coin of its own, to its initials. Wallets
+are drawn with their native coin: EVM with ETH, Solana with SOL, TON with TON.
+
+The logos the add dialog shows are wanted whatever the portfolio holds: the native coins, the three exchanges
+and the chains a pasted EVM or Solana address is read on (Ethereum, Base, Arbitrum, BNB Chain, Optimism,
+Polygon, Solana). Chain logos come from Zerion's chain list, so without a Zerion key the dialog shows the ones
+it can draw from a coin (ETH for Ethereum, BNB for BNB Chain) and leaves the rest out rather than show
+initials. Interface icons come from Lucide; the server builds one sprite, `/icons.svg`, with only the icons the
+pages use.
 
 ## Sharing
 
@@ -401,7 +409,8 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
   page alike: `h` (elements, never `innerHTML`), `icon` and `iconButton`, `button` in four variants
   (primary for the one main action of a view or dialog, secondary, ghost for quiet actions, danger for removal), `select` (a listbox that replaces the native select: arrow keys, Home, End,
   Enter, Space and Escape, `aria-activedescendant`, closes on Tab), `help` (a question-mark button opening a
-  short explanation with a link to its source), `checkbox` and `segmented`. Popovers use the browser's
+  short explanation with a link to its source), `checkbox` and `segmented`. An option of `select` or `segmented`
+  can carry a logo next to its label. Popovers use the browser's
   Popover API, are placed under their trigger (or above it when there is no room) by script, and close on
   scroll, resize and when the view changes.
 - **Explanations and sources.** Every reading that is not obvious carries a help button: Fear & Greed
@@ -439,6 +448,11 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
 - **Header.** The header holds only Settings. Adding a wallet or an exchange starts from the dashed chip at the
   end of the account chips (and from the Accounts view), next to what it adds to, so it is not mistaken for
   adding a user.
+- **Adding an account** shows what each choice covers before anything is typed: Wallet carries the ETH, SOL and
+  TON logos, Exchange the logos of the exchanges, and the exchange list has a logo on every option. A pasted
+  address is recognised by its shape, its network's logo appears inside the field, and the line under it says
+  what is read: every EVM chain at once (with the logos of the main ones), Solana tokens and staking, TON and
+  whitelisted jettons.
 - **Account chips.** `/api/portfolio` lists accounts largest first, so the chips and the Accounts view share one
   order. The summary shows the ten largest and folds the rest into an "N more" chip that switches to the
   Accounts view and scrolls to it, so a long list of small wallets does not push the views down. An account
@@ -449,9 +463,15 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
 - **Settings panel.** The Settings button in the header opens a panel from the right with the privacy switch,
   the shared links (copy, open, turn off), the update schedule and whether an update is possible now, the
   Zerion allowance, for the admin the people (invite, remove, pending invites), and the
-  session with who is signed in, the name to sign in with (anyone can change theirs, if no one else has it)
-  and sign-out. A new invite link is copied at once and shown once, since only
-  its hash is kept.
+  session with who is signed in and sign-out. A new invite link is copied at once and shown once, since only
+  its hash is kept. The lists that grow with use (shared links, people, pending invites) carry their count in
+  the heading and show the first few rows, three links, four people, two invites, with _Show all_ for the
+  rest. A list one row longer than that shows the row instead of a button that would reveal just one. They
+  fold again each time the panel opens. The name to sign in with is shown with a pencil: it turns into a field
+  with save and cancel, Enter saves, Escape cancels without closing the panel, and the name must be free.
+  While any dialog or the panel is open the page under it does not scroll: wheel and trackpad scrolling over a
+  panel whose content fits would otherwise move the dashboard behind it. The page keeps the scrollbar's gutter,
+  so the layout does not shift when scrolling stops.
 - **Hidden amounts.** One setting per person, stored on the server (`hide_amounts` in `users`), so it holds
   on every device. It turns dollar amounts and quantities into dots: the net worth, account chips,
   allocation legend and tooltips, history axis and tooltip, positions, where-held rows, DeFi and accounts.

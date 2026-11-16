@@ -1,4 +1,3 @@
-import './dialogs.js';
 import './people.js';
 import './settings.js';
 import './share-dialog.js';
@@ -7,6 +6,7 @@ import { h, skeleton } from '/common/ui.js';
 import { renderAccounts } from './accounts.js';
 import { api } from './api.js';
 import { renderDefi } from './defi.js';
+import { renderAddLogos } from './dialogs.js';
 import { showBanner, showInfo } from './feedback.js';
 import { renderAllocation, renderHistory } from './overview.js';
 import { renderPositions } from './positions.js';
@@ -79,6 +79,7 @@ export function setPhase(redraw = true) {
 
 export async function renderAll() {
   setPhase();
+  renderAddLogos();
   renderSummary();
   renderAccounts();
   renderCounts();
