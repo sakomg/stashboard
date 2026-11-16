@@ -53,7 +53,7 @@ export function parseSharePayload(
     const name = text(raw?.name, 60);
     const share = amount(raw?.share);
     const color = typeof raw?.color === 'string' && /^#[0-9a-f]{6}$/i.test(raw.color) ? raw.color : null;
-    if (!name || share === null || share < 0 || share > 1 || !color) return { error: 'A share row is malformed' };
+    if (!name || share === null || !color) return { error: 'A share row is malformed' };
     const logoInput = raw.logo as Record<string, unknown> | null | undefined;
     const kind = LOGO_KINDS.find((k) => k === logoInput?.kind);
     const key = text(logoInput?.key, 60);

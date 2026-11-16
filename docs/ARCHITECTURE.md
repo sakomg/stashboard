@@ -251,13 +251,12 @@ from this origin, so the canvas stays exportable. It can be copied as an image (
 as a pending promise, which Safari requires), downloaded, or handed to the system share sheet where the
 browser can share files.
 
-With amounts, the card and the link lead with the net worth, the figure the dashboard shows. The strip and its
-shares divide only what is held, since a debt cannot be a slice, so when something is borrowed a line under
-the net worth gives what is held and what is borrowed, which add up to it. A link made before the net worth
-was sent shows the total held instead.
+With amounts, the card and the link lead with the net worth, the figure the dashboard shows, and the groups
+add up to it (see Allocation under The page). When something is borrowed, a line under the net worth gives
+what is held and what is borrowed. A link made before the net worth was sent shows the total held instead.
 
 A link is a snapshot, frozen when it is made. The page sends the groups; the server checks and caps them
-(a title of 80 characters, at most 12 rows, shares between 0 and 1, colours as `#rrggbb`, logos only of a
+(a title of 80 characters, at most 12 rows, shares as finite numbers, colours as `#rrggbb`, logos only of a
 known kind) and keeps amounts only when they were asked for, whatever else the request carries. The token is
 16 random bytes in base64url. A link lasts 1, 7 or 30 days, can be turned off in the settings panel, and
 expired links are deleted the next time the list is read.
@@ -378,9 +377,16 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
   gets a clock when some of its balances are older than two scheduled updates.
 - **Colour.** Eight categorical hues validated for the dark surface are used in a fixed order, and a ninth
   group is "Other". Colour follows the group, not its rank, so a category keeps its hue whatever its size.
-  The allocation strip folds groups under 0.5% into "Other" and leaves debts out, since a strip can only
-  divide up what is held. Bands in the history chart get a surface-coloured edge, so neighbours stay apart
-  without relying on hue. The heat badge spells out its zone, so colour is never the only cue.
+  The allocation strip folds groups under 0.5% into "Other". Bands in the history chart get a
+  surface-coloured edge, so neighbours stay apart without relying on hue. The heat badge spells out its zone,
+  so colour is never the only cue.
+- **Allocation** is net, like the positions and the history chart: a loan is subtracted from every group it
+  belongs to (a USDC loan from Stablecoins, from USDC, and from its chain, account and kind), so the groups add
+  up to the net worth and each share is of the net worth. A strip can only divide what is held, so it shows the
+  groups worth more than zero, in proportion to each other. A group that owes more than it holds, such as a
+  borrowed token that was swapped away, is listed after them with a negative amount and share and an outlined
+  swatch, and never folds into "Other", so a loan stays visible. When the net worth is not above zero, shares
+  are of what is held instead.
 - **Chart labels.** The chart measures axis labels on a canvas and draws them in SVG. Both get the same
   system font list, plus 10 pixels to spare, or the first character of a wide label is cut off.
 - **Ordering.** Signals list the largest holdings first: an overheated 10% position matters more than an
