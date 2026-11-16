@@ -4,6 +4,7 @@ import { ADMIN_ID, getSetting, setSetting, type Account } from '../storage/index
 import { checkBinanceKey, collectBinance, pingBinance } from '../sources/binance.ts';
 import { checkBybitKey, collectBybit, pingBybit } from '../sources/bybit.ts';
 import { checkOkxKey, collectOkx, pingOkx } from '../sources/okx.ts';
+import { checkGateKey, collectGate, pingGate } from '../sources/gate.ts';
 import { seal, unseal, vaultKey } from '../storage/vault.ts';
 import { EXCHANGES, type ExchangeKeys, type ExchangeKind, type KeyCheck } from '../domain/exchange.ts';
 import type { CollectResult } from '../domain/types.ts';
@@ -40,6 +41,13 @@ export const CLIENTS: Record<ExchangeKind, ExchangeClient> = {
     ping: pingOkx,
     passphrase: true,
     readOnly: 'Create a key with only the Read permission.',
+  },
+  gate: {
+    check: checkGateKey,
+    collect: collectGate,
+    ping: pingGate,
+    passphrase: false,
+    readOnly: 'Create a key with every permission set to Read Only.',
   },
 };
 

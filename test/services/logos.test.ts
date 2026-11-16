@@ -96,7 +96,7 @@ test('the portfolio asks for its assets, chains and protocols, and always for th
   const of = (kind: string) => wanted.filter((w) => w.kind === kind);
   const token = (key: string) => wanted.find((w) => w.kind === 'token' && w.key === key);
 
-  for (const native of ['BNB', 'ETH', 'SOL', 'TON']) assert.ok(token(native), native);
+  for (const native of ['BNB', 'OKB', 'GT', 'ETH', 'SOL', 'TON']) assert.ok(token(native), native);
   assert.deepEqual(token('ETH')?.alternatives, ['WETH']);
   assert.deepEqual(token('NVDA')?.lookup, ['NVDAx', 'NVDA']);
   assert.deepEqual(token('ARB')?.lookup, ['ARB']);
@@ -112,6 +112,7 @@ test('the portfolio asks for its assets, chains and protocols, and always for th
       ['binance', ['binance']],
       ['bybit', ['bybit_spot']],
       ['okx', ['okex']],
+      ['gate', ['gate']],
     ],
   );
   assert.deepEqual(

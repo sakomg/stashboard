@@ -27,10 +27,10 @@ export function logo(kind, key, label = key) {
   return img;
 }
 
-export const EXCHANGES = { binance: 'Binance', bybit: 'Bybit', okx: 'OKX' };
+export const EXCHANGES = { binance: 'Binance', bybit: 'Bybit', okx: 'OKX', gate: 'Gate' };
 export const isExchange = (kind) => Object.hasOwn(EXCHANGES, kind);
-export const KIND_TOKEN = { binance: 'BNB', okx: 'OKB', evm: 'ETH', solana: 'SOL', ton: 'TON' };
-export const CHAIN_TOKEN = { binance: 'BNB', okx: 'OKB', ton: 'TON' };
+export const KIND_TOKEN = { binance: 'BNB', okx: 'OKB', gate: 'GT', evm: 'ETH', solana: 'SOL', ton: 'TON' };
+export const CHAIN_TOKEN = { binance: 'BNB', okx: 'OKB', gate: 'GT', ton: 'TON' };
 const CHAIN_FALLBACK = { ethereum: 'ETH', 'binance-smart-chain': 'BNB', solana: 'SOL' };
 export const hasLogo = (spec) => Boolean(spec?.key) && state.logos.has(`${spec.kind}/${spec.key}`);
 

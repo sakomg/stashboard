@@ -73,6 +73,12 @@ export const KEY_HELP = {
     rest: " permission and restrict it to this server's IP address. Enter the passphrase you chose for the key.",
     source: SOURCES.okxKeys,
   },
+  gate: {
+    lead: 'Create an APIv4 key on the main account with every permission set to ',
+    mark: 'Read Only',
+    rest: ", including account information, so the key can be checked, and restrict it to this server's IP address.",
+    source: SOURCES.gateKeys,
+  },
 };
 export const NEEDS_PASSPHRASE = new Set(['okx']);
 

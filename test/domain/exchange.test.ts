@@ -66,6 +66,7 @@ test('only the listed exchanges are exchanges', () => {
   assert.ok(isExchange('binance'));
   assert.ok(isExchange('bybit'));
   assert.ok(isExchange('okx'));
+  assert.ok(isExchange('gate'));
   assert.ok(!isExchange('evm'));
   assert.ok(!isExchange('toString'));
 });
