@@ -17,7 +17,7 @@
         ><img src="/logo.svg" alt="" width="28" height="28" /><span>stash</span><span>board</span></a
       >
 
-      <form id="account">
+      <form id="account" novalidate>
         <h1>Create your account</h1>
         <p class="lead">This dashboard has no owner yet. The setup code proves the server is yours.</p>
         <label>
@@ -28,37 +28,29 @@
             spellcheck="false"
             autocapitalize="characters"
             placeholder="XXXX-XXXX-XXXX"
-            required
             autofocus
           />
           <small>Printed in the server log on every start, and by the deploy script.</small>
         </label>
         <label>
           <span>Name</span>
-          <input
-            name="username"
-            autocomplete="username"
-            autocapitalize="off"
-            spellcheck="false"
-            maxlength="32"
-            required
-          />
+          <input name="username" autocomplete="username" autocapitalize="off" spellcheck="false" />
           <small>You sign in with it. Up to 32 letters, digits, spaces, dots, dashes and underscores.</small>
         </label>
         <label>
           <span>Password</span>
-          <input name="password" type="password" autocomplete="new-password" minlength="12" required />
+          <input name="password" type="password" autocomplete="new-password" />
           <small>At least 12 characters.</small>
         </label>
         <label>
           <span>Repeat the password</span>
-          <input name="repeat" type="password" autocomplete="new-password" required />
+          <input name="repeat" type="password" autocomplete="new-password" />
         </label>
         <button class="button primary" type="submit">Continue</button>
         <p class="form-error" id="account-error" role="alert" hidden></p>
       </form>
 
-      <form id="authenticator" hidden>
+      <form id="authenticator" hidden novalidate>
         <h1>Add an authenticator</h1>
         <p class="lead">
           Scan this with an authenticator app such as Google Authenticator, 1Password or Aegis. You will need a code
@@ -68,14 +60,7 @@
         <p class="key"><span>Or enter this key by hand</span><code id="key"></code></p>
         <label>
           <span>Code the app shows now</span>
-          <input
-            name="code"
-            inputmode="numeric"
-            autocomplete="one-time-code"
-            pattern="[0-9 ]{6,7}"
-            maxlength="7"
-            required
-          />
+          <input name="code" inputmode="numeric" autocomplete="one-time-code" />
         </label>
         <button class="button primary" type="submit">Create account</button>
         <button class="link" id="back" type="button">Start again</button>

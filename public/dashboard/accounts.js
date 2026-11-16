@@ -1,3 +1,4 @@
+import { checkFilled, checkLength } from '/common/checks.js';
 import { h, iconButton } from '/common/ui.js';
 import { api } from './api.js';
 import { openRemove } from './dialogs.js';
@@ -46,13 +47,22 @@ export function renderAccounts() {
         );
       }
 
-      const input = h('input', { value: w.label, maxlength: 40, 'aria-label': 'Wallet name' });
+      const input = h('input', { value: w.label, 'aria-label': 'Wallet name' });
       const error = h('p', { class: 'form-error', role: 'alert', hidden: true });
       const cancel = () => {
         state.renaming = null;
         renderAccounts();
       };
       const save = async () => {
+        const problem =
+          checkFilled('Enter a name for the account.')(input.value) ?? checkLength(40, 'a name')(input.value);
+        if (problem) {
+          input.setAttribute('aria-invalid', 'true');
+          error.textContent = problem;
+          error.hidden = false;
+          input.focus();
+          return;
+        }
         try {
           await api(`/api/accounts/${w.id}`, { method: 'PATCH', body: JSON.stringify({ label: input.value }) });
           state.renaming = null;

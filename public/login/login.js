@@ -1,28 +1,28 @@
-const form = document.getElementById('login');
-const error = document.getElementById('error');
-const button = form.querySelector('button');
+import { post, showError, submit } from '/common/auth.js';
+import { checkCode, checkFilled, validate } from '/common/checks.js';
 
-form.addEventListener('submit', async (event) => {
+const form = document.getElementById('login');
+
+form.addEventListener('submit', (event) => {
   event.preventDefault();
-  error.hidden = true;
-  button.disabled = true;
-  try {
-    const response = await fetch('/api/login', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name: form.username.value, password: form.password.value, code: form.code.value }),
-    });
-    if (response.ok) {
-      location.replace('/');
-      return;
+  const valid = validate(
+    form,
+    [
+      ['username', checkFilled('Enter your name.')],
+      ['password', (value) => (value ? null : 'Enter your password.')],
+      ['code', checkCode],
+    ],
+    (message) => showError(form, message),
+  );
+  if (!valid) return;
+  submit(form, async () => {
+    try {
+      await post('/api/login', { name: form.username.value, password: form.password.value, code: form.code.value });
+    } catch (err) {
+      form.code.value = '';
+      form.code.focus();
+      throw err;
     }
-    const body = await response.json().catch(() => ({}));
-    error.textContent = body.error ?? 'Could not sign in. Try again.';
-  } catch {
-    error.textContent = 'Could not reach the server. Check the connection and try again.';
-  }
-  error.hidden = false;
-  button.disabled = false;
-  form.code.value = '';
-  form.code.focus();
+    location.replace('/');
+  });
 });

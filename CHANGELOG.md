@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Forms are checked by the page with its own messages instead of the browser's bubbles.
 - Bybit and OKX next to Binance: add a read-only API key on the page. Bybit reads Unified Trading, Funding and
   Earn, OKX reads Trading, Funding and Earn and needs the key's passphrase. A key from a regional site (Bybit
   Turkey, Kazakhstan, Georgia, UAE or Indonesia, OKX EEA or US) is recognised by itself.

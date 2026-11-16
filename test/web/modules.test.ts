@@ -74,3 +74,28 @@ test('dashboard modules do not import each other in a cycle', () => {
   for (const file of graph.keys()) visit(file, []);
   assert.deepEqual(cycles, []);
 });
+
+test('forms are checked by the page, never by the browser', () => {
+  const broken: string[] = [];
+  for (const name of readdirSync(root, { recursive: true }) as string[]) {
+    if (!/\.(html|js)$/.test(name)) continue;
+    const text = readFileSync(new URL(name, root), 'utf8');
+    if (name.endsWith('.html')) {
+      for (const [form] of text.matchAll(/<form\b[^>]*>/g))
+        if (!/\snovalidate\b/.test(form)) broken.push(`${name}: ${form}`);
+      for (const [, attr] of text.matchAll(
+        /<(?:input|textarea|select)\b[^>]*?\s(required|minlength|maxlength|pattern|min|max)\b/g,
+      )) {
+        broken.push(`${name}: ${attr}`);
+      }
+    }
+    if (name.endsWith('.js')) {
+      for (const [hit] of text.matchAll(
+        /\b(?:required|minlength|maxlength|minLength|maxLength|pattern)\s*:|\.(?:required|maxLength|minLength|pattern)\s*=|setCustomValidity|reportValidity|checkValidity/g,
+      )) {
+        broken.push(`${name}: ${hit}`);
+      }
+    }
+  }
+  assert.deepEqual(broken, []);
+});

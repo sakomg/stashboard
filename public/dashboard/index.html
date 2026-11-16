@@ -279,7 +279,7 @@
         </div>
         <label>
           <span>Name</span>
-          <input name="label" maxlength="40" placeholder="Optional" />
+          <input name="label" placeholder="Optional" />
         </label>
         <p class="form-error" id="add-error" role="alert" hidden></p>
         <footer>
@@ -290,7 +290,7 @@
     </dialog>
 
     <dialog class="dialog" id="remove-dialog" aria-labelledby="remove-title">
-      <form id="remove-form">
+      <form id="remove-form" novalidate>
         <header>
           <h2 id="remove-title">Remove account</h2>
           <button class="icon-button" type="button" data-close aria-label="Close" title="Close">
@@ -307,7 +307,7 @@
     </dialog>
 
     <dialog class="dialog" id="remove-person-dialog" aria-labelledby="remove-person-title">
-      <form id="remove-person-form">
+      <form id="remove-person-form" novalidate>
         <header>
           <h2 id="remove-person-title">Remove person</h2>
           <button class="icon-button" type="button" data-close aria-label="Close" title="Close">
@@ -324,7 +324,7 @@
     </dialog>
 
     <dialog class="dialog" id="category-dialog" aria-labelledby="category-title">
-      <form id="category-form">
+      <form id="category-form" novalidate>
         <header>
           <h2 id="category-title">Category</h2>
           <button class="icon-button" type="button" data-close aria-label="Close" title="Close">
@@ -392,18 +392,11 @@
         <section aria-labelledby="session-title">
           <h3 id="session-title">Session</h3>
           <p class="muted" id="session-text"></p>
-          <form class="name-form" id="name-form" hidden>
+          <form class="name-form" id="name-form" hidden novalidate>
             <label>
               <span>Name you sign in with</span>
               <span class="name-row">
-                <input
-                  name="username"
-                  autocomplete="username"
-                  autocapitalize="off"
-                  spellcheck="false"
-                  maxlength="32"
-                  required
-                />
+                <input name="username" autocomplete="username" autocapitalize="off" spellcheck="false" />
                 <button class="button" type="submit">Save</button>
               </span>
             </label>
@@ -417,7 +410,7 @@
     </dialog>
 
     <dialog class="dialog share-dialog" id="share-dialog" aria-labelledby="share-title">
-      <form id="share-form">
+      <form id="share-form" novalidate>
         <header>
           <h2 id="share-title">Share allocation</h2>
           <button class="icon-button" type="button" data-close aria-label="Close" title="Close">

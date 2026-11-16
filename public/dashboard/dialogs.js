@@ -1,3 +1,4 @@
+import { checkFilled, checkLength, validate } from '/common/checks.js';
 import { h, icon, segmented as segmentedControl, select } from '/common/ui.js';
 import { api } from './api.js';
 import { colorOf } from './colors.js';
@@ -150,22 +151,25 @@ for (const trigger of document.querySelectorAll('[data-open-add]')) {
 addForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   const label = addForm.label.value.trim();
+  const exchange = exchangeChoice.value;
+  const passphrase = (value) => (value ? null : 'Enter the passphrase you set when you created the key.');
+  const checks =
+    addKind === 'wallet'
+      ? [['address', checkFilled('Enter a wallet address.')]]
+      : [
+          ['apiKey', checkFilled('Paste the API key.')],
+          ['apiSecret', checkFilled('Paste the secret key.')],
+          ...(NEEDS_PASSPHRASE.has(exchange) ? [['passphrase', passphrase]] : []),
+        ];
+  if (!validate(addForm, [...checks, ['label', checkLength(40, 'a name')]], (m) => setError('add-error', m))) return;
   let warning = null;
   const added = await submitDialog(addForm, 'add-error', async () => {
     if (addKind === 'wallet') {
-      if (!addForm.address.value.trim()) throw new Error('Enter a wallet address');
       await api('/api/wallets', {
         method: 'POST',
         body: JSON.stringify({ address: addForm.address.value.trim(), label }),
       });
       return;
-    }
-    if (!addForm.apiKey.value.trim() || !addForm.apiSecret.value.trim()) {
-      throw new Error('Paste both the API key and the secret key');
-    }
-    const exchange = exchangeChoice.value;
-    if (NEEDS_PASSPHRASE.has(exchange) && !addForm.passphrase.value) {
-      throw new Error('Enter the passphrase you set when you created the key');
     }
     const result = await api('/api/exchanges', {
       method: 'POST',

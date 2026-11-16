@@ -427,6 +427,12 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
   another.
 - **Text** joins clauses with full stops, not semicolons, and lists reasons as separate tags.
 
+- **Forms** are checked by the page, never by the browser: every form has `novalidate`, and no field has
+  `required`, `minlength`, `maxlength` or `pattern`. `public/common/checks.js` holds the rules (filled, length,
+  names, new passwords, the repeat, authenticator codes). A failed check writes its message in the form's error
+  line, marks the field `aria-invalid` with a red border and focuses it, and typing in the field clears the
+  mark. The server checks everything again. A test in `test/web/modules.test.ts` fails when a page brings a
+  browser check back.
 - **Header.** The header holds only Settings. Adding a wallet or an exchange starts from the dashed chip at the
   end of the account chips (and from the Accounts view), next to what it adds to, so it is not mistaken for
   adding a user.
