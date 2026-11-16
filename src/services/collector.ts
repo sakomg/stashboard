@@ -1,6 +1,14 @@
 import type { DatabaseSync } from 'node:sqlite';
 import type { Config } from '../lib/config.ts';
-import { finishSnapshot, listAccounts, saveOutcome, startSnapshot, type Account } from '../storage/index.ts';
+import {
+  currentState,
+  finishSnapshot,
+  listAccounts,
+  saveOutcome,
+  startSnapshot,
+  type Account,
+  type AccountState,
+} from '../storage/index.ts';
 import { CLIENTS, exchangeKeys, isExchange } from './exchanges.ts';
 import { noteLogos } from './logos.ts';
 import { collectLighter } from '../sources/lighter.ts';
@@ -66,8 +74,15 @@ export function repriceEarlierReads(holdings: Holding[]): Holding[] {
   });
 }
 
+function largestFirst(states: AccountState[]): Account[] {
+  return states
+    .map((s) => ({ account: s.account, value: s.holdings.reduce((sum, h) => sum + h.value, 0) }))
+    .sort((a, b) => b.value - a.value)
+    .map((s) => s.account);
+}
+
 export async function runCollection(db: DatabaseSync, config: Config, notify: Notify = () => {}): Promise<number> {
-  const accounts = listAccounts(db, 'all');
+  const accounts = largestFirst(currentState(db, 'all'));
   notify({ type: 'start', accounts });
   const results: { account: Account; result?: CollectResult; error?: string }[] = [];
   for (const account of accounts) {

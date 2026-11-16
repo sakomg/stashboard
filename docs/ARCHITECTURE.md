@@ -47,7 +47,8 @@ is reached from `main.js`, that every imported name is exported, and that there 
 
 ## Collection
 
-A run reads the accounts of every person one after another, into one snapshot. An account that fails is
+A run reads the accounts of every person one after another, into one snapshot, from the largest balance at
+the last read down, the order the page lists them in, so the marks on the page move along the list. An account that fails is
 recorded as an error and the others go on; the failed one keeps showing its last good balances, marked out of
 date.
 

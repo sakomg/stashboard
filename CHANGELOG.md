@@ -4,6 +4,7 @@
 
 - Lighter is no longer counted twice: Zerion now lists the Ethereum deposit into Lighter too, and that copy is
   dropped, in history as well.
+- An update reads accounts from the largest balance down, in the order the page lists them.
 - Forms are checked by the page with its own messages instead of the browser's bubbles.
 - Bybit and OKX next to Binance: add a read-only API key on the page. Bybit reads Unified Trading, Funding and
   Earn, OKX reads Trading, Funding and Earn and needs the key's passphrase. A key from a regional site (Bybit
