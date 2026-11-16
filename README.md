@@ -12,7 +12,7 @@ your own server, needs only free API keys, and never asks for anything that can 
 ## What it does
 
 - **One net worth** across Binance, Bybit and OKX, wallets on any EVM chain, Solana and TON, positions in DeFi
-  protocols, and perpetuals on Lighter.
+  protocols, and perpetuals on Lighter and Aster.
 - **Allocation** by category, asset, chain, account or kind, with every place an asset is held.
 - **History** of the whole portfolio, and changes over 24 hours, 7 and 30 days.
 - **Heat signals**: RSI, funding, distance from the 200-day average and open interest blended into one score
@@ -94,6 +94,7 @@ All screenshots use the demo data.
 | EVM chains: tokens and DeFi positions                   | Zerion API         | Free key                |
 | Solana: tokens, staking, tokenized stocks               | Zerion API         | Free key                |
 | Lighter and Lighter on Robinhood Chain                  | Lighter public API | None                    |
+| Aster: futures collateral with PnL, spot, staked ASTER  | Aster public RPC   | None, privacy mode off  |
 | TON: TON and jettons                                    | TonAPI             | Free key, optional      |
 | Fallback prices, logos and categories                   | CoinGecko          | Free demo key, optional |
 | RSI, funding, open interest                             | Binance public API | None                    |
