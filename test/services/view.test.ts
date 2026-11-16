@@ -4,7 +4,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { createResolver, loadAssetRules } from '../../src/domain/assets.ts';
-import { ADMIN_ID, addWallet, finishSnapshot, openDb, saveOutcome, startSnapshot } from '../../src/storage/index.ts';
+import {
+  ADMIN_ID,
+  addWallet,
+  finishSnapshot,
+  openDb,
+  saveOutcome,
+  savePriceChanges,
+  startSnapshot,
+} from '../../src/storage/index.ts';
 import type { Holding } from '../../src/domain/types.ts';
 import { historyView, portfolioView } from '../../src/services/view.ts';
 
@@ -79,4 +87,27 @@ test('portfolio view merges accounts, flags the stale one and hides full address
   assert.equal(view.sources[0]!.address, '0x5290…9EE7');
   assert.equal(view.assets[0]!.key, 'ETH');
   assert.deepEqual(view.changes, { d1: null, d7: null, d30: null });
+});
+
+test('7 and 30 days are estimated from prices only until history reaches that far', () => {
+  const db = openDb(mkdtempSync(join(tmpdir(), 'stashboard-test-')));
+  const wallet = addWallet(db, ADMIN_ID, '0x52908400098527886E0F7030069857D2E4169EE7');
+  const snapshot = startSnapshot(db);
+  saveOutcome(db, snapshot, wallet.id, {
+    status: 'ok',
+    holdings: [holding('ETH', 1, 1100), holding('USDC', 900, 1)],
+    warnings: [],
+  });
+  finishSnapshot(db, snapshot);
+  const now = new Date();
+  savePriceChanges(db, [{ asset: 'ETH', time: now.toISOString(), d7: 0.1, d30: null }]);
+
+  const view = portfolioView(db, ADMIN_ID, resolve, now);
+  assert.equal(view.changes.d7, null);
+  assert.ok(view.estimates.d7);
+  assert.ok(Math.abs(view.estimates.d7.change - (2000 / 1900 - 1)) < 1e-12);
+  assert.equal(view.estimates.d30, null);
+
+  const later = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+  assert.equal(portfolioView(db, ADMIN_ID, resolve, later).estimates.d7, null);
 });

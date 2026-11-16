@@ -18,6 +18,7 @@ export interface Learned {
 }
 
 export const STOCKS_CATEGORY = 'Stocks';
+export const STABLECOINS_CATEGORY = 'Stablecoins';
 export const OTHER_CATEGORY = 'Other';
 
 const AAVE_RECEIPT =

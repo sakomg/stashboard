@@ -5,16 +5,18 @@ import {
   historySince,
   latestSignals,
   listSnapshots,
+  priceChangesSince,
   snapshotAt,
   snapshotValues,
   type AccountState,
 } from '../storage/index.ts';
 import { EXCHANGE_KINDS, exchangeHints, isExchange } from './exchanges.ts';
-import { STOCKS_CATEGORY } from '../domain/assets.ts';
+import { STABLECOINS_CATEGORY, STOCKS_CATEGORY } from '../domain/assets.ts';
 import { COINGECKO_EXCHANGES, logoIndex, type Wanted } from './logos.ts';
-import { buildPortfolio } from '../domain/portfolio.ts';
+import { buildPortfolio, estimateChange } from '../domain/portfolio.ts';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const ESTIMATE_MAX_AGE_DAYS = 2;
 const short = (a: string): string => (a.length > 12 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a);
 const ratio = (now: number, then: number | undefined): number | null =>
   then === undefined || then === 0 ? null : now / then - 1;
@@ -33,6 +35,20 @@ export function portfolioView(db: DatabaseSync, userId: number, resolve: (symbol
 
   const signals = new Map(latestSignals(db).map((s) => [s.asset, s]));
   const hints = exchangeHints(db);
+  const changes = {
+    d1: ratio(portfolio.netWorth, d1?.netWorth),
+    d7: ratio(portfolio.netWorth, d7?.netWorth),
+    d30: ratio(portfolio.netWorth, d30?.netWorth),
+  };
+  const moves = priceChangesSince(db, new Date(now.getTime() - ESTIMATE_MAX_AGE_DAYS * DAY_MS).toISOString());
+  const estimate = (key: 'd7' | 'd30') =>
+    changes[key] === null
+      ? estimateChange(
+          portfolio.assets,
+          (asset) => moves.get(asset)?.[key],
+          (category) => category === STABLECOINS_CATEGORY,
+        )
+      : null;
 
   return {
     logos: logoIndex(db, new Set(wantedLogos(states, resolve).map((w) => `${w.kind}/${w.key}`))),
@@ -42,11 +58,8 @@ export function portfolioView(db: DatabaseSync, userId: number, resolve: (symbol
       null,
     ),
     netWorth: portfolio.netWorth,
-    changes: {
-      d1: ratio(portfolio.netWorth, d1?.netWorth),
-      d7: ratio(portfolio.netWorth, d7?.netWorth),
-      d30: ratio(portfolio.netWorth, d30?.netWorth),
-    },
+    changes,
+    estimates: { d7: estimate('d7'), d30: estimate('d30') },
     assets: portfolio.assets.map((a) => ({
       ...a,
       change1d: a.price === null ? null : ratio(a.price, priceThen(d1, a.key)),

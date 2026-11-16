@@ -34,3 +34,31 @@ export function buildPortfolio(states: AccountState[], resolve: (symbol: string)
   }
   return { netWorth, assets };
 }
+
+export interface Estimate {
+  change: number;
+  coverage: number;
+}
+
+export const MIN_ESTIMATE_COVERAGE = 0.5;
+
+export function estimateChange(
+  assets: Pick<AssetRow, 'key' | 'category' | 'value'>[],
+  changeOf: (asset: string) => number | null | undefined,
+  flat: (category: string) => boolean,
+): Estimate | null {
+  let now = 0;
+  let then = 0;
+  let covered = 0;
+  let total = 0;
+  for (const a of assets) {
+    total += Math.abs(a.value);
+    const change = flat(a.category) ? 0 : changeOf(a.key);
+    if (change == null || change <= -1) continue;
+    covered += Math.abs(a.value);
+    now += a.value;
+    then += a.value / (1 + change);
+  }
+  if (total === 0 || covered / total < MIN_ESTIMATE_COVERAGE || then <= 0) return null;
+  return { change: now / then - 1, coverage: covered / total };
+}

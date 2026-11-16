@@ -178,6 +178,12 @@ const MIGRATIONS = [
            AND direct.account_id = holdings.account_id
            AND direct.protocol = 'Lighter'
       );`,
+  `CREATE TABLE price_changes (
+     asset TEXT PRIMARY KEY,
+     time  TEXT NOT NULL,
+     d7    REAL,
+     d30   REAL
+   );`,
 ];
 
 export function migrate(db: DatabaseSync, target = MIGRATIONS.length): void {

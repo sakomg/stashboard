@@ -1,7 +1,7 @@
 import { h, help, icon, skeleton } from '/common/ui.js';
 import { openAdd } from './dialogs.js';
 import { MASK, ago, change, inTime, money, moneyRound, usd } from './format.js';
-import { HELP, fearGreedTone } from './help.js';
+import { HELP, SOURCES, fearGreedTone } from './help.js';
 import { kindLogo } from './logos.js';
 import { groups } from './overview.js';
 import { $, actions, busy, firstRead, state } from './state.js';
@@ -9,14 +9,43 @@ import { switchView } from './views.js';
 
 export const CHIP_LIMIT = 10;
 
-export function pendingChange(days) {
+export function historyDue(days) {
   const since = state.data.historySince;
-  if (!since) return h('span', { class: 'pending' }, 'after the first update');
+  if (!since) return 'after the first update';
   const due = Date.parse(since) + days * 86_400_000 - Date.now();
-  return h('span', { class: 'pending' }, due > 0 ? `in ${inTime(due)}` : 'soon');
+  return due > 0 ? `in ${inTime(due)}` : 'soon';
 }
 
+export const pendingChange = (days) => h('span', { class: 'pending' }, historyDue(days));
+
 export const changeOrPending = (value, days) => (value == null ? pendingChange(days) : change(value));
+
+export function periodFact(label, days, key) {
+  const value = state.data.changes[key];
+  const estimate = state.data.estimates?.[key];
+  if (value != null || !estimate) return h('div', {}, h('dt', {}, label), h('dd', {}, changeOrPending(value, days)));
+  return h(
+    'div',
+    { class: 'estimated' },
+    h(
+      'dt',
+      {},
+      label,
+      help({
+        title: `Estimated ${days}-day change`,
+        text: `History does not reach ${days} days back yet, so this is today's holdings priced ${days} days ago. It covers ${Math.round(estimate.coverage * 100)}% of the portfolio: assets with a Binance market, and stablecoins at $1. Deposits, withdrawals and trades in between are not in it. The change from history takes over ${historyDue(days)}.`,
+        source: SOURCES.dailyPrices,
+      }),
+    ),
+    h(
+      'dd',
+      {},
+      h('span', { class: 'approx', 'aria-hidden': 'true' }, '≈'),
+      h('span', { class: 'sr-only' }, 'About '),
+      change(estimate.change),
+    ),
+  );
+}
 
 export function renderSummary() {
   const { data } = state;
@@ -39,8 +68,8 @@ export function renderSummary() {
   const fact = (label, ...value) => h('div', {}, h('dt', {}, label), h('dd', {}, ...value));
   $('facts').replaceChildren(
     fact('24 hours', changeOrPending(data.changes.d1, 1)),
-    fact('7 days', changeOrPending(data.changes.d7, 7)),
-    fact('30 days', changeOrPending(data.changes.d30, 30)),
+    periodFact('7 days', 7, 'd7'),
+    periodFact('30 days', 30, 'd30'),
     data.fearGreed &&
       h(
         'div',

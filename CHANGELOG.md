@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Until history reaches 7 or 30 days back, those changes are estimated from prices: today's holdings at the
+  prices of that many days ago, marked with `≈` and a note on what they cover.
+- Positions no longer has RSI and Funding columns. Both stay in Signals.
+- The external-link icon after a link in the add dialog sits on the line with a little space, instead of
+  touching the text and floating above it.
 - Views no longer jump back on their own in Arc. Switching wrote the view into the address, and Arc then
   showed a picture of the page from before the click until the pointer moved. The open view is now kept by the
   tab without touching the address or the history.
