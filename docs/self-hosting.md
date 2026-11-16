@@ -77,7 +77,8 @@ Use **Add wallet or exchange** on the dashboard.
 
 - **Wallets**: paste a public address. The network (EVM, Solana or TON) is recognised from the address. One
   EVM address covers every EVM chain and DeFi protocol Zerion knows, and Lighter.
-- **Exchanges**: Binance, Bybit or OKX, with an API key that can only read. See [Exchange keys](#exchange-keys).
+- **Exchanges**: Binance, Bybit, OKX or Gate, with an API key that can only read. See
+  [Exchange keys](#exchange-keys).
 
 The first update starts as soon as an account is added and usually takes under a minute.
 
@@ -113,6 +114,10 @@ Bybit EU keys are not supported, since its API is open only to brokers.
 **OKX.** Open **API**, create a key with only the **Read** permission, bind it to your server's public address,
 and keep the passphrase you set: the dashboard asks for it. Keys from my.okx.com (EEA) and app.okx.com (US) work
 too, and are recognised by themselves.
+
+**Gate.** Open **API Management**, create an **APIv4** key on the main account, set every permission it offers
+to **Read Only**, account information included (that is where Gate tells whether the key can trade), and bind
+it to your server's public address. A key of a sub-account cannot be checked and is refused.
 
 ## Configuration
 

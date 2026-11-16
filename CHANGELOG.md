@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Gate next to Binance, Bybit and OKX: add a read-only APIv4 key on the page. Gate reads the unified account,
+  or Spot and perpetual futures on a classic account, and Simple Earn, fixed-term Earn and staking.
 - Aster is read for every EVM wallet without a key, like Lighter: futures collateral with unrealised PnL,
   spot balances and staked ASTER, priced from Aster's own tickers. It needs the account's privacy mode off.
   A wallet that never opened an Aster account is not a failure.
