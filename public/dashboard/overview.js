@@ -57,8 +57,17 @@ export function groups(dimension) {
     share: r.value / total,
     color: colorOf(dimension, r.name),
     logo: logoOf && r.name !== 'Other' && samples.has(r.name) ? logoOf(samples.get(r.name)) : null,
-    total,
   }));
+}
+
+export function totals() {
+  let held = 0;
+  let borrowed = 0;
+  for (const { value } of state.data.holdings) {
+    if (value > 0) held += value;
+    else borrowed -= value;
+  }
+  return { netWorth: state.data.netWorth, held, borrowed };
 }
 
 export function segmented(id, options, current, choose) {

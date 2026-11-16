@@ -251,6 +251,11 @@ from this origin, so the canvas stays exportable. It can be copied as an image (
 as a pending promise, which Safari requires), downloaded, or handed to the system share sheet where the
 browser can share files.
 
+With amounts, the card and the link lead with the net worth, the figure the dashboard shows. The strip and its
+shares divide only what is held, since a debt cannot be a slice, so when something is borrowed a line under
+the net worth gives what is held and what is borrowed, which add up to it. A link made before the net worth
+was sent shows the total held instead.
+
 A link is a snapshot, frozen when it is made. The page sends the groups; the server checks and caps them
 (a title of 80 characters, at most 12 rows, shares between 0 and 1, colours as `#rrggbb`, logos only of a
 known kind) and keeps amounts only when they were asked for, whatever else the request carries. The token is
