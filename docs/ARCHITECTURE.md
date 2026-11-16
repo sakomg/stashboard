@@ -239,10 +239,12 @@ shown separately and are not exposure in the portfolio: only the equity counts.
 
 Aster is a perpetuals and spot exchange on its own chain, opened with an EVM wallet. Its RPC
 (`aster_getBalance` at `tapi.asterdex.com/info`) answers for any address without a key, but only when the
-account's privacy mode is off (`accountPrivacy: "disabled"`). With privacy on, and for an address that never
-used Aster, it answers the same way, with no balances, so neither adds anything or warns: an unreadable
-account cannot be told from no account. Reading a private account would need an API wallet and EIP-712
-signatures, which Stashboard does not do.
+account's privacy mode is off (`accountPrivacy: "disabled"`). With privacy on it answers with no balances,
+so a private account adds nothing and does not warn. An address that never opened an account answers with
+JSON-RPC error -32603, "The account does not exist, please open a futures account". That code is the generic
+internal error, so the message is what tells it apart: it means no account, like Lighter's 21100, and any
+other error fails the read. Reading a private account would need an API wallet and EIP-712 signatures, which
+Stashboard does not do.
 
 Futures collateral is kept per asset (USDT, ASTER and others) as holdings of type futures, with the unrealised
 PnL of open perpetuals added to USDT, so the account counts at its equity like Lighter. Spot balances are
