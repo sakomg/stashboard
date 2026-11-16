@@ -3,7 +3,7 @@ import { api } from './api.js';
 import { colorOf } from './colors.js';
 import { showInfo } from './feedback.js';
 import { SOURCES } from './help.js';
-import { kindLogo } from './logos.js';
+import { EXCHANGES, isExchange, kindLogo } from './logos.js';
 import { $, actions, state } from './state.js';
 
 export function setError(id, message) {
@@ -47,23 +47,54 @@ export const NETWORKS = [
 
 export const addForm = $('add-form');
 export let addKind = 'wallet';
+export const KEY_HELP = {
+  binance: {
+    lead: 'Create a key with only ',
+    mark: 'Enable Reading',
+    rest: " ticked and restrict it to this server's IP address.",
+    source: SOURCES.binanceKeys,
+  },
+  bybit: {
+    lead: 'Create a system-generated key with ',
+    mark: 'Read-Only',
+    rest: " permissions, tick every box it offers so Funding and Earn are read too, and restrict it to this server's IP address.",
+    source: SOURCES.bybitKeys,
+  },
+  okx: {
+    lead: 'Create a key with only the ',
+    mark: 'Read',
+    rest: " permission and restrict it to this server's IP address. Enter the passphrase you chose for the key.",
+    source: SOURCES.okxKeys,
+  },
+};
+export const NEEDS_PASSPHRASE = new Set(['okx']);
+
 export const exchangeChoice = select({
   label: 'Exchange',
-  options: [{ value: 'binance', label: 'Binance' }],
+  options: Object.entries(EXCHANGES).map(([value, label]) => ({ value, label })),
   value: 'binance',
+  onChange: setExchange,
 });
 $('exchange-select').append(exchangeChoice);
-$('exchange-hint').replaceChildren(
-  'Create a key with only ',
-  h('b', {}, 'Enable Reading'),
-  " ticked and restrict it to this server's IP address. The key is checked before it is saved, and the secret is stored encrypted on this server. ",
-  h(
-    'a',
-    { href: SOURCES.binanceKeys.href, target: '_blank', rel: 'noopener noreferrer' },
-    'How to create an API key',
-    icon('external-link'),
-  ),
-);
+
+export function setExchange(kind) {
+  const help = KEY_HELP[kind];
+  $('exchange-hint').replaceChildren(
+    help.lead,
+    h('b', {}, help.mark),
+    help.rest,
+    ' The key is checked before it is saved, and the secret is stored encrypted on this server. ',
+    h(
+      'a',
+      { href: help.source.href, target: '_blank', rel: 'noopener noreferrer' },
+      `How to create an API key on ${EXCHANGES[kind]}`,
+      icon('external-link'),
+    ),
+  );
+  $('passphrase-field').hidden = !NEEDS_PASSPHRASE.has(kind);
+  if (addKind === 'exchange') addForm.label.placeholder = `Optional, for example ${EXCHANGES[kind]} main`;
+}
+setExchange(exchangeChoice.value);
 
 export function setAddKind(kind) {
   addKind = kind;
@@ -81,7 +112,10 @@ export function setAddKind(kind) {
   $('wallet-fields').hidden = kind !== 'wallet';
   $('exchange-fields').hidden = kind !== 'exchange';
   $('add-submit').textContent = kind === 'wallet' ? 'Add wallet' : 'Add exchange';
-  addForm.label.placeholder = kind === 'wallet' ? 'Optional, for example Ledger' : 'Optional, for example Binance main';
+  addForm.label.placeholder =
+    kind === 'wallet'
+      ? 'Optional, for example Ledger'
+      : `Optional, for example ${EXCHANGES[exchangeChoice.value]} main`;
   setError('add-error', null);
   (kind === 'wallet' ? addForm.address : addForm.apiKey).focus();
 }
@@ -129,18 +163,24 @@ addForm.addEventListener('submit', async (event) => {
     if (!addForm.apiKey.value.trim() || !addForm.apiSecret.value.trim()) {
       throw new Error('Paste both the API key and the secret key');
     }
+    const exchange = exchangeChoice.value;
+    if (NEEDS_PASSPHRASE.has(exchange) && !addForm.passphrase.value) {
+      throw new Error('Enter the passphrase you set when you created the key');
+    }
     const result = await api('/api/exchanges', {
       method: 'POST',
       body: JSON.stringify({
-        exchange: exchangeChoice.value,
+        exchange,
         apiKey: addForm.apiKey.value.trim(),
         apiSecret: addForm.apiSecret.value.trim(),
+        ...(NEEDS_PASSPHRASE.has(exchange) ? { passphrase: addForm.passphrase.value } : {}),
         label,
       }),
     });
     warning = result.warning;
   });
   addForm.apiSecret.value = '';
+  addForm.passphrase.value = '';
   if (!added) return;
   await actions.load();
   if (warning) showInfo(warning);
@@ -150,7 +190,7 @@ export let removing = null;
 
 export function openRemove(account) {
   removing = account;
-  const exchange = account.kind === 'binance';
+  const exchange = isExchange(account.kind);
   setError('remove-error', null);
   $('remove-title').textContent = exchange ? 'Remove exchange' : 'Remove wallet';
   $('remove-submit').textContent = exchange ? 'Remove exchange' : 'Remove wallet';

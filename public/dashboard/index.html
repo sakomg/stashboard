@@ -96,7 +96,7 @@
               ><svg class="icon" aria-hidden="true"><use href="/icons.svg#landmark"></use></svg
             ></span>
             <b>Add an exchange</b>
-            <span>Binance, with an API key that can only read.</span>
+            <span>Binance, Bybit or OKX, with an API key that can only read.</span>
           </button>
         </div>
         <ol class="next">
@@ -270,6 +270,10 @@
           <label>
             <span>Secret key</span>
             <input name="apiSecret" type="password" spellcheck="false" autocomplete="new-password" />
+          </label>
+          <label id="passphrase-field" hidden>
+            <span>Passphrase</span>
+            <input name="passphrase" type="password" spellcheck="false" autocomplete="new-password" />
           </label>
           <p class="hint" id="exchange-hint"></p>
         </div>

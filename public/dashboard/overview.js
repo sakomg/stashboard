@@ -3,7 +3,7 @@ import { api } from './api.js';
 import { CATEGORY_ORDER, OTHER_COLOR, PALETTE, colorOf } from './colors.js';
 import { hideTip, showBanner, showTip } from './feedback.js';
 import { inTime, money, percent, usdRound } from './format.js';
-import { CHAIN_TOKEN, KIND_TOKEN, chainName, logo } from './logos.js';
+import { CHAIN_TOKEN, KIND_TOKEN, chainName, isExchange, logo } from './logos.js';
 import { $, state } from './state.js';
 
 export const DIMENSIONS = [
@@ -16,7 +16,7 @@ export const DIMENSIONS = [
     (x) => (CHAIN_TOKEN[x.chain] ? { kind: 'token', key: CHAIN_TOKEN[x.chain] } : { kind: 'chain', key: x.chain }),
   ],
   ['venue', 'Account', (x) => x.account, (x) => ({ kind: 'token', key: KIND_TOKEN[x.kind] })],
-  ['place', 'Kind', (x) => (x.kind === 'binance' ? 'Exchange' : x.protocol ? 'DeFi' : 'Wallet'), null],
+  ['place', 'Kind', (x) => (isExchange(x.kind) ? 'Exchange' : x.protocol ? 'DeFi' : 'Wallet'), null],
 ];
 export const PERIODS = [
   ['7', '7 d'],

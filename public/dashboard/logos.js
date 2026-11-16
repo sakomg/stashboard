@@ -27,13 +27,16 @@ export function logo(kind, key, label = key) {
   return img;
 }
 
-export const KIND_TOKEN = { binance: 'BNB', evm: 'ETH', solana: 'SOL', ton: 'TON' };
-export const CHAIN_TOKEN = { binance: 'BNB', ton: 'TON' };
-export const kindLogo = (kind) => logo('token', KIND_TOKEN[kind], KINDS[kind]);
+export const EXCHANGES = { binance: 'Binance', bybit: 'Bybit', okx: 'OKX' };
+export const isExchange = (kind) => Object.hasOwn(EXCHANGES, kind);
+export const KIND_TOKEN = { binance: 'BNB', okx: 'OKB', evm: 'ETH', solana: 'SOL', ton: 'TON' };
+export const CHAIN_TOKEN = { binance: 'BNB', okx: 'OKB', ton: 'TON' };
+export const kindLogo = (kind) =>
+  KIND_TOKEN[kind] ? logo('token', KIND_TOKEN[kind], KINDS[kind]) : monogram(KINDS[kind]);
 export const chainLogo = (id) =>
   CHAIN_TOKEN[id] ? logo('token', CHAIN_TOKEN[id], chainName(id)) : logo('chain', id, chainName(id));
 
-export const KINDS = { binance: 'Binance', evm: 'EVM', solana: 'Solana', ton: 'TON' };
+export const KINDS = { ...EXCHANGES, evm: 'EVM', solana: 'Solana', ton: 'TON' };
 export const TYPES = {
   wallet: 'Wallet',
   earn: 'Earn',
@@ -46,7 +49,7 @@ export const TYPES = {
   locked: 'Locked',
   reward: 'Reward',
 };
-export const CHAINS = { binance: 'Binance', ton: 'TON' };
+export const CHAINS = { ...EXCHANGES, ton: 'TON' };
 export const chainName = (id) =>
   CHAINS[id] ??
   state.chainNames[id] ??

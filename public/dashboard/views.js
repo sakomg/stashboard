@@ -1,3 +1,4 @@
+import { isExchange } from './logos.js';
 import { chart } from './overview.js';
 import { $, DUST_USD, busy, state } from './state.js';
 
@@ -29,7 +30,7 @@ export function renderCounts() {
   set('signals', hot ? `${hot} hot` : '', hot ? 'hot' : '');
   set(
     'defi',
-    String(new Set(data.holdings.filter((x) => x.protocol && x.kind !== 'binance').map((x) => x.protocol)).size || ''),
+    String(new Set(data.holdings.filter((x) => x.protocol && !isExchange(x.kind)).map((x) => x.protocol)).size || ''),
   );
   const troubled = data.sources.filter((s) => s.stale || (s.status === null && !busy())).length;
   set('accounts', troubled ? `${troubled} !` : String(data.sources.length), troubled ? 'warn' : '');
