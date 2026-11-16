@@ -47,7 +47,8 @@ is reached from `main.js`, that every imported name is exported, and that there 
 
 ## Collection
 
-A run reads the accounts of every person one after another, into one snapshot. An account that fails is
+A run reads the accounts of every person one after another, into one snapshot, from the largest balance at
+the last read down, the order the page lists them in, so the marks on the page move along the list. An account that fails is
 recorded as an error and the others go on; the failed one keeps showing its last good balances, marked out of
 date.
 
@@ -58,7 +59,9 @@ half-finished run. An account removed while the run read it, alone or with the p
 out.
 
 An EVM address is read twice: by Zerion for chains and protocols, and by Lighter for what sits on its
-exchange, which wallet indexers cannot see.
+exchange. Zerion lists the deposit into Lighter on Ethereum too, as protocol `lighter`; that position is
+dropped, since Lighter's own answer includes unrealised PnL and the Robinhood Chain exchange, which Zerion does
+not see. History read before this was noticed is cleaned the same way by a migration.
 
 While a run is going, the collector reports each account as waiting, being read, waiting on a source, done
 or failed. The server keeps that state and serves it at `/api/progress`, to each person only for their own

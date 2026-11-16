@@ -170,6 +170,14 @@ const MIGRATIONS = [
    INSERT INTO user_categories (user_id, key, category)
      SELECT 1, key, manual FROM asset_categories WHERE manual IS NOT NULL;
    ALTER TABLE asset_categories DROP COLUMN manual;`,
+  `DELETE FROM holdings
+    WHERE lower(protocol) = 'lighter' AND protocol <> 'Lighter'
+      AND EXISTS (
+        SELECT 1 FROM holdings direct
+         WHERE direct.snapshot_id = holdings.snapshot_id
+           AND direct.account_id = holdings.account_id
+           AND direct.protocol = 'Lighter'
+      );`,
 ];
 
 export function migrate(db: DatabaseSync, target = MIGRATIONS.length): void {

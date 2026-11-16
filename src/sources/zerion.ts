@@ -175,6 +175,8 @@ export function withoutDepositReceipts(positions: ZerionPosition[]): ZerionPosit
   });
 }
 
+const readSeparately = (p: ZerionPosition): boolean => p.protocol?.toLowerCase() === LIGHTER_PROTOCOL.toLowerCase();
+
 export const LARGE_KEY_DAILY_LIMIT = 1000;
 
 export function reuseMs(part: PositionFilter, dayLimit = quota.dayLimit): number {
@@ -221,9 +223,9 @@ export function lastStoredDefi(db: DatabaseSync, address: string): Cached | null
     .prepare(
       `SELECT chain, protocol, symbol, type, quantity, price, value_usd AS value, read_at AS readAt
          FROM holdings
-        WHERE snapshot_id = ? AND account_id = ? AND protocol IS NOT NULL AND protocol <> ?`,
+        WHERE snapshot_id = ? AND account_id = ? AND protocol IS NOT NULL`,
     )
-    .all(last.snapshot_id, last.account_id, LIGHTER_PROTOCOL) as unknown as (Holding & { readAt: string | null })[];
+    .all(last.snapshot_id, last.account_id) as unknown as (Holding & { readAt: string | null })[];
   if (rows.length === 0) return null;
   const at = Math.min(...rows.map((r) => Date.parse(r.readAt ?? last.started_at)));
   return {
@@ -287,7 +289,7 @@ export async function collectZerion(
 
   const readAtOf = new Map<ZerionPosition, string | null>();
   for (const r of read) for (const p of r.positions) readAtOf.set(p, r.readAt);
-  const positions = withoutDepositReceipts(read.flatMap((r) => r.positions));
+  const positions = withoutDepositReceipts(read.flatMap((r) => r.positions)).filter((p) => !readSeparately(p));
 
   const holdings: Holding[] = [];
   const logos: LogoHint[] = [];
