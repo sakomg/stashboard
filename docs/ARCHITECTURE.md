@@ -334,12 +334,18 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
 - **Fear & Greed** is coloured by its band, following alternative.me's: under 25 extreme fear (teal), under 45
   fear, under 56 neutral, under 76 greed (amber), above extreme greed (orange), so it reads like the heat scale.
 - **Where an asset is held** lists places worth at least half a cent; the rest are counted in one line.
-- **Views** switch with `history.replaceState`: the hash keeps the view across a reload, but switching adds no
-  history entry, so the back button or a back swipe on a trackpad or phone leaves the page instead of cycling
-  through views. The page also sets `overscroll-behavior-x: none`, so a sideways scroll does not start a back
-  swipe by accident. No element id equals a view name, so a hash never scrolls to an anchor, and a hash that is not a view name leaves the view as it is. Switching from deep
-  in a view scrolls to where the tab bar sits in the page, computed rather than with `scrollIntoView`, which
-  treats a stuck sticky element differently from one browser to another.
+- **Views** are held by the page, and the URL hash only mirrors the open one with `history.replaceState`: it
+  keeps the view across a reload, but switching adds no history entry, so the back button or a back swipe on a
+  trackpad or phone leaves the page instead of cycling through views. The hash is read once, when the page
+  opens. After that only a tab, the arrow keys or a link to a view (_How heat is scored_) switch the view, and
+  such a link is handled by script, since following it would add a history entry. A browser tab may still hold
+  entries with a view in the hash, pushed by a version that added one per switch or by an address typed by
+  hand. Going back or forward through them used to flip the views in the order they were once open, so now the
+  hash is put back to the open view and the view stays. The page also sets `overscroll-behavior-x: none`, so a
+  sideways scroll does not start a back swipe by accident. No element id equals a view name, so a hash never
+  scrolls to an anchor. Switching from deep in a view scrolls to where the tab bar sits in the page, computed
+  rather than with `scrollIntoView`, which treats a stuck sticky element differently from one browser to
+  another.
 - **Text** joins clauses with full stops, not semicolons, and lists reasons as separate tags.
 
 - **Header.** The header holds only Settings. Adding a wallet or an exchange starts from the dashed chip at the

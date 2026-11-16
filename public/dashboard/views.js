@@ -35,9 +35,13 @@ export function renderCounts() {
   set('accounts', troubled ? `${troubled} !` : String(data.sources.length), troubled ? 'warn' : '');
 }
 
+const mirrorView = () => {
+  if (location.hash !== `#${state.view}`) history.replaceState(null, '', `#${state.view}`);
+};
+
 export function switchView(view, focus = false) {
-  if (location.hash !== `#${view}`) history.replaceState(null, '', `#${view}`);
   showView(view, focus);
+  mirrorView();
   const top = $('content').getBoundingClientRect().top + window.scrollY;
   if (window.scrollY > top) window.scrollTo({ top, behavior: 'instant' });
 }
@@ -53,10 +57,17 @@ for (const tab of tabs()) {
     switchView(next.dataset.view, true);
   });
 }
-window.addEventListener('hashchange', () => {
-  const id = location.hash.slice(1);
-  if (VIEWS.includes(id) && id !== state.view) showView(id);
-});
+document.addEventListener(
+  'click',
+  (e) => {
+    const view = e.target.closest?.('a[href^="#"]')?.getAttribute('href').slice(1);
+    if (!VIEWS.includes(view)) return;
+    e.preventDefault();
+    switchView(view);
+  },
+  true,
+);
+window.addEventListener('hashchange', mirrorView);
 showView(location.hash.slice(1));
 
 new IntersectionObserver(([entry]) => $('views').classList.toggle('stuck', !entry.isIntersecting), {
