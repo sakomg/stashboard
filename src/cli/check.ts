@@ -1,8 +1,14 @@
 import { loadConfig, type Config } from '../lib/config.ts';
 import { listAccounts, listWallets, openDb, type Wallet } from '../storage/index.ts';
-import { checkBinanceKey, exchangeKeys, type ExchangeKeys } from '../services/exchanges.ts';
+import {
+  CLIENTS,
+  EXCHANGE_KINDS,
+  EXCHANGES,
+  exchangeKeys,
+  type ExchangeKeys,
+  type ExchangeKind,
+} from '../services/exchanges.ts';
 import { getJson } from '../lib/http.ts';
-import { binanceSigned } from '../sources/binance.ts';
 import { fetchChains, zerionQuota } from '../sources/zerion.ts';
 
 type Status = 'ok' | 'warn' | 'fail' | 'skip';
@@ -26,27 +32,24 @@ async function step(source: string, fn: () => Promise<void>): Promise<void> {
   }
 }
 
-async function checkBinance(cfg: Config['binance'], stored: { label: string; keys: ExchangeKeys }[]): Promise<void> {
-  await step('Binance pub', async () => {
-    await getJson('https://api.binance.com/api/v3/ping');
-    await getJson('https://fapi.binance.com/fapi/v1/ping');
-    report('ok', 'Binance pub', 'spot and futures APIs are reachable from this IP');
-  });
-
-  const accounts =
-    stored.length > 0 ? stored : cfg.apiKey && cfg.apiSecret ? [{ label: 'config.json', keys: cfg }] : [];
-  if (accounts.length === 0) return report('skip', 'Binance', 'no exchange added');
+async function checkExchange(kind: ExchangeKind, accounts: { label: string; keys: ExchangeKeys }[]): Promise<void> {
+  const name = EXCHANGES[kind];
+  const client = CLIENTS[kind];
+  if (kind === 'binance' || accounts.length > 0) {
+    await step(`${name} pub`, async () => report('ok', `${name} pub`, await client.ping()));
+  }
+  if (accounts.length === 0) return report('skip', name, 'no exchange added');
 
   for (const { label, keys } of accounts) {
-    await step('Binance', async () => {
-      const { extra, ipRestricted } = await checkBinanceKey(keys);
-      if (extra.length > 0) report('fail', 'Binance', `${label}: key can do more than read: ${extra.join(', ')}`);
-      else if (!ipRestricted) report('warn', 'Binance', `${label}: key is read-only but not restricted to trusted IPs`);
-      else report('ok', 'Binance', `${label}: key is read-only and IP-restricted`);
+    await step(name, async () => {
+      const { extra, ipRestricted } = await client.check(keys);
+      if (extra.length > 0) report('fail', name, `${label}: key can do more than read: ${extra.join(', ')}`);
+      else if (!ipRestricted) report('warn', name, `${label}: key is read-only but not restricted to trusted IPs`);
+      else report('ok', name, `${label}: key is read-only and IP-restricted`);
 
-      const acc = await binanceSigned<{ balances: { free: string; locked: string }[] }>(keys, '/api/v3/account');
-      const nonZero = acc.balances.filter((b) => Number(b.free) + Number(b.locked) > 0).length;
-      report('ok', 'Binance', `${label}: spot account is readable, non-zero assets: ${nonZero}`);
+      const { holdings, warnings } = await client.collect(keys);
+      const notes = warnings.length > 0 ? `, ${warnings.length} notes, see npm run collect` : '';
+      report('ok', name, `${label}: balances are readable, ${holdings.length} read${notes}`);
     });
   }
 }
@@ -117,13 +120,17 @@ try {
 }
 
 const db = openDb();
-const exchanges = listAccounts(db)
-  .filter((a) => a.kind === 'binance')
-  .flatMap((a) => {
-    const keys = exchangeKeys(db, a.id);
-    return keys ? [{ label: a.label, keys }] : [];
-  });
-await checkBinance(config.binance, exchanges);
+for (const kind of EXCHANGE_KINDS) {
+  const stored = listAccounts(db)
+    .filter((a) => a.kind === kind)
+    .flatMap((a) => {
+      const keys = exchangeKeys(db, a.id);
+      return keys ? [{ label: a.label, keys }] : [];
+    });
+  const seed = config.binance;
+  const fromConfig = kind === 'binance' && stored.length === 0 && seed.apiKey && seed.apiSecret;
+  await checkExchange(kind, fromConfig ? [{ label: 'config.json', keys: seed }] : stored);
+}
 await checkZerion(config.zerion, [...listWallets(db, 'evm'), ...listWallets(db, 'solana')]);
 await checkTon(config.tonapi, listWallets(db, 'ton'));
 await checkCoingecko(config.coingecko);

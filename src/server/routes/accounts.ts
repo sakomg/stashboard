@@ -1,11 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 import { setManualCategory, loadLearned } from '../../services/categories.ts';
-import { addExchange, checkBinanceKey, EXCHANGES, type ExchangeKind } from '../../services/exchanges.ts';
+import { addExchange, CLIENTS, isExchange, type ExchangeKeys } from '../../services/exchanges.ts';
 import { addWallet, backupNow, removeAccount, renameAccount, resetHistory } from '../../storage/index.ts';
 import type { Collection } from '../collection.ts';
 import type { Context } from '../context.ts';
 
-const API_KEY = /^[A-Za-z0-9]{16,128}$/;
+const API_KEY = /^[A-Za-z0-9-]{16,128}$/;
+const PASSPHRASE = /^[\x20-\x7e]{1,64}$/;
 
 export function registerAccountRoutes(app: FastifyInstance, ctx: Context, collection: Collection): void {
   app.post<{ Body: { address?: unknown; label?: unknown } }>('/api/wallets', async (request, reply) => {
@@ -21,47 +22,51 @@ export function registerAccountRoutes(app: FastifyInstance, ctx: Context, collec
     }
   });
 
-  app.post<{ Body: { exchange?: unknown; apiKey?: unknown; apiSecret?: unknown; label?: unknown } }>(
-    '/api/exchanges',
-    async (request, reply) => {
-      const { exchange, apiKey, apiSecret, label } = request.body ?? {};
-      if (typeof exchange !== 'string' || !(exchange in EXCHANGES)) {
-        return reply.code(400).send({ error: 'Choose an exchange' });
+  app.post<{
+    Body: { exchange?: unknown; apiKey?: unknown; apiSecret?: unknown; passphrase?: unknown; label?: unknown };
+  }>('/api/exchanges', async (request, reply) => {
+    const { exchange, apiKey, apiSecret, passphrase, label } = request.body ?? {};
+    if (typeof exchange !== 'string' || !isExchange(exchange)) {
+      return reply.code(400).send({ error: 'Choose an exchange' });
+    }
+    const client = CLIENTS[exchange];
+    const key = typeof apiKey === 'string' ? apiKey.trim() : '';
+    const secret = typeof apiSecret === 'string' ? apiSecret.trim() : '';
+    if (!API_KEY.test(key) || !API_KEY.test(secret)) {
+      return reply.code(400).send({ error: 'Paste the API key and the secret key exactly as the exchange shows them' });
+    }
+    const keys: ExchangeKeys = { apiKey: key, apiSecret: secret };
+    if (client.passphrase) {
+      if (typeof passphrase !== 'string' || !PASSPHRASE.test(passphrase)) {
+        return reply.code(400).send({ error: 'Enter the passphrase you set when you created the key' });
       }
-      const key = typeof apiKey === 'string' ? apiKey.trim() : '';
-      const secret = typeof apiSecret === 'string' ? apiSecret.trim() : '';
-      if (!API_KEY.test(key) || !API_KEY.test(secret)) {
-        return reply
-          .code(400)
-          .send({ error: 'Paste the API key and the secret key exactly as the exchange shows them' });
+      keys.passphrase = passphrase;
+    }
+    try {
+      const { extra, ipRestricted, host } = await client.check(keys);
+      if (extra.length > 0) {
+        return reply.code(400).send({
+          error: `This key can do more than read: ${extra.join(', ')}. ${client.readOnly}`,
+        });
       }
-      const keys = { apiKey: key, apiSecret: secret };
-      try {
-        const { extra, ipRestricted } = await checkBinanceKey(keys);
-        if (extra.length > 0) {
-          return reply.code(400).send({
-            error: `This key can do more than read: ${extra.join(', ')}. Create a key with only Enable Reading ticked.`,
-          });
-        }
-        const account = addExchange(
-          ctx.db,
-          exchange as ExchangeKind,
-          keys,
-          typeof label === 'string' ? label.slice(0, 40) : undefined,
-        );
-        collection.collectAfterCurrent();
-        return {
-          id: account.id,
-          label: account.label,
-          warning: ipRestricted
-            ? null
-            : "The key is not restricted to trusted IP addresses. Restricting it to this server's address is safer.",
-        };
-      } catch (err) {
-        return reply.code(400).send({ error: err instanceof Error ? err.message : String(err) });
-      }
-    },
-  );
+      const account = addExchange(
+        ctx.db,
+        exchange,
+        host ? { ...keys, host } : keys,
+        typeof label === 'string' ? label.slice(0, 40) : undefined,
+      );
+      collection.collectAfterCurrent();
+      return {
+        id: account.id,
+        label: account.label,
+        warning: ipRestricted
+          ? null
+          : "The key is not restricted to trusted IP addresses. Restricting it to this server's address is safer.",
+      };
+    } catch (err) {
+      return reply.code(400).send({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
 
   app.patch<{ Params: { id: string }; Body: { label?: unknown } }>('/api/accounts/:id', async (request, reply) => {
     const label = typeof request.body?.label === 'string' ? request.body.label.trim().slice(0, 40) : '';

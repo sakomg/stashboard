@@ -1,7 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import type { Asset } from '../domain/assets.ts';
 import { currentState, latestSignals, listSnapshots, snapshotAt, snapshotValues } from '../storage/index.ts';
-import { exchangeHints } from './exchanges.ts';
+import { exchangeHints, isExchange } from './exchanges.ts';
 import { STOCKS_CATEGORY } from '../domain/assets.ts';
 import { logoIndex, type Wanted } from './logos.ts';
 import { buildPortfolio } from '../domain/portfolio.ts';
@@ -51,7 +51,7 @@ export function portfolioView(db: DatabaseSync, resolve: (symbol: string) => Ass
         id: s.account.id,
         kind: s.account.kind,
         label: s.account.label,
-        address: s.account.kind === 'binance' ? `API key ${hints.get(s.account.id) ?? ''}` : short(s.account.address),
+        address: isExchange(s.account.kind) ? `API key ${hints.get(s.account.id) ?? ''}` : short(s.account.address),
         status: s.lastStatus,
         stale: s.stale,
         error: s.lastError,
@@ -137,7 +137,7 @@ export function historyView(
   return thinned;
 }
 
-export const NATIVE_TOKENS = ['BNB', 'ETH', 'SOL', 'TON'];
+export const NATIVE_TOKENS = ['BNB', 'OKB', 'ETH', 'SOL', 'TON'];
 
 export function wantedLogos(db: DatabaseSync, resolve: (symbol: string) => Asset): Wanted[] {
   const tokens = new Map<string, { category: string; symbols: Set<string> }>();
@@ -151,7 +151,7 @@ export function wantedLogos(db: DatabaseSync, resolve: (symbol: string) => Asset
       let entry = tokens.get(asset.key);
       if (!entry) tokens.set(asset.key, (entry = { category: asset.category, symbols: new Set() }));
       if (h.symbol !== asset.key) entry.symbols.add(h.symbol);
-      if (account.kind !== 'binance') {
+      if (!isExchange(account.kind)) {
         chains.add(h.chain);
         if (h.protocol) protocols.add(h.protocol);
       }

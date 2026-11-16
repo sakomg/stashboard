@@ -9,9 +9,11 @@ it live here, next to the user-facing [README](../README.md).
 src/
   main.ts          entry point: builds the server, starts the schedule and backups, listens
   lib/             config loading and JSON over HTTP with safe error text
-  domain/          pure logic, no I/O: addresses, asset rules, portfolio maths, heat score, indicators, types
+  domain/          pure logic, no I/O: addresses, exchange balances and prices, asset rules, portfolio maths,
+                   heat score, indicators, types
   storage/         SQLite: schema and migrations, one module per concern, and the vault for secrets
-  sources/         one client per external API: Binance, Zerion, Lighter, TonAPI, market data, Fear & Greed
+  sources/         one client per external API: Binance, Bybit, OKX, Zerion, Lighter, TonAPI, market data,
+                   Fear & Greed
   services/        processes that combine them: collection, signals, categories, logos, exchanges, shares, views
   auth/            password hashing, TOTP, attempt limiting, the setup QR code
   server/          HTTP: context, access control, static files, the collection schedule, routes by area
@@ -94,32 +96,86 @@ changes compare with the snapshot at or before that time and stay empty until hi
 
 ## Sources
 
+### Exchanges
+
+Binance, Bybit and OKX are added on the page (Add wallet or exchange, Exchange) with an API key and its secret,
+and for OKX the passphrase chosen with the key. Each has a client in `sources` with the same shape: check a key,
+read the balances, ping the public API. `services/exchanges.ts` maps each kind to its client, with whether it
+needs a passphrase and the words for a read-only key on that exchange. `domain/exchange.ts` holds what they
+share: the list of exchanges, pricing a balance from spot tickers, and turning balances into holdings.
+
+Before anything is saved, the key's permissions are read from the exchange: a key that can trade, transfer or
+withdraw is refused with the permissions named, a key not restricted to trusted IP addresses is accepted with a
+warning. Several accounts on one exchange can be added; the same key twice cannot. Removing an exchange removes
+its history and its stored key. The page only ever sees the last four characters of a key. The key, the secret,
+the passphrase and the API host the key belongs to are sealed together.
+
+Every wallet of an exchange is read separately, and a wallet the account never opened, or the key may not read,
+answers with an error that must not hide the wallets that work: it becomes a warning. The main trading wallet
+is the exception, since without it the account says nothing useful, and its failure fails the account. A
+balance is priced from the exchange's own spot tickers, through USDT or the nearest liquid quote; where there
+is no market, the USD value the exchange reports for that balance is used. A negative balance is a loan. Each
+exchange's own valuation of the whole account is kept as a cross-check, and `npm run collect` prints it next to
+the collected sum.
+
 ### Binance
 
-An exchange is added on the page (Add wallet or exchange, Exchange) with an API key and its secret. Before anything is
-saved, the key's permissions are read from Binance (`/sapi/v1/account/apiRestrictions`): a key that can trade,
-transfer or withdraw is refused with the permissions named, a key not restricted to trusted IP addresses is
-accepted with a warning. Several Binance accounts can be added; the same key twice cannot. Removing an exchange
-removes its history and its stored key. The page only ever sees the last four characters of a key.
+The key's permissions come from `/sapi/v1/account/apiRestrictions`.
 
 `binance` in `config.json` still works as a seed: on start, a key found there is imported once, onto the
 existing Binance account if there is one, so its history stays. The import is remembered by a fingerprint of
 the key, so an exchange removed on the page does not come back from the file; a different key in the file is
 imported as a new account.
 
-The key must be read-only; the deploy check fails if it can trade or withdraw. Every wallet is read separately, and
-a wallet the account never opened answers with an error that must not hide the wallets that work. Public
-endpoints in the check also reveal whether Binance blocks the server's region.
+The key must be read-only; the deploy check fails if it can trade or withdraw. Public endpoints in the check also
+reveal whether Binance blocks the server's region. The check pings Binance even without a key, since the heat
+signals read its public market data.
 
-Prices come from the spot tickers, through USDT or the nearest liquid quote. Fiat and some stablecoins are
-quoted the other way round (USDTTRY) and are inverted.
+Fiat and some stablecoins are quoted the other way round (USDTTRY) and are inverted.
 
 A flexible Earn position also appears in Spot as a receipt token, `LD` plus the asset (`LDUSDT`). The prefix
 alone proves nothing, since LDO is a real token, so a balance counts as a receipt only when Earn lists that
 asset, or, if Earn could not be read, when the token has no market of its own.
 
-Futures are counted at margin balance: wallet balance plus unrealised PnL, per collateral asset. Binance's own
-valuation of every wallet is kept as a cross-check, and `npm run collect` prints it next to the collected sum.
+Futures are counted at margin balance: wallet balance plus unrealised PnL, per collateral asset. The cross-check
+is `/sapi/v1/asset/wallet/balance` in USDT.
+
+### Bybit
+
+Bybit runs separate sites for some countries (Turkey, Kazakhstan, Georgia, UAE, Indonesia), each with its own
+API host, and a key works only on the host of the site that issued it. Any other host answers `retCode` 10003,
+API key is invalid, with HTTP 200, as Bybit reports most errors. So a new key is checked on all of them at once
+(`/v5/user/query-api`), and the host that knows it is kept with the key. If none does, a reason one of them gave
+(wrong secret 10004, IP not allowed 10010, clock off 10002) is shown, and otherwise that the key was refused.
+Bybit EU's API is open only to broker apps and is not tried.
+
+A key is read-only when `readOnly` is 1. Its `permissions` list what it may read even then, so they are named
+only for a read-write key. A key bound to no IP address (`ips` empty or `*`) expires after three months.
+
+The Unified Trading Account (`/v5/account/wallet-balance`, `UNIFIED`) holds spot and derivatives together. Each
+coin is counted at its equity: wallet balance minus spot borrowing plus unrealised PnL, so a borrowed coin goes
+negative. Funding (`/v5/asset/transfer/query-account-coins-balance`, `FUND`) and Earn (`/v5/earn/position`,
+flexible savings and on-chain) are optional, since they need boxes ticked on the key. Classic
+accounts, which Bybit has moved to the Unified Trading Account, are not read. The cross-check is
+`/v5/asset/asset-overview`, which covers every account type including bots and copy trading, and which Bybit
+answers only on the global host.
+
+### OKX
+
+OKX signs with the key, the secret and a passphrase chosen when the key was made. EEA and US accounts use their
+own API domains (`eea.okx.com`, `us.okx.com`), and a key works only on its own. A domain that does not know a key answers HTTP 401, code 50119, API key doesn't exist. As with Bybit, a new key is checked on all three at once
+(`/api/v5/account/config`), the domain that knows it is kept, and a known reason is shown when none does: wrong
+passphrase 50105, wrong secret 50113, IP not allowed 50110, clock off 50102.
+
+`perm` lists `read_only`, `trade` and `withdraw`, and anything past `read_only` refuses the key. `ip` is empty when
+the key is bound to no address.
+
+The trading account (`/api/v5/account/balance`) gives each currency's equity, negative when borrowed. Funding
+(`/api/v5/asset/balances`), Simple Earn (`/api/v5/finance/savings/balance`) and on-chain Earn
+(`/api/v5/finance/staking-defi/orders-active`, the invested amounts) are optional. ETH and SOL staking are not
+read separately: their receipts, BETH and OKSOL, sit in the trading and funding accounts already. The
+cross-check is `/api/v5/asset/asset-valuation` in USD. Spot instruments are named `BTC-USDT` and are looked up
+without the hyphen, like the other exchanges' tickers.
 
 ### Zerion
 
@@ -143,8 +199,8 @@ To stay inside it:
 - When Zerion refuses, the last answer is used and the account carries a warning saying how old it is. If
   nothing was kept yet, positions in protocols fall back to those stored by the last good collection, without
   Lighter, which is read separately. An old position is better than a missing one.
-- `npm run check`, which every deploy runs, checks every stored exchange key (or the one in `config.json` before it is
-  imported) and spends one request on the chain list instead of reading wallets,
+- `npm run check`, which every deploy runs, checks every stored exchange key (or the Binance one in `config.json`
+  before it is imported) and reads its balances, and spends one request on the chain list instead of reading wallets,
   and prints the allowance left. The chain list for logos and names is fetched once a week.
 
 Zerion reports only plain tokens and staking for Solana, so Solana wallets make one request.
@@ -239,8 +295,8 @@ arriving again is not taken for a new one. The page asks for each logo under a v
 image, because browsers keep logos for a week. Logos are served with a sandbox policy, so even an SVG opened
 directly cannot run anything.
 
-Accounts are drawn with the logo of their native coin: Binance with BNB, EVM with ETH, Solana with SOL, TON
-with TON. Interface icons come from Lucide; the server builds one sprite, `/icons.svg`, with only the icons
+Accounts are drawn with the logo of their native coin: Binance with BNB, OKX with OKB, EVM with ETH, Solana with
+SOL, TON with TON. Bybit has no coin of its own and is drawn with its initials. Interface icons come from Lucide; the server builds one sprite, `/icons.svg`, with only the icons
 the pages use.
 
 ## Sharing
@@ -412,20 +468,20 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
 One SQLite file, `DATA_DIR/stashboard.db`. Each migration in `src/storage/database.ts` upgrades the schema by one version,
 and `PRAGMA user_version` records how many have run.
 
-| Table               | Holds                                                                                                  |
-| ------------------- | ------------------------------------------------------------------------------------------------------ |
-| `accounts`          | Wallets and the exchange; the exchange is an account like any wallet                                   |
-| `snapshots`         | One row per collection run                                                                             |
-| `snapshot_accounts` | Each account's result in a run: ok with warnings and reported total, or error                          |
-| `holdings`          | Positions per account and run; `read_at` when it comes from an earlier answer                          |
-| `signals`           | Market readings and heat score per asset, with the Binance market used                                 |
-| `sessions`          | Hashes of session tokens and their expiry                                                              |
-| `settings`          | The owner account, hidden amounts, the imported config key, and when the Zerion chain list was fetched |
-| `logos`             | Where each logo comes from, its stored file, and when it was last tried                                |
-| `asset_categories`  | Categories chosen by hand or looked up, with the coin's tags                                           |
-| `exchange_keys`     | Per exchange account: the last four characters of its API key and the sealed key and secret            |
-| `shares`            | Shared links: token, when made, when they expire, and the frozen snapshot                              |
-| `zerion_cache`      | The last Zerion answer per wallet and kind of read                                                     |
+| Table               | Holds                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `accounts`          | Wallets and exchanges; an exchange is an account like any wallet                                               |
+| `snapshots`         | One row per collection run                                                                                     |
+| `snapshot_accounts` | Each account's result in a run: ok with warnings and reported total, or error                                  |
+| `holdings`          | Positions per account and run; `read_at` when it comes from an earlier answer                                  |
+| `signals`           | Market readings and heat score per asset, with the Binance market used                                         |
+| `sessions`          | Hashes of session tokens and their expiry                                                                      |
+| `settings`          | The owner account, hidden amounts, the imported config key, and when the Zerion chain list was fetched         |
+| `logos`             | Where each logo comes from, its stored file, and when it was last tried                                        |
+| `asset_categories`  | Categories chosen by hand or looked up, with the coin's tags                                                   |
+| `exchange_keys`     | Per exchange account: the last four characters of its API key, and the sealed key, secret, passphrase and host |
+| `shares`            | Shared links: token, when made, when they expire, and the frozen snapshot                                      |
+| `zerion_cache`      | The last Zerion answer per wallet and kind of read                                                             |
 
 Removing a wallet removes its history with it. Once a day, at start and then checked hourly, the database is
 copied with `VACUUM INTO`, which takes a consistent copy while it is in use; the newest 14 copies are kept.

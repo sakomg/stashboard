@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Bybit and OKX next to Binance: add a read-only API key on the page. Bybit reads Unified Trading, Funding and
+  Earn, OKX reads Trading, Funding and Earn and needs the key's passphrase. A key from a regional site (Bybit
+  Turkey, Kazakhstan, Georgia, UAE or Indonesia, OKX EEA or US) is recognised by itself.
+- `npm run check` checks every stored exchange key and reads its balances.
 - The source is organised in layers (`lib`, `domain`, `storage`, `sources`, `services`, `auth`, `server`, `cli`)
   with the dependency direction enforced by a test. The server is split into a context, access control, static
   files, the collection schedule and routes by area; the database module into one module per concern.

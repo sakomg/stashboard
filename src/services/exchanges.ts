@@ -1,29 +1,46 @@
 import { createHash } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { getSetting, setSetting, type Account } from '../storage/index.ts';
-import { HttpError } from '../lib/http.ts';
-import { binanceSigned } from '../sources/binance.ts';
+import { checkBinanceKey, collectBinance, pingBinance } from '../sources/binance.ts';
+import { checkBybitKey, collectBybit, pingBybit } from '../sources/bybit.ts';
+import { checkOkxKey, collectOkx, pingOkx } from '../sources/okx.ts';
 import { seal, unseal, vaultKey } from '../storage/vault.ts';
+import { EXCHANGES, type ExchangeKeys, type ExchangeKind, type KeyCheck } from '../domain/exchange.ts';
+import type { CollectResult } from '../domain/types.ts';
 
-export interface ExchangeKeys {
-  apiKey: string;
-  apiSecret: string;
+export { EXCHANGE_KINDS, EXCHANGES, isExchange } from '../domain/exchange.ts';
+export type { ExchangeKeys, ExchangeKind, KeyCheck } from '../domain/exchange.ts';
+
+export interface ExchangeClient {
+  check: (keys: ExchangeKeys) => Promise<KeyCheck>;
+  collect: (keys: ExchangeKeys) => Promise<CollectResult>;
+  ping: () => Promise<string>;
+  passphrase: boolean;
+  readOnly: string;
 }
 
-export const EXCHANGES = { binance: 'Binance' } as const;
-export type ExchangeKind = keyof typeof EXCHANGES;
-
-const PERMISSIONS: Record<string, string> = {
-  enableSpotAndMarginTrading: 'spot and margin trading',
-  enableMargin: 'margin',
-  enableFutures: 'futures trading',
-  enableWithdrawals: 'withdrawals',
-  enableInternalTransfer: 'internal transfers',
-  permitsUniversalTransfer: 'universal transfers',
-  enableVanillaOptions: 'options trading',
-  enableFixApiTrade: 'FIX API trading',
-  enableFixReadOnly: 'FIX API',
-  enablePortfolioMarginTrading: 'portfolio margin trading',
+export const CLIENTS: Record<ExchangeKind, ExchangeClient> = {
+  binance: {
+    check: checkBinanceKey,
+    collect: collectBinance,
+    ping: pingBinance,
+    passphrase: false,
+    readOnly: 'Create a key with only Enable Reading ticked.',
+  },
+  bybit: {
+    check: checkBybitKey,
+    collect: collectBybit,
+    ping: pingBybit,
+    passphrase: false,
+    readOnly: 'Create a system-generated key with Read-Only permissions.',
+  },
+  okx: {
+    check: checkOkxKey,
+    collect: collectOkx,
+    ping: pingOkx,
+    passphrase: true,
+    readOnly: 'Create a key with only the Read permission.',
+  },
 };
 
 export const fingerprint = (apiKey: string): string => createHash('sha256').update(apiKey).digest('hex').slice(0, 24);
@@ -88,22 +105,4 @@ export function importConfigExchange(db: DatabaseSync, keys: ExchangeKeys): Acco
   }
   setSetting(db, 'binance_config_imported', print);
   return account;
-}
-
-export async function checkBinanceKey(keys: ExchangeKeys): Promise<{ extra: string[]; ipRestricted: boolean }> {
-  let restrictions: Record<string, unknown>;
-  try {
-    restrictions = await binanceSigned<Record<string, unknown>>(keys, '/sapi/v1/account/apiRestrictions');
-  } catch (err) {
-    if (err instanceof HttpError && err.status >= 400 && err.status < 500) {
-      throw new Error(
-        "Binance refused the key. Check the API key and the secret, and that the key allows this server's IP address.",
-      );
-    }
-    throw err;
-  }
-  const extra = Object.entries(restrictions)
-    .filter(([name, on]) => on === true && name !== 'enableReading' && name !== 'ipRestrict')
-    .map(([name]) => PERMISSIONS[name] ?? name);
-  return { extra, ipRestricted: restrictions.ipRestrict === true };
 }

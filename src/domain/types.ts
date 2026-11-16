@@ -1,4 +1,6 @@
 import type { WalletKind } from './address.ts';
+import type { ExchangeKind } from './exchange.ts';
+
 export type HoldingType =
   'wallet' | 'earn' | 'staked' | 'deposit' | 'borrow' | 'lp' | 'futures' | 'margin' | 'locked' | 'reward';
 
@@ -29,7 +31,7 @@ export interface CollectResult {
   reportedTotal?: number;
 }
 
-export type AccountKind = WalletKind | 'binance';
+export type AccountKind = WalletKind | ExchangeKind;
 
 export interface Account {
   id: number;

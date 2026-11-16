@@ -4,7 +4,7 @@ import { openCategory } from './dialogs.js';
 import { change, dash, fixed, money, percent, price, units } from './format.js';
 import { heatBadge, reading } from './heat.js';
 import { HELP } from './help.js';
-import { TYPES, chainLogo, chainName, kindLogo, logo } from './logos.js';
+import { TYPES, chainLogo, chainName, isExchange, kindLogo, logo } from './logos.js';
 import { $, DUST_USD, firstRead, hasBalances, state } from './state.js';
 
 export const COLUMNS = [
@@ -206,7 +206,7 @@ export function placesRow(asset) {
                 h(
                   'td',
                   {},
-                  x.kind === 'binance'
+                  isExchange(x.kind)
                     ? x.protocol
                     : h(
                         'span',
