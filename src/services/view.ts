@@ -46,22 +46,24 @@ export function portfolioView(db: DatabaseSync, resolve: (symbol: string) => Ass
       change7d: a.price === null ? null : ratio(a.price, priceThen(d7, a.key)),
       signal: signals.get(a.key) ?? null,
     })),
-    sources: states.map((s) => ({
-      id: s.account.id,
-      kind: s.account.kind,
-      label: s.account.label,
-      address: s.account.kind === 'binance' ? `API key ${hints.get(s.account.id) ?? ''}` : short(s.account.address),
-      status: s.lastStatus,
-      stale: s.stale,
-      error: s.lastError,
-      collectedAt: s.collectedAt,
-      warnings: s.warnings,
-      value: s.holdings.reduce((sum, h) => sum + h.value, 0),
-      oldestRead: s.holdings.reduce<string | null>(
-        (min, h) => (h.readAt && (!min || h.readAt < min) ? h.readAt : min),
-        s.collectedAt,
-      ),
-    })),
+    sources: states
+      .map((s) => ({
+        id: s.account.id,
+        kind: s.account.kind,
+        label: s.account.label,
+        address: s.account.kind === 'binance' ? `API key ${hints.get(s.account.id) ?? ''}` : short(s.account.address),
+        status: s.lastStatus,
+        stale: s.stale,
+        error: s.lastError,
+        collectedAt: s.collectedAt,
+        warnings: s.warnings,
+        value: s.holdings.reduce((sum, h) => sum + h.value, 0),
+        oldestRead: s.holdings.reduce<string | null>(
+          (min, h) => (h.readAt && (!min || h.readAt < min) ? h.readAt : min),
+          s.collectedAt,
+        ),
+      }))
+      .sort((a, b) => b.value - a.value),
     holdings: states.flatMap((s) =>
       s.holdings.map((h) => {
         const asset = resolve(h.symbol);

@@ -349,6 +349,13 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
 - **Header.** The header holds only Settings. Adding a wallet or an exchange starts from the dashed chip at the
   end of the account chips (and from the Accounts view), next to what it adds to, so it is not mistaken for
   adding a user.
+- **Account chips.** `/api/portfolio` lists accounts largest first, so the chips and the Accounts view share one
+  order. The summary shows the ten largest and folds the rest into an "N more" chip that switches to the
+  Accounts view and scrolls to it, so a long list of small wallets does not push the views down. An account
+  that is not read yet or out of date keeps its chip whatever its size, since it needs a look, and a new
+  account, worth nothing until read, would otherwise vanish the moment it is added. On a phone the chips are
+  tiles in two equal columns with the amount at the right edge, so ten accounts take five even rows instead of
+  ragged lines, and _Add wallet or exchange_ spans both columns.
 - **Settings panel.** The Settings button in the header opens a panel from the right with the privacy switch,
   the shared links (copy, open, turn off), the update schedule and whether an update is possible now, the
   Zerion allowance, starting history over, and the session with sign-out.
