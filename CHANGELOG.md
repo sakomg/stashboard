@@ -4,6 +4,7 @@
 
 - Aster is read for every EVM wallet without a key, like Lighter: futures collateral with unrealised PnL,
   spot balances and staked ASTER, priced from Aster's own tickers. It needs the account's privacy mode off.
+  A wallet that never opened an Aster account is not a failure.
 - Until history reaches 7 or 30 days back, those changes are estimated from prices: today's holdings at the
   prices of that many days ago, marked with `≈` and a note on what they cover.
 - Positions no longer has RSI and Funding columns. Both stay in Signals.

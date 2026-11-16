@@ -99,6 +99,9 @@ const needsPrices = (balance: AsterBalance): boolean =>
       (a) => a.asset !== BASE_QUOTE && amount(a.walletBalance) !== 0,
     ));
 
+export const isMissingAccount = (error: { message?: string }): boolean =>
+  /account does not exist/i.test(error.message ?? '');
+
 export async function collectAster(address: string): Promise<CollectResult> {
   const answer = await sendJson<{ result?: AsterBalance; error?: { message?: string } }>(RPC, {
     jsonrpc: '2.0',
@@ -106,6 +109,7 @@ export async function collectAster(address: string): Promise<CollectResult> {
     method: 'aster_getBalance',
     params: [address, 'latest'],
   });
+  if (answer.error && isMissingAccount(answer.error)) return { holdings: [], warnings: [] };
   if (answer.error) throw new Error(`Aster: ${answer.error.message ?? 'the balance could not be read'}`);
   const balance = answer.result ?? {};
   const markets = needsPrices(balance)

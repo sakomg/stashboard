@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { asterHoldings, asterPrices } from '../../src/sources/aster.ts';
+import { asterHoldings, asterPrices, isMissingAccount } from '../../src/sources/aster.ts';
 
 const prices = new Map([
   ['USDT', 1],
@@ -76,4 +76,10 @@ test('prices come from spot first, through USDT or USD1, and futures only fill t
   assert.equal(found.get('ASTER'), 0.56);
   assert.ok(Math.abs(found.get('RTX')! - 0.07 * 0.999) < 1e-12);
   assert.equal(found.get('AI'), 0.02);
+});
+
+test('an address that never opened an account on Aster is no account, not a failure', () => {
+  assert.ok(isMissingAccount({ message: 'The account does not exist, please open a futures account.' }));
+  assert.equal(isMissingAccount({ message: 'Internal error' }), false);
+  assert.equal(isMissingAccount({}), false);
 });
