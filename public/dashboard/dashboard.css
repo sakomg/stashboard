@@ -37,10 +37,18 @@ main > .summary {
 
 .worth-meta {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 4px;
   font-size: 13px;
   color: var(--slate);
+}
+
+.worth-meta .icon-button {
+  margin-left: -8px;
+}
+
+#updated {
+  padding-block: calc((32px - 1lh) / 2);
 }
 
 .sources {
