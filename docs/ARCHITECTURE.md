@@ -58,7 +58,9 @@ half-finished run. An account removed while the run read it, alone or with the p
 out.
 
 An EVM address is read twice: by Zerion for chains and protocols, and by Lighter for what sits on its
-exchange, which wallet indexers cannot see.
+exchange. Zerion lists the deposit into Lighter on Ethereum too, as protocol `lighter`; that position is
+dropped, since Lighter's own answer includes unrealised PnL and the Robinhood Chain exchange, which Zerion does
+not see. History read before this was noticed is cleaned the same way by a migration.
 
 While a run is going, the collector reports each account as waiting, being read, waiting on a source, done
 or failed. The server keeps that state and serves it at `/api/progress`, to each person only for their own

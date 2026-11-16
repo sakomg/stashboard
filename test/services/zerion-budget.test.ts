@@ -26,7 +26,13 @@ function position(symbol: string, type: string, value: number, protocol: string 
   };
 }
 
-function fakeZerion({ simple = 200, complex = 200, remaining = 200, limit = 300 } = {}) {
+function fakeZerion({
+  simple = 200,
+  complex = 200,
+  remaining = 200,
+  limit = 300,
+  defi = [position('WETH', 'deposit', 2000, 'Aave V3')],
+} = {}) {
   globalThis.fetch = (async (url: string | URL) => {
     const filter = new URL(url).searchParams.get('filter[positions]') ?? 'chains';
     calls.push(filter);
@@ -37,8 +43,7 @@ function fakeZerion({ simple = 200, complex = 200, remaining = 200, limit = 300 
       'ratelimit-org-day-remaining': String(remaining),
       'ratelimit-org-day-reset': '3600',
     };
-    const data =
-      filter === 'only_complex' ? [position('WETH', 'deposit', 2000, 'Aave V3')] : [position('ETH', 'wallet', 1000)];
+    const data = filter === 'only_complex' ? defi : [position('ETH', 'wallet', 1000)];
     const body = status === 200 ? { data } : { errors: [{ title: 'Too many requests' }] };
     return new Response(JSON.stringify(body), { status, headers });
   }) as typeof fetch;
@@ -129,6 +134,20 @@ test('with nothing kept yet, a refused DeFi read falls back to the positions sto
       ['USDC', 'borrow', -500],
     ],
     'DeFi comes back from the store, Lighter (read separately) does not',
+  );
+});
+
+test('Lighter as Zerion reports it is left out, since Lighter is read from its own API', async () => {
+  const db = freshDb();
+  fakeZerion({ defi: [position('WETH', 'deposit', 2000, 'Aave V3'), position('USDC', 'deposit', 450, 'lighter')] });
+  const result = await collectZerion(db, 'key', ADDRESS, 'evm');
+  assert.deepEqual(
+    result.holdings.map((h) => h.protocol),
+    [null, 'Aave V3'],
+  );
+  assert.equal(
+    result.logos?.some((l) => l.kind === 'protocol' && l.key === 'lighter'),
+    false,
   );
 });
 
