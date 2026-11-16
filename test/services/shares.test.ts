@@ -25,6 +25,8 @@ const body = (extra: Record<string, unknown> = {}) => ({
   days: 7,
   rows: [row('ETH', 0.6), row('BTC', 0.4)],
   total: 1000,
+  netWorth: 800,
+  borrowed: 200,
   ...extra,
 });
 
@@ -32,6 +34,8 @@ test('a share without amounts keeps shares and drops every value, whatever the p
   const parsed = parseSharePayload(body());
   assert.ok('payload' in parsed);
   assert.equal(parsed.payload.total, null);
+  assert.equal(parsed.payload.netWorth, null);
+  assert.equal(parsed.payload.borrowed, null);
   assert.deepEqual(
     parsed.payload.rows.map((r) => [r.name, r.share, r.value]),
     [
@@ -45,7 +49,16 @@ test('a share with amounts keeps them', () => {
   const parsed = parseSharePayload(body({ showAmounts: true }));
   assert.ok('payload' in parsed);
   assert.equal(parsed.payload.total, 1000);
+  assert.equal(parsed.payload.netWorth, 800);
+  assert.equal(parsed.payload.borrowed, 200);
   assert.equal(parsed.payload.rows[0]?.value, 100);
+});
+
+test('a net worth may be negative, a borrowed amount may not', () => {
+  const parsed = parseSharePayload(body({ showAmounts: true, netWorth: -50, borrowed: -200 }));
+  assert.ok('payload' in parsed);
+  assert.equal(parsed.payload.netWorth, -50);
+  assert.equal(parsed.payload.borrowed, null);
 });
 
 test('malformed shares are refused', () => {

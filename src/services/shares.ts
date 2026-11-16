@@ -14,6 +14,8 @@ export interface SharePayload {
   title: string;
   rows: ShareRow[];
   total: number | null;
+  netWorth: number | null;
+  borrowed: number | null;
   createdAt: string;
 }
 
@@ -63,8 +65,16 @@ export function parseSharePayload(
       logo: kind && key ? { kind, key } : null,
     });
   }
+  const borrowed = amount(input.borrowed);
   return {
-    payload: { title, rows, total: withAmounts ? amount(input.total) : null, createdAt: now.toISOString() },
+    payload: {
+      title,
+      rows,
+      total: withAmounts ? amount(input.total) : null,
+      netWorth: withAmounts ? amount(input.netWorth) : null,
+      borrowed: withAmounts && borrowed !== null && borrowed >= 0 ? borrowed : null,
+      createdAt: now.toISOString(),
+    },
     days,
   };
 }
