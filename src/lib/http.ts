@@ -20,6 +20,7 @@ async function request<T>(
   url: string | URL,
   headers: Record<string, string>,
   timeoutMs: number,
+  body?: string,
 ): Promise<{ data: T; headers: Headers }> {
   const host = new URL(url).host;
   let res: Response | undefined;
@@ -28,6 +29,7 @@ async function request<T>(
       res = await fetch(url, {
         method,
         headers: { accept: 'application/json', ...headers },
+        body,
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (err) {
@@ -70,4 +72,19 @@ export function postJson<T = unknown>(
   timeoutMs = 20_000,
 ): Promise<T> {
   return request<T>('POST', url, headers, timeoutMs).then((r) => r.data);
+}
+
+export function sendJson<T = unknown>(
+  url: string | URL,
+  body: unknown,
+  headers: Record<string, string> = {},
+  timeoutMs = 20_000,
+): Promise<T> {
+  return request<T>(
+    'POST',
+    url,
+    { 'content-type': 'application/json', ...headers },
+    timeoutMs,
+    JSON.stringify(body),
+  ).then((r) => r.data);
 }

@@ -11,6 +11,7 @@ import {
 } from '../storage/index.ts';
 import { CLIENTS, exchangeKeys, isExchange } from './exchanges.ts';
 import { noteLogos } from './logos.ts';
+import { collectAster } from '../sources/aster.ts';
 import { collectLighter } from '../sources/lighter.ts';
 import { collectTon } from '../sources/ton.ts';
 import { collectZerion } from '../sources/zerion.ts';
@@ -50,11 +51,11 @@ async function collectEvm(
   onWait: (note: string) => void,
 ): Promise<CollectResult> {
   const indexed = await collectZerion(db, apiKey, address, 'evm', { onWait });
-  const lighter = await collectLighter(address);
+  const venues = [await collectLighter(address), await collectAster(address)];
   return {
-    holdings: [...indexed.holdings, ...lighter.holdings],
-    warnings: [...indexed.warnings, ...lighter.warnings],
-    logos: [...(indexed.logos ?? []), ...(lighter.logos ?? [])],
+    holdings: [...indexed.holdings, ...venues.flatMap((v) => v.holdings)],
+    warnings: [...indexed.warnings, ...venues.flatMap((v) => v.warnings)],
+    logos: [...(indexed.logos ?? []), ...venues.flatMap((v) => v.logos ?? [])],
   };
 }
 

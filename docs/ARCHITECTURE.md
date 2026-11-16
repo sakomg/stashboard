@@ -58,8 +58,8 @@ source (see Zerion below) take this run's price for the same symbol, or for the 
 half-finished run. An account removed while the run read it, alone or with the person who held it, is left
 out.
 
-An EVM address is read twice: by Zerion for chains and protocols, and by Lighter for what sits on its
-exchange. Zerion lists the deposit into Lighter on Ethereum too, as protocol `lighter`; that position is
+An EVM address is read three times: by Zerion for chains and protocols, and by Lighter and Aster for what
+sits on their exchanges. Zerion lists the deposit into Lighter on Ethereum too, as protocol `lighter`; that position is
 dropped, since Lighter's own answer includes unrealised PnL and the Robinhood Chain exchange, which Zerion does
 not see. History read before this was noticed is cleaned the same way by a migration.
 
@@ -234,6 +234,23 @@ not a failure.
 Each account becomes one holding worth its equity (collateral plus unrealised PnL), in the stablecoin that
 backs it and of type futures, the same way Binance futures wallets are counted. Open positions are not
 shown separately and are not exposure in the portfolio: only the equity counts.
+
+### Aster
+
+Aster is a perpetuals and spot exchange on its own chain, opened with an EVM wallet. Its RPC
+(`aster_getBalance` at `tapi.asterdex.com/info`) answers for any address without a key, but only when the
+account's privacy mode is off (`accountPrivacy: "disabled"`). With privacy on, and for an address that never
+used Aster, it answers the same way, with no balances, so neither adds anything or warns: an unreadable
+account cannot be told from no account. Reading a private account would need an API wallet and EIP-712
+signatures, which Stashboard does not do.
+
+Futures collateral is kept per asset (USDT, ASTER and others) as holdings of type futures, with the unrealised
+PnL of open perpetuals added to USDT, so the account counts at its equity like Lighter. Spot balances are
+wallet holdings and staked ASTER is staked, all on chain `aster` under protocol `Aster`. Prices come from
+Aster's own public tickers, spot first and futures only for what spot does not list, through USDT or another
+dollar quote (`RTXUSD1` via `USD1USDT`), because a futures ticker can stand for a different asset than the
+spot token of the same name. An asset with no price is counted in a warning. Zerion has not been seen to list
+Aster deposits, so nothing of Zerion's is dropped for it.
 
 ### TonAPI
 
