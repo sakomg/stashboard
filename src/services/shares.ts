@@ -14,6 +14,8 @@ export interface SharePayload {
   title: string;
   rows: ShareRow[];
   total: number | null;
+  netWorth: number | null;
+  borrowed: number | null;
   createdAt: string;
 }
 
@@ -51,7 +53,7 @@ export function parseSharePayload(
     const name = text(raw?.name, 60);
     const share = amount(raw?.share);
     const color = typeof raw?.color === 'string' && /^#[0-9a-f]{6}$/i.test(raw.color) ? raw.color : null;
-    if (!name || share === null || share < 0 || share > 1 || !color) return { error: 'A share row is malformed' };
+    if (!name || share === null || !color) return { error: 'A share row is malformed' };
     const logoInput = raw.logo as Record<string, unknown> | null | undefined;
     const kind = LOGO_KINDS.find((k) => k === logoInput?.kind);
     const key = text(logoInput?.key, 60);
@@ -63,8 +65,16 @@ export function parseSharePayload(
       logo: kind && key ? { kind, key } : null,
     });
   }
+  const borrowed = amount(input.borrowed);
   return {
-    payload: { title, rows, total: withAmounts ? amount(input.total) : null, createdAt: now.toISOString() },
+    payload: {
+      title,
+      rows,
+      total: withAmounts ? amount(input.total) : null,
+      netWorth: withAmounts ? amount(input.netWorth) : null,
+      borrowed: withAmounts && borrowed !== null && borrowed >= 0 ? borrowed : null,
+      createdAt: now.toISOString(),
+    },
     days,
   };
 }

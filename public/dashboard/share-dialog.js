@@ -2,7 +2,7 @@ import { h, select } from '/common/ui.js';
 import { api } from './api.js';
 import { setError } from './dialogs.js';
 import { percent, usd } from './format.js';
-import { DIMENSIONS, groups, segmented } from './overview.js';
+import { DIMENSIONS, groups, segmented, totals } from './overview.js';
 import { shareUrl } from './settings.js';
 import { $, state } from './state.js';
 
@@ -16,6 +16,8 @@ export const shareTitle = (dimension) =>
   `Allocation by ${DIMENSIONS.find(([id]) => id === dimension)[1].toLowerCase()}`;
 export const shareFileName = () => `stashboard-${state.shareDimension}-${new Date().toISOString().slice(0, 10)}.png`;
 export const longDate = (date) => date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+export const hasDebt = (borrowed) => borrowed >= 0.005;
+export const breakdown = ({ held, borrowed }) => `Held ${usd(held)}, borrowed ${usd(borrowed)}`;
 
 export function loadImage(src) {
   return new Promise((resolve) => {
@@ -39,7 +41,7 @@ export function fitText(ctx, text, width) {
   return `${cut}…`;
 }
 
-export async function drawShareCard({ title, rows, withAmounts }) {
+export async function drawShareCard({ title, rows, sums, withAmounts }) {
   const ticket = ++shareTicket;
   const css = getComputedStyle(document.documentElement);
   const token = (name) => css.getPropertyValue(name).trim();
@@ -83,20 +85,26 @@ export async function drawShareCard({ title, rows, withAmounts }) {
   if (withAmounts) {
     ctx.font = `400 24px ${body}`;
     ctx.fillStyle = token('--slate');
-    ctx.fillText(`Total held ${usd(rows[0]?.total ?? 0)}`, pad, 210);
+    ctx.fillText(`Net worth ${usd(sums.netWorth)}`, pad, 210);
     top = 236;
+    if (hasDebt(sums.borrowed)) {
+      ctx.font = `400 20px ${body}`;
+      ctx.fillText(breakdown(sums), pad, 240);
+      top = 266;
+    }
   }
 
   const height = 64;
   const gap = 4;
-  const usable = inner - gap * (rows.length - 1);
+  const slices = rows.filter((r) => r.slice > 0);
+  const usable = inner - gap * (slices.length - 1);
   let before = 0;
-  rows.forEach((r, i) => {
+  slices.forEach((r, i) => {
     const x = pad + before * usable + i * gap;
-    const width = i === rows.length - 1 ? pad + inner - x : Math.max(3, r.share * usable);
-    before += r.share;
+    const width = i === slices.length - 1 ? pad + inner - x : Math.max(3, r.slice * usable);
+    before += r.slice;
     const left = i === 0 ? height / 2 : 6;
-    const right = i === rows.length - 1 ? height / 2 : 6;
+    const right = i === slices.length - 1 ? height / 2 : 6;
     ctx.fillStyle = r.color;
     ctx.beginPath();
     ctx.roundRect(x, top, width, height, [left, right, right, left]);
@@ -113,10 +121,17 @@ export async function drawShareCard({ title, rows, withAmounts }) {
     const y = legendTop + (i - column * perColumn) * 54;
     const end = x + columnWidth;
 
-    ctx.fillStyle = r.color;
     ctx.beginPath();
-    ctx.roundRect(x, y - 17, 16, 16, 4);
-    ctx.fill();
+    if (r.value < 0) {
+      ctx.strokeStyle = r.color;
+      ctx.lineWidth = 2;
+      ctx.roundRect(x + 1, y - 16, 14, 14, 3);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = r.color;
+      ctx.roundRect(x, y - 17, 16, 16, 4);
+      ctx.fill();
+    }
 
     let nameX = x + 32;
     if (r.logo) {
@@ -196,6 +211,7 @@ export function renderShare() {
   return drawShareCard({
     title: shareTitle(state.shareDimension),
     rows: groups(state.shareDimension),
+    sums: totals(),
     withAmounts: $('share-amounts').checked,
   });
 }
@@ -258,6 +274,7 @@ $('share-form').addEventListener('submit', async (event) => {
   setError('share-error', null);
   const withAmounts = $('share-amounts').checked;
   const rows = groups(state.shareDimension);
+  const { netWorth, held, borrowed } = totals();
   const button = event.submitter;
   button.disabled = true;
   try {
@@ -267,7 +284,9 @@ $('share-form').addEventListener('submit', async (event) => {
         title: shareTitle(state.shareDimension),
         days: Number(shareDays.value),
         showAmounts: withAmounts,
-        total: withAmounts ? (rows[0]?.total ?? null) : null,
+        total: withAmounts ? held : null,
+        netWorth: withAmounts ? netWorth : null,
+        borrowed: withAmounts ? borrowed : null,
         rows: rows.map((r) => ({
           name: r.name,
           share: r.share,

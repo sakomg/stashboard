@@ -25,6 +25,8 @@ const body = (extra: Record<string, unknown> = {}) => ({
   days: 7,
   rows: [row('ETH', 0.6), row('BTC', 0.4)],
   total: 1000,
+  netWorth: 800,
+  borrowed: 200,
   ...extra,
 });
 
@@ -32,6 +34,8 @@ test('a share without amounts keeps shares and drops every value, whatever the p
   const parsed = parseSharePayload(body());
   assert.ok('payload' in parsed);
   assert.equal(parsed.payload.total, null);
+  assert.equal(parsed.payload.netWorth, null);
+  assert.equal(parsed.payload.borrowed, null);
   assert.deepEqual(
     parsed.payload.rows.map((r) => [r.name, r.share, r.value]),
     [
@@ -45,7 +49,30 @@ test('a share with amounts keeps them', () => {
   const parsed = parseSharePayload(body({ showAmounts: true }));
   assert.ok('payload' in parsed);
   assert.equal(parsed.payload.total, 1000);
+  assert.equal(parsed.payload.netWorth, 800);
+  assert.equal(parsed.payload.borrowed, 200);
   assert.equal(parsed.payload.rows[0]?.value, 100);
+});
+
+test('a group that owes more than it holds keeps its negative share and value', () => {
+  const parsed = parseSharePayload(
+    body({ showAmounts: true, rows: [row('ETH', 1.2, 1200), row('USDT', -0.2, -200)], total: 1200 }),
+  );
+  assert.ok('payload' in parsed);
+  assert.deepEqual(
+    parsed.payload.rows.map((r) => [r.name, r.share, r.value]),
+    [
+      ['ETH', 1.2, 1200],
+      ['USDT', -0.2, -200],
+    ],
+  );
+});
+
+test('a net worth may be negative, a borrowed amount may not', () => {
+  const parsed = parseSharePayload(body({ showAmounts: true, netWorth: -50, borrowed: -200 }));
+  assert.ok('payload' in parsed);
+  assert.equal(parsed.payload.netWorth, -50);
+  assert.equal(parsed.payload.borrowed, null);
 });
 
 test('malformed shares are refused', () => {
@@ -54,7 +81,8 @@ test('malformed shares are refused', () => {
   assert.ok('error' in parseSharePayload(body({ rows: [] })));
   assert.ok('error' in parseSharePayload(body({ rows: Array.from({ length: 13 }, (_, i) => row(`A${i}`, 0.01)) })));
   assert.ok('error' in parseSharePayload(body({ rows: [{ ...row('ETH', 0.5), color: 'red; background: url(x)' }] })));
-  assert.ok('error' in parseSharePayload(body({ rows: [row('ETH', 1.5)] })));
+  assert.ok('error' in parseSharePayload(body({ rows: [row('ETH', Number.NaN)] })));
+  assert.ok('error' in parseSharePayload(body({ rows: [{ ...row('ETH', 0.5), share: '50%' }] })));
   const odd = parseSharePayload(body({ rows: [{ ...row('ETH', 0.5), logo: { kind: 'file', key: '../db' } }] }));
   assert.ok('payload' in odd);
   assert.equal(odd.payload.rows[0]?.logo, null);

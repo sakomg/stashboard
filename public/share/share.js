@@ -5,7 +5,7 @@ const $ = (id) => document.getElementById(id);
 const token = location.pathname.split('/')[2] ?? '';
 const usd = (n) =>
   `${n < 0 ? '−' : ''}$${Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const percent = (n) => `${(n * 100).toFixed(1)}%`;
+const percent = (n) => `${(n * 100).toFixed(1).replace('-', '−')}%`;
 const longDate = (iso) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
 function monogram(label) {
@@ -48,12 +48,22 @@ async function main() {
   $('share-title').textContent = data.title;
   $('share-meta').textContent =
     `A snapshot from ${longDate(data.createdAt)}. The link works until ${longDate(data.expiresAt)}.`;
-  if (data.total !== null) {
+  const netWorth = data.netWorth ?? null;
+  if (netWorth !== null) {
+    $('share-total').textContent = `Net worth ${usd(netWorth)}`;
+    $('share-total').hidden = false;
+    if (data.total !== null && data.borrowed >= 0.005) {
+      $('share-breakdown').textContent = `Held ${usd(data.total)}, borrowed ${usd(data.borrowed)}`;
+      $('share-breakdown').hidden = false;
+    }
+  } else if (data.total !== null) {
     $('share-total').textContent = `Total held ${usd(data.total)}`;
     $('share-total').hidden = false;
   }
   $('strip').replaceChildren(
-    ...data.rows.map((r) => h('span', { style: { flex: `${r.share} 1 0`, background: r.color } })),
+    ...data.rows
+      .filter((r) => r.share > 0)
+      .map((r) => h('span', { style: { flex: `${r.share} 1 0`, background: r.color } })),
   );
   $('strip').setAttribute('aria-label', data.rows.map((r) => `${r.name} ${percent(r.share)}`).join(', '));
   $('legend').replaceChildren(
@@ -61,7 +71,11 @@ async function main() {
       h(
         'li',
         {},
-        h('span', { class: 'swatch', style: { background: r.color } }),
+        h('span', {
+          class: 'swatch',
+          style:
+            r.share < 0 ? { background: 'none', boxShadow: `inset 0 0 0 2px ${r.color}` } : { background: r.color },
+        }),
         h('span', { class: 'name' }, logo(r), h('span', {}, r.name)),
         h('span', { class: 'num' }, r.value === null ? '' : usd(r.value)),
         h('span', { class: 'num share' }, percent(r.share)),

@@ -3,8 +3,10 @@
 ## The dashboard
 
 The top of the page is the net worth, the change over 24 hours, 7 and 30 days, the crypto Fear & Greed
-index, and one chip per account. A chip spins while its account is being read and shows a warning when it is
-out of date. **Add wallet or exchange** is at the end of the chips.
+index, and the accounts as chips, largest first. A chip spins while its account is being read and shows a
+warning when it is out of date. With more than ten accounts, the smaller ones fold into a **more** chip that
+opens the Accounts view, but an account that is not read yet or out of date always keeps its chip. **Add
+wallet or exchange** is at the end of the chips.
 
 Below, five views:
 

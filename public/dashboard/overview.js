@@ -26,39 +26,56 @@ export const PERIODS = [
 ];
 export function groups(dimension) {
   const [, , keyOf, logoOf] = DIMENSIONS.find(([id]) => id === dimension);
-  const totals = new Map();
+  const sums = new Map();
   const samples = new Map();
   for (const x of state.data.holdings) {
-    if (x.value <= 0) continue;
     const key = keyOf(x);
-    totals.set(key, (totals.get(key) ?? 0) + x.value);
+    sums.set(key, (sums.get(key) ?? 0) + x.value);
     if (!samples.has(key)) samples.set(key, x);
   }
-  const sorted = [...totals].sort((a, b) => b[1] - a[1]);
-  const total = sorted.reduce((s, [, v]) => s + v, 0);
+  const sorted = [...sums].sort((a, b) => b[1] - a[1]);
+  const net = sorted.reduce((s, [, v]) => s + v, 0);
+  const base = net > 0 ? net : sorted.reduce((s, [, v]) => s + Math.max(v, 0), 0);
 
+  const visible = (name, value) => name !== 'Other' && Math.abs(value) / base >= 0.005;
+  const owing = sorted.filter(([name, value]) => value < 0 && visible(name, value)).length;
   const shown = [];
+  const owed = [];
   let other = 0;
   for (const [name, value] of sorted) {
-    if (
-      name !== 'Other' &&
-      shown.length < PALETTE.length &&
-      value / total >= 0.005 &&
+    if (value < 0 && visible(name, value)) owed.push({ name, value });
+    else if (
+      value > 0 &&
+      visible(name, value) &&
+      shown.length + owing < PALETTE.length &&
       colorOf(dimension, name) !== OTHER_COLOR
     ) {
       shown.push({ name, value });
-    } else {
-      other += value;
-    }
+    } else other += value;
   }
-  if (other / total >= 0.0005) shown.push({ name: 'Other', value: other });
-  return shown.map((r) => ({
+  if (Math.abs(other) / base >= 0.0005) (other > 0 ? shown : owed).push({ name: 'Other', value: other });
+  owed.sort((a, b) => a.value - b.value);
+  const held = shown.reduce((s, r) => s + r.value, 0);
+  return [...shown, ...owed].map((r) => ({
     ...r,
-    share: r.value / total,
+    share: r.value / base,
+    slice: r.value > 0 ? r.value / held : 0,
     color: colorOf(dimension, r.name),
     logo: logoOf && r.name !== 'Other' && samples.has(r.name) ? logoOf(samples.get(r.name)) : null,
-    total,
   }));
+}
+
+export const swatchStyle = (r) =>
+  r.value < 0 ? { background: 'none', boxShadow: `inset 0 0 0 2px ${r.color}` } : { background: r.color };
+
+export function totals() {
+  let held = 0;
+  let borrowed = 0;
+  for (const { value } of state.data.holdings) {
+    if (value > 0) held += value;
+    else borrowed -= value;
+  }
+  return { netWorth: state.data.netWorth, held, borrowed };
 }
 
 export function segmented(id, options, current, choose) {
@@ -86,19 +103,21 @@ export function renderAllocation() {
   };
 
   strip.replaceChildren(
-    ...rows.map((r, i) =>
-      h('span', {
-        style: { flex: `${r.share} 1 0`, background: r.color },
-        onmousemove: (e) => {
-          focus(i);
-          showTip(e, r.name, `${money(r.value)}, ${percent(r.share)}`);
-        },
-        onmouseleave: () => {
-          focus(null);
-          hideTip();
-        },
-      }),
-    ),
+    ...rows
+      .filter((r) => r.slice > 0)
+      .map((r, i) =>
+        h('span', {
+          style: { flex: `${r.slice} 1 0`, background: r.color },
+          onmousemove: (e) => {
+            focus(i);
+            showTip(e, r.name, `${money(r.value)}, ${percent(r.share)}`);
+          },
+          onmouseleave: () => {
+            focus(null);
+            hideTip();
+          },
+        }),
+      ),
   );
   strip.setAttribute('aria-label', `Allocation: ${rows.map((r) => `${r.name} ${percent(r.share)}`).join(', ')}`);
 
@@ -107,7 +126,7 @@ export function renderAllocation() {
       h(
         'li',
         { onmouseenter: () => focus(i), onmouseleave: () => focus(null) },
-        h('span', { class: 'swatch', style: { background: r.color } }),
+        h('span', { class: 'swatch', style: swatchStyle(r) }),
         h('span', { class: 'name' }, r.logo && logo(r.logo.kind, r.logo.key, r.name), h('span', {}, r.name)),
         h('span', { class: 'num' }, money(r.value)),
         h('span', { class: 'num share' }, percent(r.share)),

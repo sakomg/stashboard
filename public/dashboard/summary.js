@@ -5,6 +5,9 @@ import { HELP, fearGreedTone } from './help.js';
 import { kindLogo } from './logos.js';
 import { groups } from './overview.js';
 import { $, actions, busy, firstRead, state } from './state.js';
+import { switchView } from './views.js';
+
+export const CHIP_LIMIT = 10;
 
 export function pendingChange(days) {
   const since = state.data.historySince;
@@ -94,10 +97,18 @@ export function renderUpdating() {
 export const isOld = (s) =>
   s.oldestRead && Date.now() - Date.parse(s.oldestRead) > 2 * state.data.collectEveryMinutes * 60_000;
 
+export function openAccounts() {
+  switchView('accounts');
+  window.scrollTo({ top: $('content').getBoundingClientRect().top + window.scrollY, behavior: 'instant' });
+}
+
 export function renderSources() {
   const live = new Map((state.progress?.accounts ?? []).map((a) => [a.id, a]));
+  const { sources } = state.data;
+  const shown = sources.filter((s, i) => i < CHIP_LIMIT || s.status === null || s.stale);
+  const more = sources.length - shown.length;
   $('sources').replaceChildren(
-    ...state.data.sources.map((s) => {
+    ...shown.map((s) => {
       const step = live.get(s.id);
       const mark = step
         ? {
@@ -128,6 +139,20 @@ export function renderSources() {
         mark && h('span', { class: 'sr-only' }, mark[2]),
       );
     }),
+    ...(more > 0
+      ? [
+          h(
+            'li',
+            { class: 'more-chip' },
+            h(
+              'button',
+              { type: 'button', title: `All ${sources.length} accounts are in Accounts`, onclick: openAccounts },
+              `${more} more`,
+              icon('chevron-right'),
+            ),
+          ),
+        ]
+      : []),
     h(
       'li',
       { class: 'add-chip' },
