@@ -96,14 +96,15 @@ export async function drawShareCard({ title, rows, sums, withAmounts }) {
 
   const height = 64;
   const gap = 4;
-  const usable = inner - gap * (rows.length - 1);
+  const slices = rows.filter((r) => r.slice > 0);
+  const usable = inner - gap * (slices.length - 1);
   let before = 0;
-  rows.forEach((r, i) => {
+  slices.forEach((r, i) => {
     const x = pad + before * usable + i * gap;
-    const width = i === rows.length - 1 ? pad + inner - x : Math.max(3, r.share * usable);
-    before += r.share;
+    const width = i === slices.length - 1 ? pad + inner - x : Math.max(3, r.slice * usable);
+    before += r.slice;
     const left = i === 0 ? height / 2 : 6;
-    const right = i === rows.length - 1 ? height / 2 : 6;
+    const right = i === slices.length - 1 ? height / 2 : 6;
     ctx.fillStyle = r.color;
     ctx.beginPath();
     ctx.roundRect(x, top, width, height, [left, right, right, left]);
@@ -120,10 +121,17 @@ export async function drawShareCard({ title, rows, sums, withAmounts }) {
     const y = legendTop + (i - column * perColumn) * 54;
     const end = x + columnWidth;
 
-    ctx.fillStyle = r.color;
     ctx.beginPath();
-    ctx.roundRect(x, y - 17, 16, 16, 4);
-    ctx.fill();
+    if (r.value < 0) {
+      ctx.strokeStyle = r.color;
+      ctx.lineWidth = 2;
+      ctx.roundRect(x + 1, y - 16, 14, 14, 3);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = r.color;
+      ctx.roundRect(x, y - 17, 16, 16, 4);
+      ctx.fill();
+    }
 
     let nameX = x + 32;
     if (r.logo) {

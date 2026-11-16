@@ -17,7 +17,7 @@ export const signedPercent = (v) => {
   const rounded = Math.round(v);
   return rounded === 0 ? '0%' : `${rounded > 0 ? '+' : '−'}${Math.abs(rounded)}%`;
 };
-export const percent = (n) => `${(n * 100).toFixed(1)}%`;
+export const percent = (n) => `${fixed(n * 100, 1)}%`;
 export const dash = () => h('span', { class: 'muted' }, '—');
 
 export function change(n) {
