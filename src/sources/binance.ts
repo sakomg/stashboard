@@ -1,9 +1,9 @@
 import { createHmac } from 'node:crypto';
-import type { Config } from '../lib/config.ts';
-import { getJson, postJson } from '../lib/http.ts';
-import type { CollectResult, Holding, HoldingType } from '../domain/types.ts';
+import { getJson, HttpError, postJson } from '../lib/http.ts';
+import { priceFrom, toHoldings, type Balance, type ExchangeKeys, type KeyCheck } from '../domain/exchange.ts';
+import type { CollectResult } from '../domain/types.ts';
 
-type Keys = Config['binance'];
+type Keys = ExchangeKeys;
 
 const SPOT = 'https://api.binance.com';
 const USD_M = 'https://fapi.binance.com';
@@ -20,26 +20,6 @@ export async function binanceSigned<T>(
   const url = `${options.base ?? SPOT}${path}?${query}&signature=${signature}`;
   const headers = { 'X-MBX-APIKEY': keys.apiKey };
   return options.method === 'POST' ? postJson<T>(url, headers) : getJson<T>(url, headers);
-}
-
-export function priceFrom(tickers: Map<string, number>, asset: string): number | null {
-  if (asset === 'USDT') return 1;
-  const direct = tickers.get(`${asset}USDT`);
-  if (direct) return direct;
-  for (const quote of ['USDC', 'FDUSD', 'BTC', 'ETH', 'BNB']) {
-    const cross = tickers.get(`${asset}${quote}`);
-    const quoteUsd = tickers.get(`${quote}USDT`);
-    if (cross && quoteUsd) return cross * quoteUsd;
-  }
-  const inverse = tickers.get(`USDT${asset}`);
-  return inverse ? 1 / inverse : null;
-}
-
-interface Balance {
-  wallet: string;
-  type: HoldingType;
-  asset: string;
-  quantity: number;
 }
 
 async function pages<T>(keys: Keys, path: string): Promise<T[]> {
@@ -143,24 +123,8 @@ export async function collectBinance(keys: Keys): Promise<CollectResult> {
     });
   }
 
-  const holdings: Holding[] = [];
-  for (const b of balances) {
-    if (b.quantity === 0) continue;
-    const price = priceFrom(tickers, b.asset);
-    if (price === null) {
-      warnings.push(`no price for ${b.quantity} ${b.asset} in ${b.wallet}`);
-      continue;
-    }
-    holdings.push({
-      chain: 'binance',
-      protocol: b.wallet,
-      symbol: b.asset,
-      quantity: b.quantity,
-      price,
-      value: b.quantity * price,
-      type: b.quantity < 0 ? 'borrow' : b.type,
-    });
-  }
+  const priced = toHoldings('binance', balances, tickers);
+  warnings.push(...priced.warnings);
 
   let reportedTotal: number | undefined;
   try {
@@ -172,5 +136,42 @@ export async function collectBinance(keys: Keys): Promise<CollectResult> {
     warnings.push(`total valuation could not be read: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  return { holdings, warnings, reportedTotal };
+  return { holdings: priced.holdings, warnings, reportedTotal };
+}
+
+const PERMISSIONS: Record<string, string> = {
+  enableSpotAndMarginTrading: 'spot and margin trading',
+  enableMargin: 'margin',
+  enableFutures: 'futures trading',
+  enableWithdrawals: 'withdrawals',
+  enableInternalTransfer: 'internal transfers',
+  permitsUniversalTransfer: 'universal transfers',
+  enableVanillaOptions: 'options trading',
+  enableFixApiTrade: 'FIX API trading',
+  enableFixReadOnly: 'FIX API',
+  enablePortfolioMarginTrading: 'portfolio margin trading',
+};
+
+export async function checkBinanceKey(keys: Keys): Promise<KeyCheck> {
+  let restrictions: Record<string, unknown>;
+  try {
+    restrictions = await binanceSigned<Record<string, unknown>>(keys, '/sapi/v1/account/apiRestrictions');
+  } catch (err) {
+    if (err instanceof HttpError && err.status >= 400 && err.status < 500) {
+      throw new Error(
+        "Binance refused the key. Check the API key and the secret, and that the key allows this server's IP address.",
+      );
+    }
+    throw err;
+  }
+  const extra = Object.entries(restrictions)
+    .filter(([name, on]) => on === true && name !== 'enableReading' && name !== 'ipRestrict')
+    .map(([name]) => PERMISSIONS[name] ?? name);
+  return { extra, ipRestricted: restrictions.ipRestrict === true };
+}
+
+export async function pingBinance(): Promise<string> {
+  await getJson(`${SPOT}/api/v3/ping`);
+  await getJson(`${USD_M}/fapi/v1/ping`);
+  return 'spot and futures APIs are reachable from this IP';
 }

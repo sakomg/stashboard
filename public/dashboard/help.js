@@ -20,6 +20,14 @@ export const SOURCES = {
     label: 'Binance: how to create API keys',
     href: 'https://www.binance.com/en/support/faq/how-to-create-api-keys-on-binance-360002502072',
   },
+  bybitKeys: {
+    label: 'Bybit: how to create your API key',
+    href: 'https://www.bybit.com/en/help-center/article/How-to-create-your-API-key',
+  },
+  okxKeys: {
+    label: 'OKX: API key creation',
+    href: 'https://www.okx.com/docs-v5/en/#overview-api-key-creation',
+  },
 };
 
 export const HELP = {

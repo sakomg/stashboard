@@ -1,9 +1,8 @@
 import type { DatabaseSync } from 'node:sqlite';
 import type { Config } from '../lib/config.ts';
 import { finishSnapshot, listAccounts, saveOutcome, startSnapshot, type Account } from '../storage/index.ts';
-import { exchangeKeys } from './exchanges.ts';
+import { CLIENTS, exchangeKeys, isExchange } from './exchanges.ts';
 import { noteLogos } from './logos.ts';
-import { collectBinance } from '../sources/binance.ts';
 import { collectLighter } from '../sources/lighter.ts';
 import { collectTon } from '../sources/ton.ts';
 import { collectZerion } from '../sources/zerion.ts';
@@ -19,12 +18,12 @@ type Notify = (event: ProgressEvent) => void;
 
 function collectAccount(db: DatabaseSync, config: Config, account: Account, notify: Notify): Promise<CollectResult> {
   const onWait = (note: string): void => notify({ type: 'waiting', accountId: account.id, note });
+  if (isExchange(account.kind)) {
+    const keys = exchangeKeys(db, account.id);
+    if (!keys) throw new Error('No API key is stored for this exchange. Remove it and add it again.');
+    return CLIENTS[account.kind].collect(keys);
+  }
   switch (account.kind) {
-    case 'binance': {
-      const keys = exchangeKeys(db, account.id);
-      if (!keys) throw new Error('No API key is stored for this exchange. Remove it and add it again.');
-      return collectBinance(keys);
-    }
     case 'evm':
       if (!config.zerion.apiKey) throw new Error('Zerion key is not set in config.json');
       return collectEvm(db, config.zerion.apiKey, account.address, onWait);

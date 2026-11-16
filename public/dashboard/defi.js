@@ -1,6 +1,6 @@
 import { h, icon, skeleton } from '/common/ui.js';
 import { ago, money, units } from './format.js';
-import { TYPES, chainLogo, chainName, logo } from './logos.js';
+import { TYPES, chainLogo, chainName, isExchange, logo } from './logos.js';
 import { $, DUST_USD, firstRead, state } from './state.js';
 
 export function readNote(items) {
@@ -17,7 +17,7 @@ export function readNote(items) {
 export function renderDefi() {
   const byProtocol = new Map();
   for (const x of state.data.holdings) {
-    if (!x.protocol || x.kind === 'binance') continue;
+    if (!x.protocol || isExchange(x.kind)) continue;
     const key = `${x.protocol}\n${x.chain}`;
     if (!byProtocol.has(key)) byProtocol.set(key, []);
     byProtocol.get(key).push(x);

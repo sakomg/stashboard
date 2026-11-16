@@ -77,7 +77,7 @@ Use **Add wallet or exchange** on the dashboard.
 
 - **Wallets**: paste a public address. The network (EVM, Solana or TON) is recognised from the address. One
   EVM address covers every EVM chain and DeFi protocol Zerion knows, and Lighter.
-- **Exchanges**: Binance, with an API key that can only read. See [Binance key](#binance-key).
+- **Exchanges**: Binance, Bybit or OKX, with an API key that can only read. See [Exchange keys](#exchange-keys).
 
 The first update starts as soon as an account is added and usually takes under a minute.
 
@@ -94,16 +94,25 @@ All of them are free.
 The keys live in `config.json` on the server, which git ignores. To change one, edit the file and run
 `./install.sh` again.
 
-### Binance key
+### Exchange keys
 
-In Binance, open **API Management**, create a **System generated** key, and:
+Every exchange is added on the dashboard under **Add wallet or exchange**, **Exchange**. Stashboard reads the
+key's permissions before saving it and refuses a key that can trade, transfer or withdraw, naming the
+permissions to turn off. The secret, and the OKX passphrase, are encrypted before they are stored, and the page
+only ever shows the last four characters of the key.
 
-- tick **Enable Reading** only. Stashboard refuses a key that can trade, transfer or withdraw, and names the
-  permissions to turn off;
-- restrict it to **trusted IPs** and enter your server's public address.
+**Binance.** Open **API Management**, create a **System generated** key, tick **Enable Reading** only, and
+restrict it to **trusted IPs** with your server's public address.
 
-Then add it on the dashboard under **Add wallet or exchange**, **Exchange**. The secret is encrypted before
-it is stored, and the page only ever shows the last four characters of the key.
+**Bybit.** Open **API**, create a **System-generated** key with **Read-Only** permissions, tick every box it
+offers (they only allow reading, and Funding and Earn are read only with them), and bind it to your server's
+public address. A key without an IP address expires after three months. A key from Bybit's regional sites
+(Turkey, Kazakhstan, Georgia, UAE, Indonesia) works too: the site that issued it is found when it is added.
+Bybit EU keys are not supported, since its API is open only to brokers.
+
+**OKX.** Open **API**, create a key with only the **Read** permission, bind it to your server's public address,
+and keep the passphrase you set: the dashboard asks for it. Keys from my.okx.com (EEA) and app.okx.com (US) work
+too, and are recognised by themselves.
 
 ## Configuration
 
@@ -163,8 +172,8 @@ it keeps everything except the exchange keys, which you then add again.
    docker compose start stashboard
    ```
 
-3. Point the host name at the new server. If the Binance key is restricted to the old address, add the new
-   one in Binance.
+3. Point the host name at the new server. If an exchange key is restricted to the old address, add the new
+   one on the exchange.
 
 ## Deploying from your own computer
 
@@ -227,7 +236,9 @@ docker compose run --rm stashboard src/cli/auth-reset.ts && docker compose resta
 **A friend forgot their password or lost their authenticator.** There is no reset for them yet. Remove them
 under People in Settings, which deletes their accounts and history, and invite them again.
 
-**Binance refused the key.** The key or secret is wrong, or the key does not allow the server's IP address.
+**The exchange refused the key.** The key, the secret or, for OKX, the passphrase is wrong, or the key does not
+allow the server's IP address. When the exchange says which, the message says so. Bybit also refuses servers in
+the US.
 
 **An account says it is out of date.** Its source failed on the last update; the notice says why, and the last
 good balances are shown meanwhile. Zerion's free allowance is the usual cause. The settings panel shows how

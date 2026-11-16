@@ -3,7 +3,7 @@ import { h, iconButton } from '/common/ui.js';
 import { api } from './api.js';
 import { openRemove } from './dialogs.js';
 import { ago, money } from './format.js';
-import { KINDS, kindLogo } from './logos.js';
+import { KINDS, isExchange, kindLogo } from './logos.js';
 import { $, actions, state } from './state.js';
 import { isOld } from './summary.js';
 
@@ -17,7 +17,7 @@ export function accountStatus(s) {
 export function renderAccounts() {
   $('wallets').replaceChildren(
     ...state.data.sources.map((w) => {
-      const exchange = w.kind === 'binance';
+      const exchange = isExchange(w.kind);
       const [tone, status] = accountStatus(w);
       const details = h(
         'div',
