@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
-import { getSetting, setSetting, type Account } from '../storage/index.ts';
+import { ADMIN_ID, getSetting, setSetting, type Account } from '../storage/index.ts';
 import { HttpError } from '../lib/http.ts';
 import { binanceSigned } from '../sources/binance.ts';
 import { seal, unseal, vaultKey } from '../storage/vault.ts';
@@ -44,14 +44,20 @@ export function exchangeHints(db: DatabaseSync): Map<number, string> {
   return new Map(rows.map((r) => [r.account_id, r.key_hint]));
 }
 
-export function addExchange(db: DatabaseSync, kind: ExchangeKind, keys: ExchangeKeys, label?: string): Account {
+export function addExchange(
+  db: DatabaseSync,
+  userId: number,
+  kind: ExchangeKind,
+  keys: ExchangeKeys,
+  label?: string,
+): Account {
   const name = label?.trim() || EXCHANGES[kind];
   db.exec('BEGIN');
   try {
     const id = Number(
       db
-        .prepare('INSERT INTO accounts (kind, label, address, address_key) VALUES (?, ?, ?, ?)')
-        .run(kind, name, '', fingerprint(keys.apiKey)).lastInsertRowid,
+        .prepare('INSERT INTO accounts (user_id, kind, label, address, address_key) VALUES (?, ?, ?, ?, ?)')
+        .run(userId, kind, name, '', fingerprint(keys.apiKey)).lastInsertRowid,
     );
     storeKeys(db, id, keys);
     db.exec('COMMIT');
@@ -76,15 +82,19 @@ export function importConfigExchange(db: DatabaseSync, keys: ExchangeKeys): Acco
   const print = fingerprint(keys.apiKey);
   if (getSetting(db, 'binance_config_imported') === print) return null;
   const legacy = db
-    .prepare("SELECT id, label FROM accounts WHERE kind = 'binance' AND address_key = 'binance'")
-    .get() as { id: number; label: string } | undefined;
+    .prepare("SELECT id, label FROM accounts WHERE user_id = ? AND kind = 'binance' AND address_key = 'binance'")
+    .get(ADMIN_ID) as { id: number; label: string } | undefined;
   let account: Account | null = null;
   if (legacy) {
     db.prepare('UPDATE accounts SET address_key = ? WHERE id = ?').run(print, legacy.id);
     storeKeys(db, legacy.id, keys);
     account = { id: legacy.id, kind: 'binance', label: legacy.label, address: '' };
-  } else if (!db.prepare("SELECT 1 FROM accounts WHERE kind = 'binance' AND address_key = ?").get(print)) {
-    account = addExchange(db, 'binance', keys);
+  } else if (
+    !db
+      .prepare("SELECT 1 FROM accounts WHERE user_id = ? AND kind = 'binance' AND address_key = ?")
+      .get(ADMIN_ID, print)
+  ) {
+    account = addExchange(db, ADMIN_ID, 'binance', keys);
   }
   setSetting(db, 'binance_config_imported', print);
   return account;

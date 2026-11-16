@@ -12,7 +12,7 @@ import {
   totpCode,
   verifyPassword,
 } from '../../src/auth/index.ts';
-import { backupDaily, createSession, deleteSession, openDb, sessionValid } from '../../src/storage/index.ts';
+import { ADMIN_ID, backupDaily, createSession, deleteSession, openDb, sessionUser } from '../../src/storage/index.ts';
 
 const SECRET = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
 
@@ -58,18 +58,18 @@ test('five failures lock an address out until the window passes', () => {
   assert.equal(limiter.retryAfter('1.2.3.4', start + 5), 0);
 });
 
-test('sessions expire and can be ended', () => {
+test('a session belongs to one person, expires and can be ended', () => {
   const db = openDb(mkdtempSync(join(tmpdir(), 'stashboard-test-')));
-  const token = createSession(db, 1000, 0);
-  assert.equal(sessionValid(db, token, 500), true);
-  assert.equal(sessionValid(db, token, 1500), false);
-  assert.equal(sessionValid(db, 'made-up', 500), false);
+  const token = createSession(db, ADMIN_ID, 1000, 0);
+  assert.equal(sessionUser(db, token, 500), ADMIN_ID);
+  assert.equal(sessionUser(db, token, 1500), null);
+  assert.equal(sessionUser(db, 'made-up', 500), null);
   assert.equal(
     (db.prepare('SELECT COUNT(*) AS n FROM sessions WHERE token_hash = ?').get(token) as { n: number }).n,
     0,
   );
   deleteSession(db, token);
-  assert.equal(sessionValid(db, token, 500), false);
+  assert.equal(sessionUser(db, token, 500), null);
 });
 
 test('one backup a day, and old ones are pruned', () => {
@@ -87,17 +87,30 @@ test('one backup a day, and old ones are pruned', () => {
   ]);
 });
 
-test('the account is stored in the database and removing it ends every session', async () => {
-  const { deleteOwner, getOwner, saveOwner } = await import('../../src/storage/index.ts');
+test('the admin exists from the start, unclaimed until setup, and a reset ends only their sessions', async () => {
+  const { addUser, adminClaimed, claimAdmin, clearCredentials, findUser, renameUser } =
+    await import('../../src/storage/index.ts');
   const db = openDb(mkdtempSync(join(tmpdir(), 'stashboard-test-')));
-  assert.equal(getOwner(db), null);
-  saveOwner(db, { passwordHash: 'h', totpSecret: SECRET });
-  assert.deepEqual(getOwner(db), { passwordHash: 'h', totpSecret: SECRET });
-  const token = createSession(db, 60_000);
-  assert.equal(deleteOwner(db), true);
-  assert.equal(getOwner(db), null);
-  assert.equal(sessionValid(db, token), false);
-  assert.equal(deleteOwner(db), false);
+  assert.equal(adminClaimed(db), false);
+  assert.equal(findUser(db, 'admin')?.credentials, null);
+
+  claimAdmin(db, { name: 'Sasha', passwordHash: 'h', totpSecret: SECRET, totpStep: 7 });
+  assert.equal(adminClaimed(db), true);
+  assert.deepEqual(findUser(db, ' sasha ')?.credentials, { passwordHash: 'h', totpSecret: SECRET, totpStep: 7 });
+  const friend = addUser(db, { name: 'Kate', passwordHash: 'k', totpSecret: SECRET, totpStep: 0 });
+  assert.throws(() => addUser(db, { name: 'KATE', passwordHash: 'k', totpSecret: SECRET, totpStep: 0 }), /taken/);
+  renameUser(db, ADMIN_ID, 'Alexander');
+  assert.equal(findUser(db, 'alexander')?.id, ADMIN_ID);
+  assert.equal(findUser(db, 'sasha'), null);
+  assert.throws(() => renameUser(db, ADMIN_ID, 'kate'), /taken/);
+
+  const mine = createSession(db, ADMIN_ID, 60_000);
+  const theirs = createSession(db, friend.id, 60_000);
+  assert.equal(clearCredentials(db, ADMIN_ID), true);
+  assert.equal(adminClaimed(db), false);
+  assert.equal(sessionUser(db, mine), null);
+  assert.equal(sessionUser(db, theirs), friend.id);
+  assert.equal(clearCredentials(db, ADMIN_ID), false);
 });
 
 test('the QR code is a self-contained SVG', async () => {

@@ -129,7 +129,7 @@ if (!process.argv.includes('--show')) {
   await runCollection(db, config);
 }
 
-const states = currentState(db);
+const states = currentState(db, 'all');
 if (states.length === 0) {
   console.log(
     'Nothing to collect: set the Binance key in config.json or add a wallet with npm run wallets -- add <address>',

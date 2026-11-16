@@ -46,7 +46,7 @@ test('every dashboard module is loaded from main.js', () => {
 });
 
 test('every name a page module imports is exported where it points', () => {
-  for (const folder of ['dashboard', 'share', 'login', 'setup']) {
+  for (const folder of ['dashboard', 'share', 'login', 'setup', 'join']) {
     const graph = moduleGraph(folder);
     const common = moduleGraph('common');
     for (const [file, { imports }] of graph) {

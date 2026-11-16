@@ -117,9 +117,10 @@ export function renderAccountPanel() {
     ].filter(Boolean),
   );
   $('session-text').textContent = data.loginEnabled
-    ? 'Signed in on this device. A session lasts 30 days.'
+    ? `Signed in as ${data.me?.name ?? 'you'} on this device. A session lasts 30 days.`
     : 'Sign-in is off: this dashboard is open on this machine only.';
   $('sign-out').hidden = !data.loginEnabled;
+  $('name-form').hidden = !data.loginEnabled;
 }
 
 $('open-account').addEventListener('click', () => {

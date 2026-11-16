@@ -62,10 +62,14 @@ Open `https://your-host/setup` and:
 1. enter the setup code. It proves the server is yours, so whoever finds the address first cannot claim it.
    The server prints it in its log on every start until the account exists:
    `docker compose logs stashboard | grep setup-code`;
-2. choose a password of at least 12 characters;
+2. choose the name you will sign in with and a password of at least 12 characters;
 3. scan the QR code with an authenticator app (any TOTP app works) and enter one code.
 
-From then on every page needs a sign-in. Sessions last 30 days.
+From then on every page needs a sign-in. Sessions last 30 days. You are the admin: under People in Settings you
+can invite friends, each with their own accounts, and remove them.
+
+A server set up before people came in keeps its account as the admin's, with the name `admin`: sign in with
+that name, the same password and the same authenticator, then change the name under Session in Settings.
 
 ## 5. Add your accounts
 
@@ -195,14 +199,14 @@ your computer; later deploys keep the server's copy.
 On the server, prefix the commands with `docker compose run --rm stashboard`, for example
 `docker compose run --rm stashboard src/cli/check.ts`. Locally, use npm:
 
-| Command                        | What it does                                                           |
-| ------------------------------ | ---------------------------------------------------------------------- |
-| `npm run check`                | Calls every source once and reports which keys and accounts work       |
-| `npm run collect`              | Reads every account, stores a snapshot and prints the portfolio        |
-| `npm run collect -- --show`    | Prints the stored portfolio without calling any API                    |
-| `npm run collect -- --signals` | Recomputes and prints the heat signals                                 |
-| `npm run wallets`              | Lists wallets; `-- add <address> [label]` and `-- rm <id>` change them |
-| `npm run auth:reset`           | Removes the account so it can be set up again                          |
+| Command                        | What it does                                                                                                       |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `npm run check`                | Calls every source once and reports which keys and accounts work                                                   |
+| `npm run collect`              | Reads every account, stores a snapshot and prints the portfolio                                                    |
+| `npm run collect -- --show`    | Prints the stored portfolio without calling any API                                                                |
+| `npm run collect -- --signals` | Recomputes and prints the heat signals                                                                             |
+| `npm run wallets`              | Lists the admin's wallets; `-- add <address> [label]` and `-- rm <id>` change them, `--user <name>` someone else's |
+| `npm run auth:reset`           | Removes the admin's sign-in so it can be set up again                                                              |
 
 ## Troubleshooting
 
@@ -213,12 +217,15 @@ ports 80 and 443 are open, and read `docker compose logs caddy`.
 **I lost the setup code.** Restart the app and read it again:
 `docker compose restart stashboard && docker compose logs stashboard | grep setup-code`.
 
-**I forgot the password or lost the authenticator.** Remove the account and set it up again. History and
-accounts are kept:
+**I forgot the password or lost the authenticator.** Remove the admin's sign-in and set it up again. History
+and accounts are kept. Until then friends cannot sign in either:
 
 ```sh
 docker compose run --rm stashboard src/cli/auth-reset.ts && docker compose restart stashboard
 ```
+
+**A friend forgot their password or lost their authenticator.** There is no reset for them yet. Remove them
+under People in Settings, which deletes their accounts and history, and invite them again.
 
 **Binance refused the key.** The key or secret is wrong, or the key does not allow the server's IP address.
 

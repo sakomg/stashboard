@@ -4,8 +4,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { createResolver, loadAssetRules } from '../../src/domain/assets.ts';
-import { categoryFromTags, categoryNames, loadLearned, setManualCategory } from '../../src/services/categories.ts';
-import { openDb } from '../../src/storage/index.ts';
+import {
+  categoryFromTags,
+  categoryNames,
+  loadLearned,
+  manualCategories,
+  setManualCategory,
+} from '../../src/services/categories.ts';
+import { ADMIN_ID, addUser, openDb } from '../../src/storage/index.ts';
 
 const rules = loadAssetRules();
 const known = categoryNames(rules);
@@ -31,23 +37,35 @@ test('tags that say nothing about the kind of asset give no category', () => {
 test('a category chosen by hand wins, then the rules, then a looked-up one', () => {
   const db = openDb(mkdtempSync(join(tmpdir(), 'stashboard-test-')));
   const learned = loadLearned(db);
-  const resolve = createResolver(rules, learned);
-  assert.deepEqual(resolve('PONS'), { key: 'PONS', category: 'Other' });
+  const resolverOf = (userId: number) =>
+    createResolver(rules, { manual: manualCategories(db, userId), auto: learned.auto });
+  assert.deepEqual(resolverOf(ADMIN_ID)('PONS'), { key: 'PONS', category: 'Other' });
 
   db.prepare("INSERT INTO asset_categories (key, auto) VALUES ('PONS', 'DeFi'), ('ARB', 'DeFi')").run();
   loadLearned(db, learned);
-  assert.deepEqual(resolve('PONS'), { key: 'PONS', category: 'DeFi', source: 'auto' });
-  assert.deepEqual(resolve('ARB'), { key: 'ARB', category: 'L2' });
+  assert.deepEqual(resolverOf(ADMIN_ID)('PONS'), { key: 'PONS', category: 'DeFi', source: 'auto' });
+  assert.deepEqual(resolverOf(ADMIN_ID)('ARB'), { key: 'ARB', category: 'L2' });
 
-  setManualCategory(db, 'PONS', 'Memes');
-  setManualCategory(db, 'ARB', 'DeFi');
-  setManualCategory(db, 'ETH', 'L1');
-  loadLearned(db, learned);
+  setManualCategory(db, ADMIN_ID, 'PONS', 'Memes');
+  setManualCategory(db, ADMIN_ID, 'ARB', 'DeFi');
+  setManualCategory(db, ADMIN_ID, 'ETH', 'L1');
+  const resolve = resolverOf(ADMIN_ID);
   assert.deepEqual(resolve('PONS'), { key: 'PONS', category: 'Memes', source: 'manual' });
   assert.deepEqual(resolve('ARB'), { key: 'ARB', category: 'DeFi', source: 'manual' });
   assert.deepEqual(resolve('aEthWETH'), { key: 'ETH', category: 'L1', source: 'manual' });
 
-  setManualCategory(db, 'PONS', null);
-  loadLearned(db, learned);
-  assert.deepEqual(resolve('PONS'), { key: 'PONS', category: 'DeFi', source: 'auto' });
+  setManualCategory(db, ADMIN_ID, 'PONS', null);
+  assert.deepEqual(resolverOf(ADMIN_ID)('PONS'), { key: 'PONS', category: 'DeFi', source: 'auto' });
+});
+
+test("a category chosen by hand is one person's choice and changes nothing for the others", () => {
+  const db = openDb(mkdtempSync(join(tmpdir(), 'stashboard-test-')));
+  const friend = addUser(db, { name: 'Kate', passwordHash: 'h', totpSecret: 'S', totpStep: 0 });
+  setManualCategory(db, ADMIN_ID, 'ARB', 'DeFi');
+  setManualCategory(db, friend.id, 'ARB', 'Memes');
+  const resolverOf = (userId: number) =>
+    createResolver(rules, { manual: manualCategories(db, userId), auto: new Map() });
+  assert.equal(resolverOf(ADMIN_ID)('ARB').category, 'DeFi');
+  assert.equal(resolverOf(friend.id)('ARB').category, 'Memes');
+  assert.equal(createResolver(rules, loadLearned(db))('ARB').category, 'L2', 'collection ignores choices by hand');
 });

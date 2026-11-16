@@ -5,7 +5,7 @@ import { fetchMissingLogos, noteLogos } from '../services/logos.ts';
 import { runSignals } from '../services/signals.ts';
 import { wantedLogos } from '../services/view.ts';
 import { fetchChains, zerionDayUsedUp, zerionQuota } from '../sources/zerion.ts';
-import { getSetting, latestSignals, listSnapshots, listWallets, setSetting } from '../storage/index.ts';
+import { currentState, getSetting, latestSignals, listSnapshots, listWallets, setSetting } from '../storage/index.ts';
 import type { Context } from './context.ts';
 
 export interface Progress {
@@ -66,7 +66,7 @@ export function createCollection(ctx: Context, log: FastifyBaseLogger): Collecti
         noteLogos(db, await fetchChains(config.zerion.apiKey));
         setSetting(db, 'zerion_chains_at', String(Date.now()));
       }
-      await fetchMissingLogos(db, config, wantedLogos(db, ctx.resolve));
+      await fetchMissingLogos(db, config, wantedLogos(currentState(db, 'all'), ctx.resolve));
     } catch (err) {
       log.warn(err);
     }
@@ -108,7 +108,7 @@ export function createCollection(ctx: Context, log: FastifyBaseLogger): Collecti
       return updateGate({
         running: collecting !== null,
         lastFinishedAt,
-        zerionWallets: listWallets(db, 'evm').length + listWallets(db, 'solana').length,
+        zerionWallets: listWallets(db, 'all', 'evm').length + listWallets(db, 'all', 'solana').length,
         zerionUsedUp: zerionDayUsedUp(),
         zerionRenewsAt: zerionQuota().dayResetsAt,
       });
