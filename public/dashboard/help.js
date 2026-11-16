@@ -28,6 +28,10 @@ export const SOURCES = {
     label: 'OKX: API key creation',
     href: 'https://www.okx.com/docs-v5/en/#overview-api-key-creation',
   },
+  dailyPrices: {
+    label: 'Binance: daily candles',
+    href: 'https://developers.binance.com/docs/binance-spot-api-docs/rest-api/market-data-endpoints#klinecandlestick-data',
+  },
 };
 
 export const HELP = {

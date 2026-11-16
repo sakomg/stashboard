@@ -3,7 +3,9 @@
 ## The dashboard
 
 The top of the page is the net worth, the change over 24 hours, 7 and 30 days, the crypto Fear & Greed
-index, and the accounts as chips, largest first. A chip spins while its account is being read and shows a
+index, and the accounts as chips, largest first. Until the history reaches 7 or 30 days back, those two changes
+are estimates marked **≈**: today's holdings at the prices of that many days ago. Their help button says how
+much of the portfolio they cover. A chip spins while its account is being read and shows a
 warning when it is out of date. With more than ten accounts, the smaller ones fold into a **more** chip that
 opens the Accounts view, but an account that is not read yet or out of date always keeps its chip. **Add
 wallet or exchange** is at the end of the chips.
@@ -12,7 +14,7 @@ Below, five views:
 
 - **Overview**: allocation as a strip with a legend, grouped by category, asset, chain, account or kind, the
   largest positions, and the history chart.
-- **Positions**: every asset with its quantity, price, value, share, changes, RSI, funding and heat. Select an
+- **Positions**: every asset with its quantity, price, value, share, changes and heat. RSI and funding are in Signals. Select an
   asset to see every account, chain and protocol it is held in. Click its category to change it.
 - **Signals**: the heat of the portfolio and of each asset.
 - **DeFi**: positions in protocols, net of loans.

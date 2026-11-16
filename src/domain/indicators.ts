@@ -24,3 +24,9 @@ export function sma(values: number[], period: number): number | null {
   for (let i = values.length - period; i < values.length; i++) sum += values[i]!;
   return sum / period;
 }
+
+export function priceChange(closes: number[], days: number): number | null {
+  const last = closes.at(-1);
+  const then = closes.length > days ? closes.at(-1 - days) : undefined;
+  return last !== undefined && then !== undefined && then > 0 ? last / then - 1 : null;
+}

@@ -1,8 +1,8 @@
 import { h, help, icon, skeleton } from '/common/ui.js';
 import { colorOf } from './colors.js';
 import { openCategory } from './dialogs.js';
-import { change, dash, fixed, money, percent, price, units } from './format.js';
-import { heatBadge, reading } from './heat.js';
+import { change, money, percent, price, units } from './format.js';
+import { heatBadge } from './heat.js';
 import { HELP } from './help.js';
 import { TYPES, chainLogo, chainName, isExchange, kindLogo, logo } from './logos.js';
 import { $, DUST_USD, firstRead, hasBalances, state } from './state.js';
@@ -15,8 +15,6 @@ export const COLUMNS = [
   ['share', 'Share', '', (a) => a.share],
   ['change1d', '24 h', '', (a) => a.change1d],
   ['change7d', '7 d', 'optional', (a) => a.change7d],
-  ['rsi', 'RSI', 'optional', (a) => reading(a, 'rsiDaily'), HELP.rsi],
-  ['funding', 'Funding', 'optional', (a) => reading(a, 'funding'), HELP.funding],
   ['heat', 'Heat', '', (a) => a.signal?.score ?? null, HELP.heat],
 ];
 
@@ -77,7 +75,6 @@ export function renderPositions() {
       else state.expanded.add(a.key);
       renderPositions();
     };
-    const funding = reading(a, 'funding');
     body.append(
       h(
         'tr',
@@ -138,8 +135,6 @@ export function renderPositions() {
         ),
         h('td', {}, change(a.change1d)),
         h('td', { class: 'optional' }, change(a.change7d)),
-        h('td', { class: 'num optional' }, reading(a, 'rsiDaily')?.toFixed(0) ?? dash()),
-        h('td', { class: 'num optional' }, funding === null ? dash() : `${fixed(funding, 3)}%`),
         h('td', {}, heatBadge(a.signal)),
       ),
     );

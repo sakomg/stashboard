@@ -748,6 +748,11 @@ th .help-wrap {
   text-underline-offset: 3px;
 }
 
+.dialog .hint a .icon {
+  margin-left: 4px;
+  vertical-align: -2px;
+}
+
 .dialog .hint b {
   color: var(--bone);
   font-weight: 600;

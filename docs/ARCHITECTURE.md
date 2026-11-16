@@ -94,6 +94,19 @@ snapshot keeps its previous value there, so a source being down does not show as
 ranges are thinned evenly to 240 points, always keeping the most recent one. The 24-hour, 7-day and 30-day
 changes compare with the snapshot at or before that time and stay empty until history reaches that far.
 
+### Estimated changes
+
+Until history reaches 7 or 30 days back, those changes are estimated from prices instead: today's holdings
+valued at the prices of that many days ago. Each signals run records, per asset it reads candles for, the
+change of the daily close over 7 and over 30 days (`price_changes`), from the same Binance candles the heat
+score uses, so it costs no extra request. Stablecoins count as flat. Assets without a Binance market, or worth
+under a dollar across all accounts, are left out, and the estimate covers only the rest. A borrowed asset that
+got dearer counts against it. With less than half of the portfolio covered, or price changes older than two
+days, there is no estimate and the countdown stays. The page shows an estimate with `≈` and a help button
+saying what it covers and when the change from history takes over. It leaves out deposits, withdrawals and
+trades, which the change from history includes, and an account added in the meantime, which the change from
+history counts as growth.
+
 ## Sources
 
 ### Exchanges
@@ -279,6 +292,8 @@ The thresholds and weights are in the README. In addition:
 - Rising open interest counts as leverage piling in only while the price rises too; otherwise it reads as
   neutral.
 - Stablecoins and assets under a dollar are not scored. One asset failing does not stop the rest.
+- The same daily candles give each asset's price change over 7 and 30 days, kept for the estimated changes
+  (see History).
 
 ## Logos
 
@@ -403,7 +418,8 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
   - `ready`.
     The summary and the views fade in when the state changes, except with reduced motion, and skeletons do not
     shimmer then. Past the first read, empty places say when they fill: the 24-hour, 7-day and 30-day changes count
-    down from when history began (`historySince` in `/api/portfolio`), the history chart says when the next update
+    down from when history began (`historySince` in `/api/portfolio`) unless the 7-day and 30-day ones can be
+    estimated from prices, the history chart says when the next update
     is due, and the overview says why there are no balances when accounts exist but none could be priced.
 - **Core components.** `public/common/ui.js` is the one place controls are built, for the dashboard and the shared
   page alike: `h` (elements, never `innerHTML`), `icon` and `iconButton`, `button` in four variants
@@ -530,6 +546,7 @@ and `PRAGMA user_version` records how many have run.
 | `snapshot_accounts` | Each account's result in a run: ok with warnings and reported total, or error                                  |
 | `holdings`          | Positions per account and run; `read_at` when it comes from an earlier answer                                  |
 | `signals`           | Market readings and heat score per asset, with the Binance market used                                         |
+| `price_changes`     | Each asset's latest price change over 7 and 30 days, from the signals run                                      |
 | `sessions`          | Hashes of session tokens, whose they are, and their expiry                                                     |
 | `settings`          | The imported config key and when the Zerion chain list was fetched                                             |
 | `logos`             | Where each logo comes from, its stored file, and when it was last tried                                        |
