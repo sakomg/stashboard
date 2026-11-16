@@ -37,9 +37,3 @@ export function showAuthenticator({ key, qr }) {
   document.getElementById('qr').src = `data:image/svg+xml,${encodeURIComponent(qr)}`;
   document.getElementById('key').textContent = key;
 }
-
-export function passwordsDiffer(form) {
-  if (form.password.value === form.repeat.value) return false;
-  showError(form, 'The two passwords are different. Type them again.');
-  return true;
-}

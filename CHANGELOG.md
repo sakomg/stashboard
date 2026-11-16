@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Forms are checked by the page with its own messages instead of the browser's bubbles.
 - Several people on one server. The admin invites friends with a one-time link from Settings; each signs in
   with a name, a password and an authenticator and sees only their own accounts, history, categories chosen
   by hand, hidden-amounts setting and shared links. One collection run and one Zerion key serve everyone.

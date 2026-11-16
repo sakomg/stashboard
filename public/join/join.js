@@ -1,4 +1,5 @@
-import { passwordsDiffer, post, showAuthenticator, showError, submit } from '/common/auth.js';
+import { post, showAuthenticator, showError, submit } from '/common/auth.js';
+import { checkCode, checkName, checkNewPassword, checkRepeat, validate } from '/common/checks.js';
 
 const details = document.getElementById('details');
 const authenticator = document.getElementById('authenticator');
@@ -18,7 +19,16 @@ window.addEventListener('hashchange', needLink);
 
 details.addEventListener('submit', (event) => {
   event.preventDefault();
-  if (passwordsDiffer(details)) return;
+  const valid = validate(
+    details,
+    [
+      ['username', checkName],
+      ['password', checkNewPassword],
+      ['repeat', checkRepeat(details)],
+    ],
+    (message) => showError(details, message),
+  );
+  if (!valid) return;
   submit(details, async () => {
     showAuthenticator(
       await post('/api/join/start', { token: token(), name: details.username.value, password: details.password.value }),
@@ -31,6 +41,7 @@ details.addEventListener('submit', (event) => {
 
 authenticator.addEventListener('submit', (event) => {
   event.preventDefault();
+  if (!validate(authenticator, [['code', checkCode]], (message) => showError(authenticator, message))) return;
   submit(authenticator, async () => {
     try {
       await post('/api/join/finish', { token: token(), code: authenticator.code.value });

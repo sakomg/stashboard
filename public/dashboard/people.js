@@ -1,4 +1,5 @@
 import { h, iconButton } from '/common/ui.js';
+import { checkName, validate } from '/common/checks.js';
 import { api } from './api.js';
 import { setError, submitDialog } from './dialogs.js';
 import { renderAccountPanel, timeLeft } from './settings.js';
@@ -118,6 +119,7 @@ $('remove-person-form').addEventListener('submit', async (event) => {
 const nameForm = $('name-form');
 nameForm.addEventListener('submit', async (event) => {
   event.preventDefault();
+  if (!validate(nameForm, [['username', checkName]], (message) => setError('name-error', message))) return;
   const button = nameForm.querySelector('button[type=submit]');
   button.disabled = true;
   setError('name-error', null);
