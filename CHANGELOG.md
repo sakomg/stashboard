@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Adding an account shows logos: the networks a wallet covers and each exchange, the network of a pasted
+  address inside the field, and what will be read under it. Exchanges are drawn with their own logo everywhere,
+  Bybit included.
+- Settings: shared links, people and invites show their count and fold after the first few rows, the name to
+  sign in with is changed with a pencil, Hide amounts is described in one line, and scrolling over an open
+  panel or dialog no longer moves the page behind it.
 - Lighter is no longer counted twice: Zerion now lists the Ethereum deposit into Lighter too, and that copy is
   dropped, in history as well.
 - An update reads accounts from the largest balance down, in the order the page lists them.

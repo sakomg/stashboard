@@ -21,6 +21,25 @@ $('hide-amounts').addEventListener('change', (event) => setHideAmounts(event.tar
 
 export const shareUrl = (token) => `${location.origin}/s/${token}`;
 
+const unfolded = new Set();
+
+export function fillList(list, rows, limit, count = rows.length) {
+  const toggle = $(`${list.id}-more`);
+  const folds = rows.length > limit + 1;
+  const open = folds && unfolded.has(list.id);
+  list.replaceChildren(...(folds && !open ? rows.slice(0, limit) : rows));
+  const counter = $(`${list.id}-count`);
+  if (counter) counter.textContent = count > 0 ? String(count) : '';
+  toggle.hidden = !folds;
+  toggle.setAttribute('aria-expanded', String(open));
+  toggle.replaceChildren(open ? 'Show fewer' : `Show all ${rows.length}`, icon(open ? 'chevron-up' : 'chevron-down'));
+  toggle.onclick = () => {
+    if (open) unfolded.delete(list.id);
+    else unfolded.add(list.id);
+    fillList(list, rows, limit, count);
+  };
+}
+
 export function timeLeft(iso) {
   const hours = Math.max(1, Math.round((Date.parse(iso) - Date.now()) / 3_600_000));
   return hours < 48 ? `${hours} h` : `${Math.round(hours / 24)} days`;
@@ -32,15 +51,16 @@ export async function renderShareLinks() {
   try {
     links = await api('/api/shares');
   } catch (err) {
-    list.replaceChildren(h('li', { class: 'muted' }, err.message));
+    fillList(list, [h('li', { class: 'muted' }, err.message)], 3, 0);
     return;
   }
   if (links.length === 0) {
-    list.replaceChildren(h('li', { class: 'muted' }, 'No shared links. Create one with Share in Allocation.'));
+    fillList(list, [h('li', { class: 'muted' }, 'No shared links. Create one with Share in Allocation.')], 3, 0);
     return;
   }
-  list.replaceChildren(
-    ...links.map((link) =>
+  fillList(
+    list,
+    links.map((link) =>
       h(
         'li',
         {},
@@ -89,6 +109,7 @@ export async function renderShareLinks() {
         ),
       ),
     ),
+    3,
   );
 }
 
@@ -117,13 +138,13 @@ export function renderAccountPanel() {
     ].filter(Boolean),
   );
   $('session-text').textContent = data.loginEnabled
-    ? `Signed in as ${data.me?.name ?? 'you'} on this device. A session lasts 30 days.`
+    ? 'Signed in on this device. A session lasts 30 days.'
     : 'Sign-in is off: this dashboard is open on this machine only.';
   $('sign-out').hidden = !data.loginEnabled;
-  $('name-form').hidden = !data.loginEnabled;
 }
 
 $('open-account').addEventListener('click', () => {
+  unfolded.clear();
   renderAccountPanel();
   renderShareLinks();
   $('account').showModal();

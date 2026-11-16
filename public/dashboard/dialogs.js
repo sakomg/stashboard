@@ -4,7 +4,7 @@ import { api } from './api.js';
 import { colorOf } from './colors.js';
 import { showInfo } from './feedback.js';
 import { SOURCES } from './help.js';
-import { EXCHANGES, isExchange, kindLogo } from './logos.js';
+import { EVM_CHAINS, EXCHANGES, chainStack, exchangeStack, isExchange, kindLogo, walletStack } from './logos.js';
 import { $, actions, state } from './state.js';
 
 export function setError(id, message) {
@@ -40,10 +40,16 @@ export const NETWORKS = [
   [
     'evm',
     /^0x[0-9a-fA-F]{40}$/,
-    'EVM address. Ethereum, Base, Arbitrum, BNB Chain and the other EVM chains are read at once.',
+    'EVM address.',
+    'Ethereum, Base, Arbitrum, BNB Chain and the other EVM chains are read at once.',
   ],
-  ['ton', /^(?:[A-Za-z0-9_-]{48}|-?\d+:[0-9a-fA-F]{64})$/, 'TON address.'],
-  ['solana', /^[1-9A-HJ-NP-Za-km-z]{32,44}$/, 'Solana address.'],
+  [
+    'ton',
+    /^(?:[A-Za-z0-9_-]{48}|-?\d+:[0-9a-fA-F]{64})$/,
+    'TON address.',
+    'TON and whitelisted jettons are read. Other jettons are mostly spam.',
+  ],
+  ['solana', /^[1-9A-HJ-NP-Za-km-z]{32,44}$/, 'Solana address.', 'Tokens and staking are read.'],
 ];
 
 export const addForm = $('add-form');
@@ -70,13 +76,18 @@ export const KEY_HELP = {
 };
 export const NEEDS_PASSPHRASE = new Set(['okx']);
 
-export const exchangeChoice = select({
-  label: 'Exchange',
-  options: Object.entries(EXCHANGES).map(([value, label]) => ({ value, label })),
-  value: 'binance',
-  onChange: setExchange,
-});
-$('exchange-select').append(exchangeChoice);
+export let exchangeChoice = null;
+
+export function buildExchangeChoice(value = 'binance') {
+  exchangeChoice = select({
+    label: 'Exchange',
+    options: Object.entries(EXCHANGES).map(([kind, label]) => ({ value: kind, label, media: () => kindLogo(kind) })),
+    value,
+    onChange: setExchange,
+  });
+  $('exchange-select').replaceChildren(exchangeChoice);
+}
+buildExchangeChoice();
 
 export function setExchange(kind) {
   const help = KEY_HELP[kind];
@@ -103,8 +114,8 @@ export function setAddKind(kind) {
     segmentedControl({
       label: 'What to add',
       options: [
-        ['wallet', 'Wallet'],
-        ['exchange', 'Exchange'],
+        ['wallet', 'Wallet', walletStack()],
+        ['exchange', 'Exchange', exchangeStack()],
       ],
       value: kind,
       onChange: setAddKind,
@@ -124,21 +135,35 @@ export function setAddKind(kind) {
 export function showDetected() {
   const address = addForm.address.value.trim();
   const found = NETWORKS.find(([, pattern]) => pattern.test(address));
+  $('address-logo').replaceChildren(found ? kindLogo(found[0]) : icon('wallet'));
+  if (!found) {
+    $('detected').replaceChildren(
+      ...(address
+        ? [h('span', {}, 'This does not look like an EVM, Solana or TON address yet.')]
+        : [walletStack(), h('span', {}, 'The network is recognised from the address.')]),
+    );
+    return;
+  }
   $('detected').replaceChildren(
-    ...(found
-      ? [kindLogo(found[0]), h('span', {}, found[2])]
-      : [
-          address
-            ? 'This does not look like an EVM, Solana or TON address yet.'
-            : 'The network is recognised from the address.',
-        ]),
+    ...[
+      found[0] === 'evm' && chainStack(Object.keys(EVM_CHAINS)),
+      h('span', {}, h('b', {}, found[2]), ` ${found[3]}`),
+    ].filter(Boolean),
   );
+}
+
+export function renderAddLogos() {
+  for (const slot of document.querySelectorAll('[data-logos]')) {
+    slot.replaceChildren(...[slot.dataset.logos === 'wallet' ? walletStack() : exchangeStack()].filter(Boolean));
+  }
 }
 
 addForm.address.addEventListener('input', showDetected);
 
 export function openAdd(kind = 'wallet') {
   addForm.reset();
+  buildExchangeChoice();
+  setExchange(exchangeChoice.value);
   showDetected();
   $('add-dialog').showModal();
   setAddKind(kind);

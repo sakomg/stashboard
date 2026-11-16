@@ -90,6 +90,7 @@
             ></span>
             <b>Add a wallet</b>
             <span>EVM, Solana or TON. The public address is all it needs.</span>
+            <span class="path-logos" data-logos="wallet"></span>
           </button>
           <button class="path" type="button" data-open-add="exchange">
             <span class="path-icon"
@@ -97,6 +98,7 @@
             ></span>
             <b>Add an exchange</b>
             <span>Binance, Bybit or OKX, with an API key that can only read.</span>
+            <span class="path-logos" data-logos="exchange"></span>
           </button>
         </div>
         <ol class="next">
@@ -252,10 +254,13 @@
         </header>
         <div id="add-kind"></div>
         <div class="fields" id="wallet-fields">
-          <label>
-            <span>Address</span>
-            <input name="address" spellcheck="false" placeholder="EVM, Solana or TON address" />
-          </label>
+          <div class="field">
+            <label for="add-address">Address</label>
+            <div class="with-logo">
+              <span class="input-logo" id="address-logo" aria-hidden="true"></span>
+              <input id="add-address" name="address" spellcheck="false" placeholder="EVM, Solana or TON address" />
+            </div>
+          </div>
           <p class="detected" id="detected" aria-live="polite"></p>
         </div>
         <div class="fields" id="exchange-fields" hidden>
@@ -357,17 +362,15 @@
             <span class="track" aria-hidden="true"></span>
             <span>
               <b>Hide amounts</b>
-              <small
-                >Dollar amounts and quantities turn into dots on every device. Shares and changes stay. New share images
-                and links leave amounts out unless you add them.</small
-              >
+              <small>Amounts turn into dots on every device.</small>
             </span>
           </label>
         </section>
 
         <section aria-labelledby="links-title">
-          <h3 id="links-title">Shared links</h3>
+          <h3 id="links-title">Shared links<span class="count" id="share-links-count"></span></h3>
           <ul class="links" id="share-links"></ul>
+          <button class="link more" id="share-links-more" type="button" aria-controls="share-links" hidden></button>
         </section>
 
         <section aria-labelledby="updates-title">
@@ -376,12 +379,12 @@
         </section>
 
         <section aria-labelledby="people-title" id="people" hidden>
-          <h3 id="people-title">People</h3>
-          <p class="muted">
-            Everyone signs in with their own name and authenticator and sees only their own accounts. Updates read all
-            accounts together, with one Zerion allowance.
-          </p>
-          <ul class="links" id="people-list"></ul>
+          <h3 id="people-title">People<span class="count" id="people-list-count"></span></h3>
+          <p class="muted">Each person sees only their own accounts.</p>
+          <ul class="links compact" id="people-list"></ul>
+          <button class="link more" id="people-list-more" type="button" aria-controls="people-list" hidden></button>
+          <ul class="links compact" id="invite-list" aria-label="Invite links"></ul>
+          <button class="link more" id="invite-list-more" type="button" aria-controls="invite-list" hidden></button>
           <button class="button" id="invite" type="button">
             <svg class="icon" aria-hidden="true"><use href="/icons.svg#user-plus"></use></svg>Invite someone
           </button>
@@ -391,20 +394,13 @@
 
         <section aria-labelledby="session-title">
           <h3 id="session-title">Session</h3>
+          <div class="session-row">
+            <div class="me" id="me" hidden></div>
+            <button class="button" id="sign-out" type="button" hidden>
+              <svg class="icon" aria-hidden="true"><use href="/icons.svg#log-out"></use></svg>Sign out
+            </button>
+          </div>
           <p class="muted" id="session-text"></p>
-          <form class="name-form" id="name-form" hidden novalidate>
-            <label>
-              <span>Name you sign in with</span>
-              <span class="name-row">
-                <input name="username" autocomplete="username" autocapitalize="off" spellcheck="false" />
-                <button class="button" type="submit">Save</button>
-              </span>
-            </label>
-            <p class="form-error" id="name-error" role="alert" hidden></p>
-          </form>
-          <button class="button" id="sign-out" type="button" hidden>
-            <svg class="icon" aria-hidden="true"><use href="/icons.svg#log-out"></use></svg>Sign out
-          </button>
         </section>
       </div>
     </dialog>

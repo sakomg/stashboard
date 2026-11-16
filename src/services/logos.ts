@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import type { Config } from '../lib/config.ts';
 import { getJson } from '../lib/http.ts';
+import type { ExchangeKind } from '../domain/exchange.ts';
 import type { LogoHint, LogoKind } from '../domain/types.ts';
 
 const TYPES: Record<string, string> = {
@@ -90,6 +91,20 @@ async function coingeckoLogos(apiKey: string, symbols: string[]): Promise<Map<st
   return found;
 }
 
+export const COINGECKO_EXCHANGES: Record<ExchangeKind, string> = {
+  binance: 'binance',
+  bybit: 'bybit_spot',
+  okx: 'okex',
+};
+
+async function coingeckoExchangeLogos(apiKey: string): Promise<Map<string, string>> {
+  const rows = await getJson<{ id: string; image?: string }[]>(
+    'https://api.coingecko.com/api/v3/exchanges?per_page=250',
+    apiKey ? { 'x-cg-demo-api-key': apiKey } : {},
+  );
+  return new Map(rows.filter((r) => r.image?.startsWith('https://')).map((r) => [r.id.toLowerCase(), r.image!]));
+}
+
 export async function fetchMissingLogos(
   db: DatabaseSync,
   config: Config,
@@ -113,6 +128,14 @@ export async function fetchMissingLogos(
   } catch (err) {
     console.warn(`logos: CoinGecko lookup failed: ${err instanceof Error ? err.message : String(err)}`);
   }
+  let exchanges = new Map<string, string>();
+  if (due.some((w) => w.kind === 'exchange' && !rowOf(w.kind, w.key)?.source_url)) {
+    try {
+      exchanges = await coingeckoExchangeLogos(config.coingecko.apiKey);
+    } catch (err) {
+      console.warn(`logos: CoinGecko exchange lookup failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
 
   mkdirSync(dirOf(), { recursive: true });
   const save = db.prepare(
@@ -124,7 +147,7 @@ export async function fetchMissingLogos(
   const fetchOne = async (w: Wanted): Promise<void> => {
     const candidates = [
       rowOf(w.kind, w.key)?.source_url,
-      ...(w.lookup ?? [w.key]).map((s) => looked.get(s.toLowerCase())),
+      ...(w.lookup ?? [w.key]).map((s) => (w.kind === 'exchange' ? exchanges : looked).get(s.toLowerCase())),
       ...(w.alternatives ?? []).map((alt) => rowOf(w.kind, alt)?.source_url),
     ].filter((u): u is string => Boolean(u));
 

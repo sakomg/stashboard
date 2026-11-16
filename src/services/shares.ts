@@ -28,7 +28,7 @@ export interface Share {
 
 export const SHARE_DAYS = [1, 7, 30];
 const MAX_ROWS = 12;
-const LOGO_KINDS: LogoKind[] = ['token', 'chain', 'protocol'];
+const LOGO_KINDS: LogoKind[] = ['token', 'chain', 'protocol', 'exchange'];
 
 const text = (value: unknown, max: number): string | null =>
   typeof value === 'string' && value.trim() && value.length <= max ? value.trim() : null;

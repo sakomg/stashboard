@@ -88,8 +88,8 @@ is used and the dashboard says how old it is. Settings shows how much of the day
 ## Signing in
 
 The first account is created on the first visit with the setup code the server prints: a name, a password and
-an authenticator app. Its owner is the admin. Anyone can change the name they sign in with under Session in
-Settings. Five wrong attempts from one address lock it out for 15 minutes,
+an authenticator app. Its owner is the admin. Anyone can change the name they sign in with: the pencil next to it under
+Session in Settings. Five wrong attempts from one address lock it out for 15 minutes,
 and each authenticator code works once. To reset it, see [troubleshooting](self-hosting.md#troubleshooting).
 
 ## Friends

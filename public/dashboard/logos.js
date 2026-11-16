@@ -31,10 +31,46 @@ export const EXCHANGES = { binance: 'Binance', bybit: 'Bybit', okx: 'OKX' };
 export const isExchange = (kind) => Object.hasOwn(EXCHANGES, kind);
 export const KIND_TOKEN = { binance: 'BNB', okx: 'OKB', evm: 'ETH', solana: 'SOL', ton: 'TON' };
 export const CHAIN_TOKEN = { binance: 'BNB', okx: 'OKB', ton: 'TON' };
-export const kindLogo = (kind) =>
-  KIND_TOKEN[kind] ? logo('token', KIND_TOKEN[kind], KINDS[kind]) : monogram(KINDS[kind]);
-export const chainLogo = (id) =>
-  CHAIN_TOKEN[id] ? logo('token', CHAIN_TOKEN[id], chainName(id)) : logo('chain', id, chainName(id));
+const CHAIN_FALLBACK = { ethereum: 'ETH', 'binance-smart-chain': 'BNB', solana: 'SOL' };
+export const hasLogo = (spec) => Boolean(spec?.key) && state.logos.has(`${spec.kind}/${spec.key}`);
+
+const exchangeFirst = (id, token) => {
+  const exchange = { kind: 'exchange', key: id };
+  return isExchange(id) && (hasLogo(exchange) || !token) ? exchange : { kind: 'token', key: token };
+};
+export const kindLogoSpec = (kind) => exchangeFirst(kind, KIND_TOKEN[kind]);
+export const chainLogoSpec = (id) => {
+  if (isExchange(id)) return exchangeFirst(id, CHAIN_TOKEN[id]);
+  if (CHAIN_TOKEN[id]) return { kind: 'token', key: CHAIN_TOKEN[id] };
+  const chain = { kind: 'chain', key: id };
+  return hasLogo(chain) || !CHAIN_FALLBACK[id] ? chain : { kind: 'token', key: CHAIN_FALLBACK[id] };
+};
+export const kindLogo = (kind) => {
+  const spec = kindLogoSpec(kind);
+  return spec.key ? logo(spec.kind, spec.key, KINDS[kind]) : monogram(KINDS[kind]);
+};
+export const chainLogo = (id) => {
+  const spec = chainLogoSpec(id);
+  return logo(spec.kind, spec.key, chainName(id));
+};
+
+export const EVM_CHAINS = {
+  ethereum: 'Ethereum',
+  base: 'Base',
+  arbitrum: 'Arbitrum',
+  'binance-smart-chain': 'BNB Chain',
+  optimism: 'Optimism',
+  polygon: 'Polygon',
+};
+
+export function logoStack(logos) {
+  const shown = logos.filter(Boolean);
+  return shown.length > 0 ? h('span', { class: 'logo-stack', 'aria-hidden': 'true' }, shown) : null;
+}
+
+export const chainStack = (ids) => logoStack(ids.filter((id) => hasLogo(chainLogoSpec(id))).map(chainLogo));
+export const walletStack = () => logoStack(['evm', 'solana', 'ton'].map(kindLogo));
+export const exchangeStack = () => logoStack(Object.keys(EXCHANGES).map(kindLogo));
 
 export const KINDS = { ...EXCHANGES, evm: 'EVM', solana: 'Solana', ton: 'TON' };
 export const TYPES = {

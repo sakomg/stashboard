@@ -104,7 +104,15 @@ test('the portfolio asks for its assets, chains and protocols, and always for th
     of('chain')
       .map((w) => w.key)
       .sort(),
-    ['arbitrum', 'base', 'solana'],
+    ['arbitrum', 'base', 'binance-smart-chain', 'ethereum', 'optimism', 'polygon', 'solana'],
+  );
+  assert.deepEqual(
+    of('exchange').map((w) => [w.key, w.lookup]),
+    [
+      ['binance', ['binance']],
+      ['bybit', ['bybit_spot']],
+      ['okx', ['okex']],
+    ],
   );
   assert.deepEqual(
     of('protocol').map((w) => w.key),
