@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Views no longer jump back on their own in Arc. Switching wrote the view into the address, and Arc then
+  showed a picture of the page from before the click until the pointer moved. The open view is now kept by the
+  tab without touching the address or the history.
 - Adding an account shows logos: the networks a wallet covers and each exchange, the network of a pasted
   address inside the field, and what will be read under it. Exchanges are drawn with their own logo everywhere,
   Bybit included.

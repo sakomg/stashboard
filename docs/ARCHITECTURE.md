@@ -425,18 +425,21 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
 - **Fear & Greed** is coloured by its band, following alternative.me's: under 25 extreme fear (teal), under 45
   fear, under 56 neutral, under 76 greed (amber), above extreme greed (orange), so it reads like the heat scale.
 - **Where an asset is held** lists places worth at least half a cent; the rest are counted in one line.
-- **Views** are held by the page, and the URL hash only mirrors the open one with `history.replaceState`: it
-  keeps the view across a reload, but switching adds no history entry, so the back button or a back swipe on a
-  trackpad or phone leaves the page instead of cycling through views. The hash is read once, when the page
-  opens. After that only a tab, the arrow keys or a link to a view (_How heat is scored_) switch the view, and
-  such a link is handled by script, since following it would add a history entry. A browser tab may still hold
-  entries with a view in the hash, pushed by a version that added one per switch or by an address typed by
-  hand. Going back or forward through them used to flip the views in the order they were once open, so now the
-  hash is put back to the open view and the view stays. The page also sets `overscroll-behavior-x: none`, so a
-  sideways scroll does not start a back swipe by accident. No element id equals a view name, so a hash never
-  scrolls to an anchor. Switching from deep in a view scrolls to where the tab bar sits in the page, computed
-  rather than with `scrollIntoView`, which treats a stuck sticky element differently from one browser to
-  another.
+- **Views** are held by the page and never written to the address or the browser history. Switching the view
+  is plain DOM work, and the open view is kept in `sessionStorage`, so it survives a reload of the tab (and the
+  reload after a deploy) without touching the URL. A view in the hash is still read when the page opens, for
+  links and old bookmarks, but only when the tab has no remembered view. The page used to mirror the view into
+  the hash with `history.replaceState`. That is a same-document navigation, and Chromium takes a picture of the
+  page as it was just before it. Arc then showed that picture whenever the page sat still: a second or two
+  after a click the previous view came back, with the clicked tab still lit by the pointer, while the address
+  showed the new one, until moving the pointer over the tabs repainted the page. A test in
+  `test/web/modules.test.ts` fails if a page script writes history again. A link to a view (_How heat is
+  scored_) is handled by script for the same reason. Old tabs may still hold entries with a view in the hash.
+  Going back or forward through them changes only the address, and the view stays. The page also sets
+  `overscroll-behavior-x: none`, so a sideways scroll does not start a back swipe by accident. No element id
+  equals a view name, so a hash never scrolls to an anchor. Switching from deep in a view scrolls to where the
+  tab bar sits in the page, computed rather than with `scrollIntoView`, which treats a stuck sticky element
+  differently from one browser to another.
 - **Text** joins clauses with full stops, not semicolons, and lists reasons as separate tags.
 
 - **Forms** are checked by the page, never by the browser: every form has `novalidate`, and no field has
@@ -479,8 +482,7 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
   screen being seen, not a security boundary: the API still returns amounts to the signed-in person. The share
   dialog starts with amounts off while they are hidden.
 
-- **Views.** Overview, Positions, Signals, DeFi and Accounts share one tab bar; the view lives in the URL
-  hash. The bar sticks to the top and shows the net worth at its right end once the large figure scrolls away. The
+- **Views.** Overview, Positions, Signals, DeFi and Accounts share one tab bar. The bar sticks to the top and shows the net worth at its right end once the large figure scrolls away. The
   tabs never move: the figure takes space only on the right, so a tab cannot slide from under the pointer when
   the bar sticks or unsticks. The bar is opaque, so nothing shows through it. A short view stays as
   short as its content: switching to it from deep in a long one may unstick the bar, which is harmless now that
