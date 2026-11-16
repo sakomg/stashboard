@@ -121,7 +121,7 @@ try {
 
 const db = openDb();
 for (const kind of EXCHANGE_KINDS) {
-  const stored = listAccounts(db)
+  const stored = listAccounts(db, 'all')
     .filter((a) => a.kind === kind)
     .flatMap((a) => {
       const keys = exchangeKeys(db, a.id);
@@ -131,8 +131,8 @@ for (const kind of EXCHANGE_KINDS) {
   const fromConfig = kind === 'binance' && stored.length === 0 && seed.apiKey && seed.apiSecret;
   await checkExchange(kind, fromConfig ? [{ label: 'config.json', keys: seed }] : stored);
 }
-await checkZerion(config.zerion, [...listWallets(db, 'evm'), ...listWallets(db, 'solana')]);
-await checkTon(config.tonapi, listWallets(db, 'ton'));
+await checkZerion(config.zerion, [...listWallets(db, 'all', 'evm'), ...listWallets(db, 'all', 'solana')]);
+await checkTon(config.tonapi, listWallets(db, 'all', 'ton'));
 await checkCoingecko(config.coingecko);
 await checkFearGreed();
 

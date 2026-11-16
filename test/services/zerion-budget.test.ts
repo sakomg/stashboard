@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
 import { repriceEarlierReads, updateGate } from '../../src/services/collector.ts';
-import { addWallet, finishSnapshot, openDb, saveOutcome, startSnapshot } from '../../src/storage/index.ts';
+import { ADMIN_ID, addWallet, finishSnapshot, openDb, saveOutcome, startSnapshot } from '../../src/storage/index.ts';
 import { collectZerion, resetZerionQuota, zerionQuota, zerionTiming } from '../../src/sources/zerion.ts';
 import type { Holding } from '../../src/domain/types.ts';
 
@@ -110,7 +110,7 @@ test('a refused DeFi read keeps the earlier positions, says so, and is not repea
 
 test('with nothing kept yet, a refused DeFi read falls back to the positions stored last time', async () => {
   const db = freshDb();
-  const wallet = addWallet(db, ADDRESS);
+  const wallet = addWallet(db, ADMIN_ID, ADDRESS);
   const snapshot = startSnapshot(db);
   const stored: Holding[] = [
     { chain: 'arbitrum', protocol: 'Aave V3', symbol: 'WETH', quantity: 1, price: 2000, value: 2000, type: 'deposit' },

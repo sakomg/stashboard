@@ -4,7 +4,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { createResolver, loadAssetRules } from '../../src/domain/assets.ts';
-import { addWallet, finishSnapshot, openDb, saveOutcome, startSnapshot } from '../../src/storage/index.ts';
+import {
+  ADMIN_ID,
+  addWallet,
+  currentState,
+  finishSnapshot,
+  openDb,
+  saveOutcome,
+  startSnapshot,
+} from '../../src/storage/index.ts';
 import { logoFile, logoIndex, noteLogos, sniffImage } from '../../src/services/logos.ts';
 import { wantedLogos } from '../../src/services/view.ts';
 
@@ -71,7 +79,7 @@ test('a new source address makes a failed logo worth trying again', () => {
 
 test('the portfolio asks for its assets, chains and protocols, and always for the native coins', () => {
   const db = freshDb();
-  const wallet = addWallet(db, '0x52908400098527886E0F7030069857D2E4169EE7');
+  const wallet = addWallet(db, ADMIN_ID, '0x52908400098527886E0F7030069857D2E4169EE7');
   const snapshot = startSnapshot(db);
   saveOutcome(db, snapshot, wallet.id, {
     status: 'ok',
@@ -84,7 +92,7 @@ test('the portfolio asks for its assets, chains and protocols, and always for th
   });
   finishSnapshot(db, snapshot);
 
-  const wanted = wantedLogos(db, createResolver(loadAssetRules()));
+  const wanted = wantedLogos(currentState(db, 'all'), createResolver(loadAssetRules()));
   const of = (kind: string) => wanted.filter((w) => w.kind === kind);
   const token = (key: string) => wanted.find((w) => w.kind === 'token' && w.key === key);
 

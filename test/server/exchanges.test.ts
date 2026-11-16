@@ -6,7 +6,7 @@ import { afterEach, test } from 'node:test';
 import { loadConfig } from '../../src/lib/config.ts';
 import { createApp } from '../../src/server/app.ts';
 import { createContext } from '../../src/server/context.ts';
-import { createSession, listAccounts, openDb, saveOwner } from '../../src/storage/index.ts';
+import { ADMIN_ID, claimAdmin, createSession, listAccounts, openDb } from '../../src/storage/index.ts';
 
 const original = globalThis.fetch;
 afterEach(() => {
@@ -15,10 +15,10 @@ afterEach(() => {
 
 function signedIn() {
   const db = openDb(mkdtempSync(join(tmpdir(), 'stashboard-test-')));
-  saveOwner(db, { passwordHash: 'x', totpSecret: 'JBSWY3DPEHPK3PXP' });
+  claimAdmin(db, { name: 'admin', passwordHash: 'x', totpSecret: 'JBSWY3DPEHPK3PXP', totpStep: 0 });
   const ctx = createContext({ config: loadConfig('config.example.json'), db, env: { HOST: '0.0.0.0' } });
   const { app } = createApp(ctx);
-  const cookie = `stashboard_session=${createSession(db, 60_000)}`;
+  const cookie = `stashboard_session=${createSession(db, ADMIN_ID, 60_000)}`;
   const add = async (payload: Record<string, unknown>) => {
     const res = await app.inject({ method: 'POST', url: '/api/exchanges', headers: { cookie }, payload });
     return { status: res.statusCode, body: res.json() as { error?: string } };
@@ -44,5 +44,5 @@ test('a key that can do more than read is refused with what to tick on that exch
   const { status, body } = await add({ exchange: 'okx', ...okx, passphrase: 'Read only 1!' });
   assert.equal(status, 400);
   assert.equal(body.error, 'This key can do more than read: trading. Create a key with only the Read permission.');
-  assert.equal(listAccounts(db).length, 0);
+  assert.equal(listAccounts(db, 'all').length, 0);
 });

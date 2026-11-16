@@ -18,7 +18,7 @@ Below, five views:
 - **DeFi**: positions in protocols, net of loans.
 - **Accounts**: every wallet and exchange, with its status and warnings, to rename or remove.
 
-**Settings** (top right) has privacy, shared links, update status, starting history over, and sign-out.
+**Settings** (top right) has privacy, shared links, update status, people for the admin, and the session.
 
 Balances update on their own every hour. The button next to the update time asks for one now; it rests for a
 minute after an update.
@@ -74,9 +74,8 @@ off.
 
 ## History
 
-Every update adds a point to the history. If you added your accounts one at a time, the chart shows a
-staircase. **Start history over** in Settings keeps the current balances and deletes the earlier points,
-after saving a copy of the database.
+Every update adds a point to the history. An account joins the history when it is first read, so accounts
+added one at a time show as steps in the chart.
 
 ## Free-tier limits
 
@@ -88,9 +87,19 @@ is used and the dashboard says how old it is. Settings shows how much of the day
 
 ## Signing in
 
-The account is created on the first visit with the setup code the server prints. It is a password and an
-authenticator app. Five wrong attempts from one address lock it out for 15 minutes, and each authenticator
-code works once. To reset it, see [troubleshooting](self-hosting.md#troubleshooting).
+The first account is created on the first visit with the setup code the server prints: a name, a password and
+an authenticator app. Its owner is the admin. Anyone can change the name they sign in with under Session in
+Settings. Five wrong attempts from one address lock it out for 15 minutes,
+and each authenticator code works once. To reset it, see [troubleshooting](self-hosting.md#troubleshooting).
+
+## Friends
+
+The admin can let friends keep their own portfolio on the same server: _Invite someone_ under People in
+Settings copies a link that works once, for 7 days. The friend opens it, picks a name and a password and adds
+an authenticator, and from then on signs in like anyone else. Each person sees only their own accounts,
+history, categories chosen by hand and shared links. Updates read everyone's accounts together, with the one
+Zerion key in `config.json`, so more wallets use the daily allowance faster. Whoever runs the server can read
+its database, so friends should trust them. Removing a person deletes everything they added.
 
 Running on your own computer with `npm start`, the dashboard listens on localhost only and stays open until
 you create an account at `/setup`. Set `REQUIRE_LOGIN=1` to demand one from the start.

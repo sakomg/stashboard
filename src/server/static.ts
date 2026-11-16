@@ -18,12 +18,13 @@ export interface StaticFile {
 const AREAS: Record<string, Access[]> = {
   common: ['session', 'signin', 'setup', 'public'],
   dashboard: ['session'],
+  join: ['signin'],
   login: ['signin'],
   setup: ['setup'],
   share: ['public'],
 };
 
-const PAGES: Record<string, string> = { '/': 'dashboard', '/login': 'login', '/setup': 'setup' };
+const PAGES: Record<string, string> = { '/': 'dashboard', '/join': 'join', '/login': 'login', '/setup': 'setup' };
 
 const TYPES: Record<string, string> = {
   html: 'text/html; charset=utf-8',
@@ -118,6 +119,7 @@ const ICONS = [
   'triangle-alert',
   'clock',
   'wallet',
+  'user-plus',
 ];
 
 const LOGO_POLICY = "sandbox; default-src 'none'; style-src 'unsafe-inline'";

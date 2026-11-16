@@ -1,6 +1,14 @@
 import type { DatabaseSync } from 'node:sqlite';
 import type { Asset } from '../domain/assets.ts';
-import { currentState, latestSignals, listSnapshots, snapshotAt, snapshotValues } from '../storage/index.ts';
+import {
+  currentState,
+  historySince,
+  latestSignals,
+  listSnapshots,
+  snapshotAt,
+  snapshotValues,
+  type AccountState,
+} from '../storage/index.ts';
 import { exchangeHints, isExchange } from './exchanges.ts';
 import { STOCKS_CATEGORY } from '../domain/assets.ts';
 import { logoIndex, type Wanted } from './logos.ts';
@@ -11,13 +19,13 @@ const short = (a: string): string => (a.length > 12 ? `${a.slice(0, 6)}…${a.sl
 const ratio = (now: number, then: number | undefined): number | null =>
   then === undefined || then === 0 ? null : now / then - 1;
 
-export function portfolioView(db: DatabaseSync, resolve: (symbol: string) => Asset, now = new Date()) {
-  const states = currentState(db);
+export function portfolioView(db: DatabaseSync, userId: number, resolve: (symbol: string) => Asset, now = new Date()) {
+  const states = currentState(db, userId);
   const portfolio = buildPortfolio(states, resolve);
 
   const past = (days: number) => {
     const snapshot = snapshotAt(db, new Date(now.getTime() - days * DAY_MS));
-    return snapshot ? buildPortfolio(currentState(db, snapshot.id), resolve) : null;
+    return snapshot ? buildPortfolio(currentState(db, userId, snapshot.id), resolve) : null;
   };
   const [d1, d7, d30] = [past(1), past(7), past(30)];
   const priceThen = (p: typeof d1, key: string): number | undefined =>
@@ -27,9 +35,8 @@ export function portfolioView(db: DatabaseSync, resolve: (symbol: string) => Ass
   const hints = exchangeHints(db);
 
   return {
-    logos: logoIndex(db),
-    historySince:
-      (db.prepare('SELECT MIN(started_at) AS since FROM snapshots').get() as { since: string | null }).since ?? null,
+    logos: logoIndex(db, new Set(wantedLogos(states, resolve).map((w) => `${w.kind}/${w.key}`))),
+    historySince: historySince(db, userId),
     updatedAt: states.reduce<string | null>(
       (max, s) => (s.collectedAt && (!max || s.collectedAt > max) ? s.collectedAt : max),
       null,
@@ -90,6 +97,7 @@ const MAX_POINTS = 240;
 
 export function historyView(
   db: DatabaseSync,
+  userId: number,
   resolve: (symbol: string) => Asset,
   days: number | null,
   now = new Date(),
@@ -112,7 +120,7 @@ export function historyView(
     points.push({ time, total: Object.values(categories).reduce((s, v) => s + v, 0), categories });
   };
 
-  for (const row of snapshotValues(db)) {
+  for (const row of snapshotValues(db, userId)) {
     if (row.snapshotId !== currentId) {
       flush();
       currentId = row.snapshotId;
@@ -139,13 +147,13 @@ export function historyView(
 
 export const NATIVE_TOKENS = ['BNB', 'OKB', 'ETH', 'SOL', 'TON'];
 
-export function wantedLogos(db: DatabaseSync, resolve: (symbol: string) => Asset): Wanted[] {
+export function wantedLogos(states: AccountState[], resolve: (symbol: string) => Asset): Wanted[] {
   const tokens = new Map<string, { category: string; symbols: Set<string> }>();
   const chains = new Set<string>();
   const protocols = new Set<string>();
   for (const key of NATIVE_TOKENS) tokens.set(key, { category: resolve(key).category, symbols: new Set() });
 
-  for (const { account, holdings } of currentState(db)) {
+  for (const { account, holdings } of states) {
     for (const h of holdings) {
       const asset = resolve(h.symbol);
       let entry = tokens.get(asset.key);

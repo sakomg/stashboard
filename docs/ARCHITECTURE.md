@@ -32,9 +32,10 @@ Dependencies point down: `lib` ← `domain` ← `storage`, `sources` ← `servic
 does no I/O and imports only `lib`, so it is tested without a database or a network. `test/architecture.test.ts`
 fails when a module imports a layer it should not, and when a new folder in `src` has no place in the layering.
 
-The server is assembled by `createApp` from a `Context` (config, database, resolver, owner) that `createContext`
-builds from the environment or that a test passes in. Routes live in `server/routes` by area (sign-in, dashboard,
-accounts, shares); `server/collection.ts` owns the schedule, the progress of a run and the update gate.
+The server is assembled by `createApp` from a `Context` (config, database, resolvers, whether sign-in is set up)
+that `createContext` builds from the environment or that a test passes in. Routes live in `server/routes` by area
+(sign-in, dashboard, accounts, shares, people); `server/collection.ts` owns the schedule, the progress of a run
+and the update gate.
 `test/server/access.test.ts` drives the whole app through `app.inject` to check who may open what.
 
 On the page, `dashboard/main.js` loads data and renders; every other module owns one part of the page and
@@ -46,20 +47,22 @@ is reached from `main.js`, that every imported name is exported, and that there 
 
 ## Collection
 
-A run reads the accounts one after another. An account that fails is recorded as an error and the others go
-on; the failed one keeps showing its last good balances, marked out of date.
+A run reads the accounts of every person one after another, into one snapshot. An account that fails is
+recorded as an error and the others go on; the failed one keeps showing its last good balances, marked out of
+date.
 
 Nothing is stored until every account has been read. Then holdings that come from an earlier answer of a
 source (see Zerion below) take this run's price for the same symbol, or for the token a `W`-wrapper wraps
 (WETH takes ETH's price), keeping their quantity. Only then is the snapshot written, so the page never sees a
-half-finished run.
+half-finished run. An account removed while the run read it, alone or with the person who held it, is left
+out.
 
 An EVM address is read twice: by Zerion for chains and protocols, and by Lighter for what sits on its
 exchange, which wallet indexers cannot see.
 
 While a run is going, the collector reports each account as waiting, being read, waiting on a source, done
-or failed. The server keeps that state and serves it at `/api/progress`; after the accounts it reports the
-signals phase.
+or failed. The server keeps that state and serves it at `/api/progress`, to each person only for their own
+accounts; after the accounts it reports the signals phase.
 
 After the balances, signals are recomputed if they are older than `schedule.signalsMinutes`. Logos and
 categories of newly seen assets are fetched in the background: they are cosmetic and never hold up an update.
@@ -69,27 +72,21 @@ snapshot is older than that, so a restart or a deploy does not trigger a collect
 
 ### Manual updates
 
-An update asked for on the page is refused while one runs, for a minute after the last one finished, and,
-when there are EVM or Solana wallets, while Zerion's daily allowance is used up. The server answers 429 with
+An update asked for on the page reads everyone's accounts, since they share one run and one Zerion key. It is
+refused while one runs, for a minute after the last one finished, and, when there are EVM or Solana wallets,
+while Zerion's daily allowance is used up. The server answers 429 with
 the reason and when updates are possible again; `/api/portfolio` and `/api/progress` carry the same answer, so
 the page disables its update button, says why on hover (and under the net worth when the wait is long), and
 enables it again by itself when the time comes. The scheduled updates are not affected. Adding a wallet
 starts a collection on the server, so a new wallet is read straight away even inside the minute.
-
-### Starting history over
-
-Added one account at a time, the history shows a staircase of new accounts rather than the portfolio's
-movement. _Start history over_ in the settings panel deletes every snapshot older than the latest good read of
-each account (an account that failed recently keeps its last good data), after copying the database to
-`backups/stashboard-before-history-reset-<time>.db`. The changes over 24 hours, 7 days and 30 days are empty
-again until history reaches that far.
 
 ### History
 
 Categories that never reach 0.1% of the portfolio's peak are left out of the chart, so leftovers of a few
 cents do not show up as a band or a legend entry.
 
-The history chart sums every account's value per category at every snapshot. An account that failed in a
+The history chart sums the value of every one of the person's accounts per category at every snapshot that
+read one of them, so it starts when they added their first account. An account that failed in a
 snapshot keeps its previous value there, so a source being down does not show as a drop in net worth. Long
 ranges are thinned evenly to 240 points, always keeping the most recent one. The 24-hour, 7-day and 30-day
 changes compare with the snapshot at or before that time and stay empty until history reaches that far.
@@ -252,7 +249,9 @@ The resolver turns a symbol as a source spells it into a canonical asset:
    differ by case (stETH, cbBTC) and plain tickers do not.
 
 The category is the one chosen by hand on the page, then the one in `assets.json`, then one looked up, and
-otherwise "Other".
+otherwise "Other". A choice by hand belongs to the person who made it (`user_categories`), so each request
+builds a resolver with that person's choices; looked-up categories are shared. Collection, signals, logos and
+lookups use the shared resolver, without anyone's choices.
 
 Lookups run after a collection for assets in "Other" worth at least a dollar, at most 25 per run, 2.5 seconds
 apart to stay within CoinGecko's free rate. Several coins can share a ticker; the one with the largest market
@@ -314,8 +313,9 @@ what is held and what is borrowed. A link made before the net worth was sent sho
 A link is a snapshot, frozen when it is made. The page sends the groups; the server checks and caps them
 (a title of 80 characters, at most 12 rows, shares as finite numbers, colours as `#rrggbb`, logos only of a
 known kind) and keeps amounts only when they were asked for, whatever else the request carries. The token is
-16 random bytes in base64url. A link lasts 1, 7 or 30 days, can be turned off in the settings panel, and
-expired links are deleted the next time the list is read.
+16 random bytes in base64url. A link belongs to the person who made it: only they see it in their settings
+panel and can turn it off. It lasts 1, 7 or 30 days, and expired links are deleted the next time a list is
+read.
 
 Without a session, only this is served: the page at `/s/<token>`, its data at `/api/shared/<token>`, logos
 at `/s/<token>/logo/<kind>/<key>` for logos that link's rows name, and the files that page needs (`share.js`,
@@ -323,31 +323,50 @@ at `/s/<token>/logo/<kind>/<key>` for logos that link's rows name, and the files
 
 ## Security
 
-- **Access.** With an account, every page and API call needs a session; only the sign-in page and its assets
-  are open. Without one, a server reachable from other machines serves only the setup page, and creating the
-  account needs the setup code printed in the server log, so a stranger who finds the address first cannot
-  claim it. On localhost alone the dashboard is open, unless `REQUIRE_LOGIN=1`.
+- **People.** Each person has a name, a password and an authenticator, and sees only their own accounts,
+  history, categories chosen by hand, hidden-amounts setting and shared links. The session decides whose data
+  a request reads: every query of accounts, snapshots, shares and categories takes the person's id, and an
+  account id or link token of someone else answers 404 as if it did not exist. Collection, signals, logos and
+  looked-up categories are shared, since they are about markets rather than anyone's holdings; the logo list
+  a page gets names only what that person holds. Names are compared without case or surrounding spaces.
+- **The admin** is person 1. They exist from the first start, without a password, and the setup page gives
+  them a name, password and authenticator. Only the admin invites and removes people, and cannot be removed.
+  Removing a person deletes their accounts with their history and keys, sessions, categories and links, after
+  copying the database to `backups/stashboard-before-removing-a-person-<time>.db`.
+- **Access.** Once the admin has signed up, every page and API call needs a session; only the sign-in and
+  join pages and their assets are open. Before that, a server reachable from other machines serves only the
+  setup page, and signing up needs the setup code printed in the server log, so a stranger who finds the
+  address first cannot claim it. On localhost alone the dashboard is open as the admin's, unless
+  `REQUIRE_LOGIN=1`, and nobody can be invited until the admin has signed up.
 - **Setup.** The setup code is 12 characters from a 32-character alphabet without look-alikes, about 60
   bits, printed with a `[setup-code]` marker that `deploy.sh` looks for. The password and authenticator
   secret chosen in the first step stay in memory until a code proves the authenticator works; nothing is
   saved before that.
+- **Invites.** An invite link is `/join#<token>`, 24 random bytes in base64url, of which only a hash is
+  stored. The token sits after `#`, so it never reaches the server's log or a `Referer`; the page sends it
+  in the body. A link works once, for 7 days, and the admin can turn it off before it is used. Joining is two
+  steps like setup, with nothing saved before a code proves the authenticator works, and the invite is spent
+  in the same transaction that adds the person, so two people cannot join on one link. A wrong or used link
+  counts as a failed attempt.
 - **Password.** argon2id with 64 MiB of memory, 3 passes and a 32-byte tag, stored as
   `argon2id$<salt>$<hash>` in base64url.
 - **Authenticator.** TOTP per RFC 6238: SHA-1, six digits, 30-second steps, one step of clock drift either
-  way. A code is accepted once: a step at or before the last accepted one is a replay.
+  way. A code is accepted once: a step at or before the person's last accepted one is a replay. That step is
+  stored with the person, so a restart does not open a used code again.
 - **Attempts.** Five wrong attempts from one address lock it out for 15 minutes. A global limit of 50 caps
-  guessing spread over many addresses and is high enough that the owner mistyping never trips it. Password
-  and code are both always checked, and the answer does not say which one failed.
-- **Sessions.** A random token in an `HttpOnly`, `SameSite=Strict` cookie, valid 30 days. Only its hash is
-  stored, so a copy of the database cannot be used to sign in.
+  guessing spread over many addresses and is high enough that someone mistyping never trips it. Name,
+  password and code are all always checked, an unknown name against a decoy hash so it takes as long, and the
+  answer does not say which one failed.
+- **Sessions.** A random token in an `HttpOnly`, `SameSite=Strict` cookie, valid 30 days, tied to one person.
+  Only its hash is stored, so a copy of the database cannot be used to sign in.
 - **Exchange keys.** Stored sealed with AES-256-GCM. The 32-byte key is `DATA_DIR/secret.key`, created on first
   use with mode 0600; the database and its backups hold only sealed values, so a copy of the database alone does
   not reveal a key. Moving the server needs that file too, or the exchanges have to be added again. A key is
   checked to be read-only before it is stored.
 - **Shared links.** See Sharing above for exactly what a link opens without a session. Links carry no
-  amounts unless the owner adds them, and every logo request is checked against the link's own rows.
+  amounts unless whoever made them adds them, and every logo request is checked against the link's own rows.
 - **Requests.** A request that changes something must come from this origin, so a page on another site
-  cannot act with the owner's cookie. Behind the reverse proxy, the client address and protocol come from
+  cannot act with a signed-in person's cookie. Behind the reverse proxy, the client address and protocol come from
   its forwarding headers (`TRUST_PROXY=1`).
 - **Content.** The content security policy allows scripts only from this origin; inline styles are allowed
   because the chart library styles its tooltip inline. Static files come from a fixed list; nothing is read
@@ -420,12 +439,15 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
   ragged lines, and _Add wallet or exchange_ spans both columns.
 - **Settings panel.** The Settings button in the header opens a panel from the right with the privacy switch,
   the shared links (copy, open, turn off), the update schedule and whether an update is possible now, the
-  Zerion allowance, starting history over, and the session with sign-out.
-- **Hidden amounts.** One setting for the account, stored on the server (`hide_amounts` in `settings`), so
-  it holds on every device. It turns dollar amounts and quantities into dots: the net worth, account chips,
+  Zerion allowance, for the admin the people (invite, remove, pending invites), and the
+  session with who is signed in, the name to sign in with (anyone can change theirs, if no one else has it)
+  and sign-out. A new invite link is copied at once and shown once, since only
+  its hash is kept.
+- **Hidden amounts.** One setting per person, stored on the server (`hide_amounts` in `users`), so it holds
+  on every device. It turns dollar amounts and quantities into dots: the net worth, account chips,
   allocation legend and tooltips, history axis and tooltip, positions, where-held rows, DeFi and accounts.
   Shares, changes, prices and heat stay. The eye next to the net worth flips the same setting. It is about a
-  screen being seen, not a security boundary: the API still returns amounts to a signed-in owner. The share
+  screen being seen, not a security boundary: the API still returns amounts to the signed-in person. The share
   dialog starts with amounts off while they are hidden.
 
 - **Views.** Overview, Positions, Signals, DeFi and Accounts share one tab bar; the view lives in the URL
@@ -470,18 +492,27 @@ and `PRAGMA user_version` records how many have run.
 
 | Table               | Holds                                                                                                          |
 | ------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `accounts`          | Wallets and exchanges; an exchange is an account like any wallet                                               |
+| `users`             | People: name, password hash, authenticator secret and last used step, admin, hidden amounts                    |
+| `invites`           | Hashes of invite tokens, who made them, and when they expire                                                   |
+| `accounts`          | Each person's wallets and exchanges; an exchange is an account like any wallet                                 |
 | `snapshots`         | One row per collection run                                                                                     |
 | `snapshot_accounts` | Each account's result in a run: ok with warnings and reported total, or error                                  |
 | `holdings`          | Positions per account and run; `read_at` when it comes from an earlier answer                                  |
 | `signals`           | Market readings and heat score per asset, with the Binance market used                                         |
-| `sessions`          | Hashes of session tokens and their expiry                                                                      |
-| `settings`          | The owner account, hidden amounts, the imported config key, and when the Zerion chain list was fetched         |
+| `sessions`          | Hashes of session tokens, whose they are, and their expiry                                                     |
+| `settings`          | The imported config key and when the Zerion chain list was fetched                                             |
 | `logos`             | Where each logo comes from, its stored file, and when it was last tried                                        |
-| `asset_categories`  | Categories chosen by hand or looked up, with the coin's tags                                                   |
+| `asset_categories`  | Categories looked up, with the coin's tags                                                                     |
+| `user_categories`   | Categories each person chose by hand                                                                           |
 | `exchange_keys`     | Per exchange account: the last four characters of its API key, and the sealed key, secret, passphrase and host |
-| `shares`            | Shared links: token, when made, when they expire, and the frozen snapshot                                      |
+| `shares`            | Shared links: token, whose, when made, when they expire, and the frozen snapshot                               |
 | `zerion_cache`      | The last Zerion answer per wallet and kind of read                                                             |
+
+Snapshots are shared: one run holds every person's reads, and `snapshot_accounts` says whose account each
+read is. Migration 11 brought people in: the single owner and their hidden-amounts setting became person 1,
+the admin, named `admin`, and every account, session, link and hand-chosen category became theirs. An owner
+who had already signed up keeps the name `admin` and signs in with it; one who had not picks a name at setup. A migration that rebuilds a table runs with foreign keys off, as SQLite requires, and is
+checked with `PRAGMA foreign_key_check` before it commits.
 
 Removing a wallet removes its history with it. Once a day, at start and then checked hourly, the database is
 copied with `VACUUM INTO`, which takes a consistent copy while it is in use; the newest 14 copies are kept.
@@ -531,6 +562,6 @@ hours from a seeded random walk ending at fixed prices, a few quantity changes s
 signals in all four zones. The addresses are test vectors or random bytes, not anyone's wallet.
 
 In demo mode the server never collects: no schedule, no collection on start, the update gate is closed with a
-reason, and adding or removing accounts, collecting and starting history over answer 403. Logos are still
+reason, and adding or removing accounts, inviting or removing people, and collecting answer 403. Logos are still
 fetched, so the demo looks like the real thing when online. The page shows a dismissible notice that the data
 is not real. The README screenshots come from the demo.

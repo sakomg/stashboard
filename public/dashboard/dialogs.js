@@ -211,24 +211,6 @@ $('remove-form').addEventListener('submit', async (event) => {
   if (removed) await actions.load();
 });
 
-$('open-reset').addEventListener('click', () => {
-  setError('reset-error', null);
-  $('reset-dialog').showModal();
-});
-
-$('reset-form').addEventListener('submit', async (event) => {
-  event.preventDefault();
-  let result = null;
-  const done = await submitDialog(event.currentTarget, 'reset-error', async () => {
-    result = await api('/api/history/reset', { method: 'POST', body: '{}' });
-  });
-  if (!done) return;
-  await actions.load();
-  showInfo(
-    `History starts over from now. ${result.removed} earlier ${result.removed === 1 ? 'update was' : 'updates were'} removed, and a copy was saved as ${result.backup}.`,
-  );
-});
-
 export let categorising = null;
 
 export const CATEGORY_SOURCE = {

@@ -6,6 +6,13 @@
   Earn, OKX reads Trading, Funding and Earn and needs the key's passphrase. A key from a regional site (Bybit
   Turkey, Kazakhstan, Georgia, UAE or Indonesia, OKX EEA or US) is recognised by itself.
 - `npm run check` checks every stored exchange key and reads its balances.
+- Several people on one server. The admin invites friends with a one-time link from Settings; each signs in
+  with a name, a password and an authenticator and sees only their own accounts, history, categories chosen
+  by hand, hidden-amounts setting and shared links. One collection run and one Zerion key serve everyone.
+  An existing install becomes the admin's, named `admin`, and anyone can change their name in Settings.
+- _Start history over_ is gone. History is kept as it was read.
+- Removing an account and turning off a shared link work again: the page no longer sends a JSON content type
+  with an empty body, which the server refused.
 - The source is organised in layers (`lib`, `domain`, `storage`, `sources`, `services`, `auth`, `server`, `cli`)
   with the dependency direction enforced by a test. The server is split into a context, access control, static
   files, the collection schedule and routes by area; the database module into one module per concern.

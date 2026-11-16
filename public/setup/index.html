@@ -34,6 +34,18 @@
           <small>Printed in the server log on every start, and by the deploy script.</small>
         </label>
         <label>
+          <span>Name</span>
+          <input
+            name="username"
+            autocomplete="username"
+            autocapitalize="off"
+            spellcheck="false"
+            maxlength="32"
+            required
+          />
+          <small>You sign in with it. Up to 32 letters, digits, spaces, dots, dashes and underscores.</small>
+        </label>
+        <label>
           <span>Password</span>
           <input name="password" type="password" autocomplete="new-password" minlength="12" required />
           <small>At least 12 characters.</small>

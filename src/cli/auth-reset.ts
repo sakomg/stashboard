@@ -1,8 +1,9 @@
-import { deleteOwner, openDb } from '../storage/index.ts';
+import { ADMIN_ID, clearCredentials, getUser, openDb } from '../storage/index.ts';
 
-const removed = deleteOwner(openDb());
+const db = openDb();
+const admin = getUser(db, ADMIN_ID);
 console.log(
-  removed
-    ? 'Account removed and all sessions ended. Restart the server and it will print a new setup code.'
-    : 'There is no account to remove.',
+  admin && clearCredentials(db, ADMIN_ID)
+    ? `Sign-in for ${admin.name} removed and their sessions ended. Their accounts and history stay. Restart the server and it will print a new setup code.`
+    : 'There is no sign-in to remove.',
 );

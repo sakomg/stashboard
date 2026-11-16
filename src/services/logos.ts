@@ -165,11 +165,17 @@ export function logoFile(db: DatabaseSync, kind: string, key: string): { path: s
   return row ? { path: join(dirOf(), row.file), type: row.media_type } : null;
 }
 
-export function logoIndex(db: DatabaseSync): { available: Record<string, string>; chains: Record<string, string> } {
+export function logoIndex(
+  db: DatabaseSync,
+  only?: Set<string>,
+): { available: Record<string, string>; chains: Record<string, string> } {
   const rows = db.prepare('SELECT kind, key, name, source_url, file FROM logos').all() as unknown as Row[];
   const version = (r: Row): string => createHash('sha1').update(`${r.source_url}\n${r.file}`).digest('hex').slice(0, 8);
+  const wanted = (r: Row): boolean => !only || only.has(`${r.kind}/${r.key}`);
   return {
-    available: Object.fromEntries(rows.filter((r) => r.file).map((r) => [`${r.kind}/${r.key}`, version(r)])),
+    available: Object.fromEntries(
+      rows.filter((r) => r.file && wanted(r)).map((r) => [`${r.kind}/${r.key}`, version(r)]),
+    ),
     chains: Object.fromEntries(rows.filter((r) => r.kind === 'chain' && r.name).map((r) => [r.key, r.name!])),
   };
 }

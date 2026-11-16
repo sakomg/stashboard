@@ -3,9 +3,9 @@ import type { DatabaseSync } from 'node:sqlite';
 import { base32Encode } from '../auth/index.ts';
 import { createResolver, loadAssetRules, type Asset, type Learned } from '../domain/assets.ts';
 import { loadConfig, type Config } from '../lib/config.ts';
-import { categoryNames, loadLearned } from '../services/categories.ts';
+import { categoryNames, loadLearned, manualCategories } from '../services/categories.ts';
 import { importConfigExchange } from '../services/exchanges.ts';
-import { getOwner, openDb, type Owner } from '../storage/index.ts';
+import { adminClaimed, openDb } from '../storage/index.ts';
 
 export interface Context {
   config: Config;
@@ -18,7 +18,8 @@ export interface Context {
   categories: string[];
   learned: Learned;
   resolve: (symbol: string) => Asset;
-  auth: { owner: Owner | null; setupCode: string | null };
+  resolveFor: (userId: number) => (symbol: string) => Asset;
+  auth: { claimed: boolean; setupCode: string | null };
 }
 
 export interface ContextOptions {
@@ -37,7 +38,7 @@ export function createContext({
   if (!demo) importConfigExchange(db, config.binance);
   const rules = loadAssetRules();
   const learned = loadLearned(db);
-  const owner = getOwner(db);
+  const claimed = adminClaimed(db);
   return {
     config,
     db,
@@ -49,7 +50,8 @@ export function createContext({
     categories: categoryNames(rules),
     learned,
     resolve: createResolver(rules, learned),
-    auth: { owner, setupCode: owner ? null : base32Encode(randomBytes(8)).slice(0, 12) },
+    resolveFor: (userId) => createResolver(rules, { manual: manualCategories(db, userId), auto: learned.auto }),
+    auth: { claimed, setupCode: claimed ? null : base32Encode(randomBytes(8)).slice(0, 12) },
   };
 }
 

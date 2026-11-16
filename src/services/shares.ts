@@ -79,7 +79,13 @@ export function parseSharePayload(
   };
 }
 
-export function createShare(db: DatabaseSync, payload: SharePayload, days: number, now = Date.now()): Share {
+export function createShare(
+  db: DatabaseSync,
+  userId: number,
+  payload: SharePayload,
+  days: number,
+  now = Date.now(),
+): Share {
   const token = randomBytes(16).toString('base64url');
   const share = {
     token,
@@ -87,8 +93,9 @@ export function createShare(db: DatabaseSync, payload: SharePayload, days: numbe
     expiresAt: new Date(now + days * 24 * 60 * 60_000).toISOString(),
     payload,
   };
-  db.prepare('INSERT INTO shares (token, created_at, expires_at, payload) VALUES (?, ?, ?, ?)').run(
+  db.prepare('INSERT INTO shares (token, user_id, created_at, expires_at, payload) VALUES (?, ?, ?, ?, ?)').run(
     share.token,
+    userId,
     share.createdAt,
     share.expiresAt,
     JSON.stringify(payload),
@@ -112,9 +119,9 @@ export function getShare(db: DatabaseSync, token: string, now = Date.now()): Sha
   return row ? toShare(row) : null;
 }
 
-export function listShares(db: DatabaseSync, now = Date.now()): Share[] {
+export function listShares(db: DatabaseSync, userId: number, now = Date.now()): Share[] {
   db.prepare('DELETE FROM shares WHERE expires_at <= ?').run(new Date(now).toISOString());
-  const rows = db.prepare('SELECT * FROM shares ORDER BY created_at DESC').all() as unknown as {
+  const rows = db.prepare('SELECT * FROM shares WHERE user_id = ? ORDER BY created_at DESC').all(userId) as unknown as {
     token: string;
     created_at: string;
     expires_at: string;
@@ -123,8 +130,8 @@ export function listShares(db: DatabaseSync, now = Date.now()): Share[] {
   return rows.map(toShare);
 }
 
-export function deleteShare(db: DatabaseSync, token: string): boolean {
-  return db.prepare('DELETE FROM shares WHERE token = ?').run(token).changes > 0;
+export function deleteShare(db: DatabaseSync, userId: number, token: string): boolean {
+  return db.prepare('DELETE FROM shares WHERE token = ? AND user_id = ?').run(token, userId).changes > 0;
 }
 
 export const shareHasLogo = (share: Share, kind: string, key: string): boolean =>

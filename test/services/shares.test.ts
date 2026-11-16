@@ -3,7 +3,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { openDb } from '../../src/storage/index.ts';
+import { ADMIN_ID, openDb } from '../../src/storage/index.ts';
 import {
   createShare,
   deleteShare,
@@ -93,7 +93,7 @@ test('a link works until it expires or is turned off, and opens only its own log
   const parsed = parseSharePayload(body());
   assert.ok('payload' in parsed);
   const now = Date.now();
-  const share = createShare(db, parsed.payload, 1, now);
+  const share = createShare(db, ADMIN_ID, parsed.payload, 1, now);
   assert.match(share.token, /^[A-Za-z0-9_-]{22}$/);
 
   assert.equal(getShare(db, share.token, now)?.payload.title, 'Allocation by asset');
@@ -102,11 +102,11 @@ test('a link works until it expires or is turned off, and opens only its own log
   assert.equal(getShare(db, 'not a token'), null);
   assert.equal(getShare(db, share.token, now + 2 * 24 * 60 * 60_000), null);
 
-  const other = createShare(db, parsed.payload, 7, now);
+  const other = createShare(db, ADMIN_ID, parsed.payload, 7, now);
   assert.deepEqual(
-    listShares(db, now + 2 * 24 * 60 * 60_000).map((s) => s.token),
+    listShares(db, ADMIN_ID, now + 2 * 24 * 60 * 60_000).map((s) => s.token),
     [other.token],
   );
-  assert.ok(deleteShare(db, other.token));
+  assert.ok(deleteShare(db, ADMIN_ID, other.token));
   assert.equal(getShare(db, other.token, now), null);
 });

@@ -1,7 +1,7 @@
 import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadConfig } from '../lib/config.ts';
-import { addWallet, openDb, saveSignals, type Account } from '../storage/index.ts';
+import { ADMIN_ID, addWallet, openDb, saveSignals, type Account } from '../storage/index.ts';
 import { heatScore, type Readings } from '../domain/heat.ts';
 import type { HoldingType } from '../domain/types.ts';
 import { seal, vaultKey } from '../storage/vault.ts';
@@ -34,18 +34,22 @@ function base58(bytes: number[]): string {
 const bytes = (count: number): number[] => Array.from({ length: count }, () => Math.floor(random() * 256));
 
 const exchange = Number(
-  db.prepare("INSERT INTO accounts (kind, label, address, address_key) VALUES ('binance', 'Binance', '', 'demo')").run()
-    .lastInsertRowid,
+  db
+    .prepare(
+      "INSERT INTO accounts (user_id, kind, label, address, address_key) VALUES (?, 'binance', 'Binance', '', 'demo')",
+    )
+    .run(ADMIN_ID).lastInsertRowid,
 );
 db.prepare('INSERT INTO exchange_keys (account_id, key_hint, sealed) VALUES (?, ?, ?)').run(
   exchange,
   '…demo',
   seal(vaultKey(dir), { apiKey: 'demo', apiSecret: 'demo' }),
 );
-const ledger: Account = addWallet(db, '0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359', 'Ledger');
-const phantom: Account = addWallet(db, base58([1, ...bytes(31)]), 'Phantom');
+const ledger: Account = addWallet(db, ADMIN_ID, '0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359', 'Ledger');
+const phantom: Account = addWallet(db, ADMIN_ID, base58([1, ...bytes(31)]), 'Phantom');
 const tonkeeper: Account = addWallet(
   db,
+  ADMIN_ID,
   `0:${bytes(32)
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('')}`,

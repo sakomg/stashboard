@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import {
+  ADMIN_ID,
   addWallet,
   currentState,
   finishSnapshot,
@@ -29,26 +30,26 @@ const eth: Holding = {
 
 test('a wallet cannot be added twice', () => {
   const db = freshDb();
-  addWallet(db, EVM, 'main');
-  assert.throws(() => addWallet(db, EVM.toLowerCase()), /already added/);
-  assert.equal(listWallets(db).length, 1);
+  addWallet(db, ADMIN_ID, EVM, 'main');
+  assert.throws(() => addWallet(db, ADMIN_ID, EVM.toLowerCase()), /already added/);
+  assert.equal(listWallets(db, ADMIN_ID).length, 1);
 });
 
 test('a failed collection keeps the last good holdings and marks them stale', () => {
   const db = freshDb();
-  const wallet = addWallet(db, EVM);
+  const wallet = addWallet(db, ADMIN_ID, EVM);
 
   const first = startSnapshot(db);
   saveOutcome(db, first, wallet.id, { status: 'ok', holdings: [eth], warnings: [] });
   finishSnapshot(db, first);
-  let [state] = currentState(db);
+  let [state] = currentState(db, ADMIN_ID);
   assert.equal(state!.stale, false);
   assert.equal(state!.holdings.length, 1);
 
   const second = startSnapshot(db);
   saveOutcome(db, second, wallet.id, { status: 'error', error: 'boom' });
   finishSnapshot(db, second);
-  [state] = currentState(db);
+  [state] = currentState(db, ADMIN_ID);
   assert.equal(state!.stale, true);
   assert.equal(state!.lastError, 'boom');
   assert.equal(state!.holdings[0]!.value, 2000);
@@ -56,10 +57,10 @@ test('a failed collection keeps the last good holdings and marks them stale', ()
 
 test('removing a wallet removes its history', () => {
   const db = freshDb();
-  const wallet = addWallet(db, EVM);
+  const wallet = addWallet(db, ADMIN_ID, EVM);
   const snapshot = startSnapshot(db);
   saveOutcome(db, snapshot, wallet.id, { status: 'ok', holdings: [eth], warnings: [] });
-  assert.equal(removeWallet(db, wallet.id), true);
+  assert.equal(removeWallet(db, ADMIN_ID, wallet.id), true);
   assert.equal((db.prepare('SELECT COUNT(*) AS n FROM holdings').get() as { n: number }).n, 0);
-  assert.equal(currentState(db).length, 0);
+  assert.equal(currentState(db, ADMIN_ID).length, 0);
 });

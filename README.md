@@ -54,8 +54,9 @@ cd stashboard
 ```
 
 The installer asks for the host name and the free API keys, starts Stashboard behind Caddy with automatic
-HTTPS, and prints a setup code. Open `https://your-host/setup`, enter the code, choose a password and scan
-the authenticator QR code. Then add your wallets and exchanges on the page.
+HTTPS, and prints a setup code. Open `https://your-host/setup`, enter the code, choose a name and a password
+and scan the authenticator QR code. Then add your wallets and exchanges on the page, and invite friends from
+Settings if they want their own portfolio on your server.
 
 To update later: `git pull && ./install.sh`.
 

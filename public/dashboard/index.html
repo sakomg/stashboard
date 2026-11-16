@@ -306,22 +306,19 @@
       </form>
     </dialog>
 
-    <dialog class="dialog" id="reset-dialog" aria-labelledby="reset-title">
-      <form id="reset-form">
+    <dialog class="dialog" id="remove-person-dialog" aria-labelledby="remove-person-title">
+      <form id="remove-person-form">
         <header>
-          <h2 id="reset-title">Start history over</h2>
+          <h2 id="remove-person-title">Remove person</h2>
           <button class="icon-button" type="button" data-close aria-label="Close" title="Close">
             <svg class="icon" aria-hidden="true"><use href="/icons.svg#x"></use></svg>
           </button>
         </header>
-        <p class="dialog-text">
-          The history chart and the 24-hour, 7-day and 30-day changes start again from the current balances. Every
-          earlier update is deleted. A copy of the database is saved in the backups folder on the server first.
-        </p>
-        <p class="form-error" id="reset-error" role="alert" hidden></p>
+        <p class="dialog-text" id="remove-person-text"></p>
+        <p class="form-error" id="remove-person-error" role="alert" hidden></p>
         <footer>
-          <button class="button" type="button" data-close>Keep history</button>
-          <button class="button danger" type="submit">Start over</button>
+          <button class="button" type="button" data-close>Keep them</button>
+          <button class="button danger" type="submit">Remove</button>
         </footer>
       </form>
     </dialog>
@@ -378,15 +375,40 @@
           <dl class="panel-facts" id="update-facts"></dl>
         </section>
 
-        <section aria-labelledby="history-reset-title">
-          <h3 id="history-reset-title">History</h3>
-          <p class="muted">Added accounts one by one? Start the history over so the chart begins with all of them.</p>
-          <button class="button" id="open-reset" type="button">Start history over</button>
+        <section aria-labelledby="people-title" id="people" hidden>
+          <h3 id="people-title">People</h3>
+          <p class="muted">
+            Everyone signs in with their own name and authenticator and sees only their own accounts. Updates read all
+            accounts together, with one Zerion allowance.
+          </p>
+          <ul class="links" id="people-list"></ul>
+          <button class="button" id="invite" type="button">
+            <svg class="icon" aria-hidden="true"><use href="/icons.svg#user-plus"></use></svg>Invite someone
+          </button>
+          <p class="invite-status" id="invite-status" role="status" hidden></p>
+          <p class="form-error" id="people-error" role="alert" hidden></p>
         </section>
 
         <section aria-labelledby="session-title">
           <h3 id="session-title">Session</h3>
           <p class="muted" id="session-text"></p>
+          <form class="name-form" id="name-form" hidden>
+            <label>
+              <span>Name you sign in with</span>
+              <span class="name-row">
+                <input
+                  name="username"
+                  autocomplete="username"
+                  autocapitalize="off"
+                  spellcheck="false"
+                  maxlength="32"
+                  required
+                />
+                <button class="button" type="submit">Save</button>
+              </span>
+            </label>
+            <p class="form-error" id="name-error" role="alert" hidden></p>
+          </form>
           <button class="button" id="sign-out" type="button" hidden>
             <svg class="icon" aria-hidden="true"><use href="/icons.svg#log-out"></use></svg>Sign out
           </button>

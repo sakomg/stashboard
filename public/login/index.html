@@ -19,8 +19,12 @@
       <form id="login">
         <h1>Sign in</h1>
         <label>
+          <span>Name</span>
+          <input name="username" autocomplete="username" autocapitalize="off" spellcheck="false" required autofocus />
+        </label>
+        <label>
           <span>Password</span>
-          <input name="password" type="password" autocomplete="current-password" required autofocus />
+          <input name="password" type="password" autocomplete="current-password" required />
         </label>
         <label>
           <span>Code from your authenticator app</span>
