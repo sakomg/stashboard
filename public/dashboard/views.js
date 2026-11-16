@@ -36,13 +36,21 @@ export function renderCounts() {
   set('accounts', troubled ? `${troubled} !` : String(data.sources.length), troubled ? 'warn' : '');
 }
 
-const mirrorView = () => {
-  if (location.hash !== `#${state.view}`) history.replaceState(null, '', `#${state.view}`);
+const REMEMBERED = 'stashboard.view';
+
+const rememberedView = () => {
+  try {
+    return sessionStorage.getItem(REMEMBERED);
+  } catch {
+    return null;
+  }
 };
 
 export function switchView(view, focus = false) {
   showView(view, focus);
-  mirrorView();
+  try {
+    sessionStorage.setItem(REMEMBERED, state.view);
+  } catch {}
   const top = $('content').getBoundingClientRect().top + window.scrollY;
   if (window.scrollY > top) window.scrollTo({ top, behavior: 'instant' });
 }
@@ -68,8 +76,7 @@ document.addEventListener(
   },
   true,
 );
-window.addEventListener('hashchange', mirrorView);
-showView(location.hash.slice(1));
+showView(rememberedView() ?? location.hash.slice(1));
 
 new IntersectionObserver(([entry]) => $('views').classList.toggle('stuck', !entry.isIntersecting), {
   rootMargin: '-60px 0px 0px 0px',

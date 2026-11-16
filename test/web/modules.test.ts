@@ -99,3 +99,15 @@ test('forms are checked by the page, never by the browser', () => {
   }
   assert.deepEqual(broken, []);
 });
+
+test('switching views never writes browser history', () => {
+  const writes: string[] = [];
+  for (const folder of ['dashboard', 'common']) {
+    for (const name of readdirSync(new URL(`${folder}/`, root)).filter((f) => f.endsWith('.js'))) {
+      const text = readFileSync(new URL(`${folder}/${name}`, root), 'utf8');
+      for (const [hit] of text.matchAll(/history\.\w+|location\.hash\s*=(?!=)/g))
+        writes.push(`${folder}/${name}: ${hit}`);
+    }
+  }
+  assert.deepEqual(writes, []);
+});
