@@ -53,6 +53,7 @@ export function seedZerionDayLimit(limit: number): void {
 
 export function resetZerionQuota(): void {
   Object.assign(quota, { tier: null, dayLimit: null, dayRemaining: null, dayResetsAt: null, defiBlockedUntil: 0 });
+  slowUntil = 0;
 }
 
 function noteQuota(headers: Headers, now: number): void {
@@ -72,12 +73,21 @@ const inHours = (until: number, now: number): string => {
   return `in about ${hours} h`;
 };
 
-export const zerionTiming = { minIntervalMs: 1100, retryPausesMs: [2000, 5000, 10000] };
+export const zerionTiming = {
+  minIntervalMs: 350,
+  slowIntervalMs: 1100,
+  slowForMs: 60 * 60_000,
+  retryPausesMs: [2000, 5000, 10000],
+};
 const DAY_RESERVE = 5;
 
 export const zerionDayUsedUp = (now = Date.now()): boolean =>
   quota.dayRemaining !== null && quota.dayRemaining <= DAY_RESERVE && (quota.dayResetsAt ?? 0) > now;
 let lastRequestAt = 0;
+let slowUntil = 0;
+
+export const zerionPaceMs = (now = Date.now()): number =>
+  now < slowUntil ? zerionTiming.slowIntervalMs : zerionTiming.minIntervalMs;
 
 export interface ZerionCall {
   defi?: boolean;
@@ -96,7 +106,7 @@ async function zerionGet<T>(url: string, apiKey: string, call: ZerionCall = {}):
     if (zerionDayUsedUp(now)) {
       throw new ZerionLimitError(`Zerion's daily allowance is used up. It renews ${inHours(quota.dayResetsAt!, now)}`);
     }
-    const wait = lastRequestAt + zerionTiming.minIntervalMs - now;
+    const wait = lastRequestAt + zerionPaceMs(now) - now;
     if (wait > 0) await sleep(wait);
     try {
       const answer = await getJsonWithHeaders<T>(url, headers);
@@ -105,6 +115,7 @@ async function zerionGet<T>(url: string, apiKey: string, call: ZerionCall = {}):
     } catch (err) {
       if (err instanceof HttpError) noteQuota(err.headers, Date.now());
       if (!(err instanceof HttpError) || err.status !== 429) throw err;
+      slowUntil = Date.now() + zerionTiming.slowForMs;
       if (call.defi && attempt >= 1) {
         quota.defiBlockedUntil = Math.max(quota.dayResetsAt ?? 0, Date.now() + 60 * 60_000);
         throw new ZerionLimitError(

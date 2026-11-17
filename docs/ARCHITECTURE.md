@@ -251,7 +251,8 @@ named in a warning. Margin, delivery futures, options and bots are not read. The
 
 ### Zerion
 
-Zerion's key reports its allowance in response headers (`ratelimit-org-*`): about one request a second, a
+Zerion's key reports its allowance in response headers (`ratelimit-org-*`): a few requests a second (3 on the free
+Developer plan), a
 daily allowance, and a quarter of it for reads of positions in protocols (`only_complex` or `no_filter`).
 When that quarter is used up, those reads return 429 while plain reads keep working. Zerion may also refuse
 repeated requests for the same wallet in a short time.
@@ -261,7 +262,9 @@ To stay inside it:
 - Plain tokens (`only_simple`) and positions in protocols (`only_complex`) are separate requests, each kept
   per wallet in the `zerion_cache` table. Plain tokens are reused for 10 minutes and positions in protocols for
   the interval planned above (see How often), so a restart costs nothing.
-- Requests are at least 1.1 seconds apart. A 429 is retried after 2, 5 and 10 seconds. A read of positions
+- Requests are at least 0.35 seconds apart, under the free plan's 3 a second. A key that allows fewer answers 429:
+  from the first one on, requests are at least 1.1 seconds apart for an hour, then fast again. A 429 is retried
+  after 2, 5 and 10 seconds. A read of positions
   in protocols refused twice in a row is the quarter being used up, not a burst, so no more such reads are
   sent until the daily allowance renews (at least an hour).
 - Nothing is sent while the day is down to its last 5 requests, so a manual update late in the day still has

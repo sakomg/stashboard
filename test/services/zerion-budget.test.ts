@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
 import { repriceEarlierReads, updateGate } from '../../src/services/collector.ts';
 import { ADMIN_ID, addWallet, finishSnapshot, openDb, saveOutcome, startSnapshot } from '../../src/storage/index.ts';
-import { collectZerion, resetZerionQuota, zerionQuota, zerionTiming } from '../../src/sources/zerion.ts';
+import { collectZerion, resetZerionQuota, zerionPaceMs, zerionQuota, zerionTiming } from '../../src/sources/zerion.ts';
 import type { Holding } from '../../src/domain/types.ts';
 
 const ADDRESS = '0x52908400098527886E0F7030069857D2E4169EE7';
@@ -54,7 +54,12 @@ const freshDb = () => openDb(mkdtempSync(join(tmpdir(), 'stashboard-test-')));
 beforeEach(() => {
   calls = [];
   resetZerionQuota();
-  Object.assign(zerionTiming, { minIntervalMs: 0, retryPausesMs: [0, 0, 0] });
+  Object.assign(zerionTiming, {
+    minIntervalMs: 0,
+    slowIntervalMs: 5,
+    slowForMs: 60 * 60_000,
+    retryPausesMs: [0, 0, 0],
+  });
 });
 afterEach(() => {
   globalThis.fetch = realFetch;
@@ -149,6 +154,25 @@ test('Lighter as Zerion reports it is left out, since Lighter is read from its o
     result.logos?.some((l) => l.kind === 'protocol' && l.key === 'lighter'),
     false,
   );
+});
+
+test('requests go out fast until Zerion refuses one, then slowly for an hour', async () => {
+  const db = freshDb();
+  assert.equal(zerionPaceMs(), 0);
+  let refused = false;
+  globalThis.fetch = (async (url: string | URL) => {
+    calls.push(new URL(url).searchParams.get('filter[positions]') ?? 'chains');
+    const headers = { 'ratelimit-org-day-limit': '2000', 'ratelimit-org-day-remaining': '1900' };
+    if (!refused) {
+      refused = true;
+      return new Response('{"errors":[{"title":"Too many requests"}]}', { status: 429, headers });
+    }
+    return new Response(JSON.stringify({ data: [position('ETH', 'wallet', 1000)] }), { status: 200, headers });
+  }) as typeof fetch;
+  await collectZerion(db, 'key', ADDRESS, 'solana');
+  assert.deepEqual(calls, ['only_simple', 'only_simple']);
+  assert.equal(zerionPaceMs(), 5);
+  assert.equal(zerionPaceMs(Date.now() + 60 * 60_000 + 1), 0);
 });
 
 test('nothing is sent once the daily allowance is down to its reserve', async () => {
