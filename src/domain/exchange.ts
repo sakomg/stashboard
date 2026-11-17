@@ -1,7 +1,7 @@
 import { errorText } from '../lib/errors.ts';
 import type { Holding, HoldingType } from './types.ts';
 
-export const EXCHANGES = { binance: 'Binance', bybit: 'Bybit', okx: 'OKX', gate: 'Gate' } as const;
+export const EXCHANGES = { binance: 'Binance', bybit: 'Bybit', okx: 'OKX', gate: 'Gate', bingx: 'BingX' } as const;
 export type ExchangeKind = keyof typeof EXCHANGES;
 export const EXCHANGE_KINDS = Object.keys(EXCHANGES) as ExchangeKind[];
 
