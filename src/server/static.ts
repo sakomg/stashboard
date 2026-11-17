@@ -125,30 +125,24 @@ const ICONS = [
 const LOGO_POLICY = "sandbox; default-src 'none'; style-src 'unsafe-inline'";
 
 export function registerStatic(app: FastifyInstance, ctx: Context, files: StaticFile[]): void {
-  for (const { path, file, type, cache } of files) {
-    app.get(path, async (_request, reply) => {
-      reply.type(type).header('Cache-Control', cache ? 'public, max-age=86400' : 'no-cache');
-      return readFileSync(file);
-    });
-  }
-
-  app.get('/healthz', async () => ({ ok: true }));
-
   const sprite =
-    '<svg xmlns="http://www.w3.org/2000/svg">' +
+    '<svg xmlns="http://www.w3.org/2000/svg" hidden>' +
     ICONS.map((name) => {
       const svg = readFileSync(new URL(`node_modules/lucide-static/icons/${name}.svg`, ctx.root), 'utf8');
       const body = svg.slice(svg.indexOf('>', svg.indexOf('<svg')) + 1, svg.lastIndexOf('</svg>'));
       return `<symbol id="${name}" viewBox="0 0 24 24">${body.trim()}</symbol>`;
     }).join('') +
     '</svg>';
-  const spriteTag = `"${createHash('sha1').update(sprite).digest('hex').slice(0, 16)}"`;
+  const page = (file: URL): string => readFileSync(file, 'utf8').replace(/<body[^>]*>/, (tag) => tag + sprite);
 
-  app.get('/icons.svg', async (request, reply) => {
-    reply.header('Cache-Control', 'no-cache').header('ETag', spriteTag);
-    if (request.headers['if-none-match'] === spriteTag) return reply.code(304).send();
-    return reply.type('image/svg+xml').send(sprite);
-  });
+  for (const { path, file, type, cache } of files) {
+    app.get(path, async (_request, reply) => {
+      reply.type(type).header('Cache-Control', cache ? 'public, max-age=86400' : 'no-cache');
+      return type === TYPES.html ? page(file) : readFileSync(file);
+    });
+  }
+
+  app.get('/healthz', async () => ({ ok: true }));
 
   app.get<{ Params: { kind: string; key: string } }>('/logo/:kind/:key', async (request, reply) => {
     const logo = logoFile(ctx.db, request.params.kind, request.params.key);
@@ -160,7 +154,7 @@ export function registerStatic(app: FastifyInstance, ctx: Context, files: Static
 
   app.get<{ Params: { token: string } }>('/s/:token', async (_request, reply) => {
     reply.type(TYPES.html!).header('Cache-Control', 'no-store');
-    return readFileSync(new URL('public/share/index.html', ctx.root));
+    return page(new URL('public/share/index.html', ctx.root));
   });
 
   app.get<{ Params: { token: string; kind: string; key: string } }>(

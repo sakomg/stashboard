@@ -6,12 +6,7 @@ import { $, DUST_USD, state } from './state.js';
 function readNote(items) {
   const oldest = items.reduce((min, x) => (x.readAt && (!min || x.readAt < min) ? x.readAt : min), null);
   if (!oldest || Date.now() - Date.parse(oldest) < 30 * 60_000) return null;
-  return h(
-    'p',
-    { class: 'read-at', title: 'Positions in protocols are read less often to stay within the free allowance' },
-    icon('clock'),
-    `Read ${ago(oldest)}`,
-  );
+  return h('p', { class: 'read-at' }, icon('clock'), `Read ${ago(oldest)}`);
 }
 
 export function defiGroups(holdings) {

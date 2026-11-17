@@ -12,7 +12,7 @@ const COLUMNS = [
   ['quantity', 'Quantity', 'optional', (a) => a.quantity],
   ['price', 'Price', 'optional', (a) => a.price],
   ['value', 'Value', '', (a) => a.value],
-  ['share', 'Share', '', (a) => a.share],
+  ['share', 'Share', 'optional', (a) => a.share],
   ['change1d', '24 h', '', (a) => a.change1d],
   ['change7d', '7 d', 'optional', (a) => a.change7d],
   ['heat', 'Heat', '', (a) => a.signal?.score ?? null, HELP.heat],
@@ -58,7 +58,6 @@ export function renderPositions() {
     return sort.descending ? -order : order;
   });
 
-  $('positions-lead').textContent = 'Select an asset to see where it is held.';
   const toggle = $('dust-toggle');
   toggle.hidden = dust.length === 0;
   toggle.textContent = state.showDust
@@ -121,7 +120,7 @@ export function renderPositions() {
         h('td', { class: 'num' }, money(a.value)),
         h(
           'td',
-          {},
+          { class: 'optional' },
           h(
             'span',
             { class: 'share-cell' },

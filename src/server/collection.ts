@@ -18,7 +18,6 @@ export interface Collection {
   readonly running: boolean;
   readonly progress: Progress | null;
   readonly everyMinutes: number;
-  plan(): UpdatePlan;
   collect(): Promise<void>;
   readAccount(accountId: number): Promise<void>;
   gate(): UpdateGate;
@@ -156,7 +155,6 @@ export function createCollection(ctx: Context, log: FastifyBaseLogger): Collecti
     get everyMinutes() {
       return everyMs() / 60_000;
     },
-    plan,
     collect,
     readAccount,
     gate() {

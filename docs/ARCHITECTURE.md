@@ -90,8 +90,7 @@ planned and the rest is left for adding accounts and retries:
 
 Both intervals are rounded up to 5 minutes. Without EVM or Solana wallets only a one-minute pause remains. For
 example, a key of 300 requests a day with 6 EVM and 2 Solana wallets gives an update every hour and positions
-in protocols every 2 h 10 min. A key of 2,000 gives the 10-minute floor and 55 minutes. The settings panel shows
-the result for the key and wallets at hand.
+in protocols every 2 h 10 min. A key of 2,000 gives the 10-minute floor and 55 minutes.
 
 The schedule runs every `schedule.balancesMinutes` (at least 5), or every gap when the gap is longer, counted
 from the start of the last update, whether it was scheduled or asked for, so an update asked for on the page
@@ -411,18 +410,20 @@ arriving again is not taken for a new one. The page asks for each logo under a v
 image, because browsers keep logos for a week. Logos are served with a sandbox policy, so even an SVG opened
 directly cannot run anything.
 
-Exchanges are drawn with their own logo. No exchange API names one, so it comes from CoinGecko's list of
-exchanges, one request for all of them, by CoinGecko's id (`binance`, `bybit_spot`, `okex`, `gate`). Until it
-is stored, Binance falls back to BNB, OKX to OKB, Gate to GT and Bybit, which has no coin of its own, to its
-initials. Wallets
-are drawn with their native coin: EVM with ETH, Solana with SOL, TON with TON.
+Exchanges are drawn with their own logo. No exchange API names one, so it comes from CoinGecko's list of exchanges,
+one request for all of them, by CoinGecko's id (`binance`, `bybit_spot`, `okex`, `gate`). Until it is stored, Binance
+falls back to BNB, OKX to OKB, Gate to GT and Bybit, which has no coin of its own, to its initials. Wallets are drawn
+with their native coin: EVM with ETH, Solana with SOL, TON with TON.
 
-The logos the add dialog shows are wanted whatever the portfolio holds: the native coins, the exchanges
-and the chains a pasted EVM or Solana address is read on (Ethereum, Base, Arbitrum, BNB Chain, Optimism,
-Polygon, Solana). Chain logos come from Zerion's chain list, so without a Zerion key the dialog shows the ones
-it can draw from a coin (ETH for Ethereum, BNB for BNB Chain) and leaves the rest out rather than show
-initials. Interface icons come from Lucide; the server builds one sprite, `/icons.svg`, with only the icons the
-pages use.
+The logos the add dialog shows are wanted whatever the portfolio holds: the native coins, the exchanges and the
+chains a pasted EVM or Solana address is read on (Ethereum, Base, Arbitrum, BNB Chain, Optimism, Polygon, Solana).
+Chain logos come from Zerion's chain list, so without a Zerion key the dialog shows the ones it can draw from a coin
+(ETH for Ethereum, BNB for BNB Chain) and leaves the rest out rather than show initials. Interface icons come from
+Lucide. The server builds one sprite with only the icons the pages use and puts it at the start of every page it
+serves, so an icon is a reference within the page (`<use href="#name">`) and never waits for the network. The sprite
+used to be a file of its own, `/icons.svg`, served with `no-cache`: WebKit, which every browser on an iPhone uses,
+checked it with the server again whenever icons were drawn anew, and the icons were blank until the answer came.
+`test/server/static.test.ts` checks that every icon the pages name is in the sprite.
 
 ## Sharing
 
@@ -445,7 +446,7 @@ read.
 
 Without a session, only this is served: the page at `/s/<token>`, its data at `/api/shared/<token>`, logos
 at `/s/<token>/logo/<kind>/<key>` for logos that link's rows name, and the files that page needs (its own script and
-stylesheet, the common ones, the logo, the font and the icon sprite). A dead link answers 404 with a plain message.
+stylesheet, the common ones, the logo and the font). A dead link answers 404 with a plain message.
 
 ## Security
 
@@ -514,7 +515,7 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
     net worth, the facts, three account chips, the strip, legend, notes, chart, table rows, cards), so the layout
     does not jump when data arrives and the skeleton shows even before the script has loaded;
   - `empty`, with no account yet: the numbers and tabs are hidden and an onboarding screen offers _Add a wallet_
-    or _Add an exchange_ (each opens the dialog in that mode) and says what happens next;
+    or _Add an exchange_ (each opens the dialog in that mode);
   - `reading`, while the first update of a new setup runs: skeletons stay where balances will go, the line under
     the net worth names the account being read, and accounts not read yet are not flagged as problems;
   - `ready`.
@@ -537,8 +538,7 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
   (Wikipedia) and heat (the Signals view). The Signals view opens with the heat scale, its zones and the weight of
   each reading, taken from `heat` in `config.json`.
 - **Signals view.** The heat scale doubles as the summary: under each zone, the share of the portfolio in it
-  and how many assets. Clicking a zone shows only its assets. A sentence above says how much is overheated, warm
-  and cold, and how much has no readings (stablecoins and tokens without a Binance market). Below, one row per
+  and how many assets. Clicking a zone shows only its assets. Below, one row per
   scored asset with its heat and each reading, hottest first. A reading that is overheated or cold on its own is
   coloured, so the reason for a score is visible without a list of tags.
 - **Fear & Greed** is coloured by its band, following alternative.me's: under 25 extreme fear (teal), under 45
@@ -556,7 +556,9 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
   view name, so a hash never scrolls to an anchor. Switching from deep in a view scrolls to where the tab bar sits in
   the page, computed rather than with `scrollIntoView`, which treats a stuck sticky element differently from one
   browser to another.
-- **Text** joins clauses with full stops, not semicolons, and lists reasons as separate tags.
+- **Text** names what the person can do and what state things are in, not how Stashboard works inside, and says
+  a thing once per screen: a reading the scale already shows gets no sentence, an action gets one button. It joins
+  clauses with full stops, not semicolons, and lists reasons as separate tags.
 
 - **Forms** are checked by the page, never by the browser: every form has `novalidate`, and no field has
   `required`, `minlength`, `maxlength` or `pattern`. `public/common/checks.js` holds the rules (filled, length,
@@ -565,7 +567,7 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
   mark. The server checks everything again. A test in `test/web/modules.test.ts` fails when a page brings a
   browser check back.
 - **Header.** The header holds only Settings. Adding a wallet or an exchange starts from the dashed chip at the
-  end of the account chips (and from the Accounts view), next to what it adds to, so it is not mistaken for
+  end of the account chips, next to what it adds to, so it is not mistaken for
   adding a user.
 - **Adding an account** shows what each choice covers before anything is typed: Wallet carries the ETH, SOL and
   TON logos, Exchange the logos of the exchanges, and the exchange list has a logo on every option. A pasted
@@ -580,9 +582,9 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
   tiles in two equal columns with the amount at the right edge, so ten accounts take five even rows instead of
   ragged lines, and _Add wallet or exchange_ spans both columns.
 - **Settings panel.** The Settings button in the header opens a panel from the right with the privacy switch,
-  the shared links (copy, open, turn off), the update schedule and whether an update is possible now, the
-  Zerion allowance, for the admin the people (invite, remove, pending invites), and the
-  session with who is signed in and sign-out. A new invite link is copied at once, and a pending one can be
+  the shared links (copy, open, turn off), the update schedule and whether an update is possible now, for
+  the admin the Zerion requests left today and the people (invite, remove, pending invites), and the session with
+  who is signed in and sign-out. A new invite link is copied at once, and a pending one can be
   copied again from its row. The lists that grow with use (shared links, people, pending invites) carry their count in
   the heading and show the first few rows, three links, four people, two invites, with _Show all_ for the
   rest. A list one row longer than that shows the row instead of a button that would reveal just one. They
@@ -611,9 +613,10 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
   chart is resized when the overview is shown, because a chart drawn while hidden has no size. A tab's count is what
   its view lists: DeFi counts its cards, one per protocol and chain worth at least a dollar, from the same grouping
   that draws them.
-- **Progress.** While an update runs, the page asks `/api/progress` every second and shows each account's
-  state on its chip and the account being read under the net worth. Logos and categories of new tokens arrive
-  after an update, so the page reloads its data 20 seconds later.
+- **Progress.** While an update runs, the page asks `/api/progress` every second and shows each account's state on its
+  chip and the account being read under the net worth. A chip is drawn again only when what it shows changes, so the
+  spinning icon of the account being read keeps turning instead of starting over every second. Logos and categories of
+  new tokens arrive after an update, so the page reloads its data 20 seconds later.
 - **Updates of the server.** `/api/portfolio` carries a stamp of the page's own files. A tab left open across
   a deploy sees the stamp change and reloads, instead of running old code against new answers.
 - **Notices.** Problems are grouped by cause, one notice per cause rather than per account. Only allowance
@@ -638,7 +641,8 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
   system font list, plus 10 pixels to spare, or the first character of a wide label is cut off.
 - **Ordering.** Signals list the largest holdings first: an overheated 10% position matters more than an
   overheated 0.5% one. Positions under a dollar are hidden until asked for; share bars are scaled to the
-  largest position.
+  largest position. On a phone Positions leaves out quantity, price, share and the 7-day change, so a row fits
+  without scrolling sideways. Shares stay in the allocation by asset.
 - **QR code.** Dark on light whatever the page theme, because phone cameras read inverted codes poorly.
 
 ## Database

@@ -171,8 +171,7 @@ export async function renderHistory() {
         'span',
         {},
         h('b', {}, 'History starts with the next update'),
-        due === null ? '.' : due > 60_000 ? `, due in about ${inTime(due)}.` : ', due any minute now.',
-        ' Every update adds a point, so this chart fills in on its own.',
+        due === null ? '.' : due > 60_000 ? `, in about ${inTime(due)}.` : ', any minute now.',
       ),
     );
     return;

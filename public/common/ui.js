@@ -20,7 +20,7 @@ export function icon(name) {
   svg.setAttribute('class', 'icon');
   svg.setAttribute('aria-hidden', 'true');
   const use = document.createElementNS(SVG, 'use');
-  use.setAttribute('href', `/icons.svg#${name}`);
+  use.setAttribute('href', `#${name}`);
   svg.append(use);
   return svg;
 }

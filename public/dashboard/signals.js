@@ -44,29 +44,13 @@ export function renderSignals() {
   };
   if (state.signalZone && inZone(state.signalZone).length === 0) state.signalZone = null;
 
-  const hot = shareOf(inZone('overheated'));
-  const warm = shareOf(inZone('warm'));
-  const cold = shareOf(inZone('cold'));
-  const unscored = Math.max(0, 1 - shareOf(scored));
-  const summary = scored.length
-    ? [
-        hot > 0 ? `${percent(hot)} of the portfolio is overheated.` : 'Nothing in the portfolio is overheated.',
-        warm > 0 ? `${percent(warm)} is warm.` : '',
-        cold > 0 ? `${percent(cold)} is cold.` : '',
-        unscored > 0.005
-          ? `${percent(unscored)} has no market readings: stablecoins and tokens without a Binance market.`
-          : '',
-      ]
-        .filter(Boolean)
-        .join(' ')
-    : 'Signals appear a few minutes after the first update.';
-
   $('heat-guide').replaceChildren(
     h(
       'div',
       { class: 'guide-head' },
-      h('p', {}, summary),
-      h('span', { class: 'muted' }, newest ? `Updated ${ago(newest)}` : ''),
+      scored.length
+        ? h('span', { class: 'muted' }, `Updated ${ago(newest)}`)
+        : h('p', {}, 'Signals appear a few minutes after the first update.'),
     ),
     h(
       'div',
