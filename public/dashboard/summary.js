@@ -73,13 +73,16 @@ export function renderSummary() {
     fact('24 hours', changeOrPending(data.changes.d1, 1)),
     periodFact('7 days', 7, 'd7'),
     periodFact('30 days', 30, 'd30'),
-    data.fearGreed &&
-      h(
-        'div',
-        { class: `fear-greed ${fearGreedTone(data.fearGreed.value)}` },
-        h('dt', {}, 'Fear & Greed', help(HELP.fearGreed)),
-        h('dd', {}, h('b', {}, String(data.fearGreed.value)), h('small', {}, data.fearGreed.label)),
-      ),
+    ...(data.fearGreed
+      ? [
+          h(
+            'div',
+            { class: `fear-greed ${fearGreedTone(data.fearGreed.value)}` },
+            h('dt', {}, 'Fear & Greed', help(HELP.fearGreed)),
+            h('dd', {}, h('b', {}, String(data.fearGreed.value)), h('small', {}, data.fearGreed.label)),
+          ),
+        ]
+      : []),
   );
   renderUpdating();
   renderNotices();
@@ -206,8 +209,9 @@ export function renderNotices() {
     if (s.stale) add(`error\n${s.error}`, s, s.error ?? '');
     for (const w of s.warnings) if (/allowance|rate limiting|left out/i.test(w)) add(`warn\n${w}`, s, w);
   }
+  const heat = heatNotice();
   $('notices').replaceChildren(
-    heatNotice(),
+    ...(heat ? [heat] : []),
     ...[...groups].map(([key, { text, sources }]) => {
       const names = joinNames(sources.map((s) => s.label));
       const error = key.startsWith('error');
