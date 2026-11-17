@@ -185,6 +185,12 @@ const MIGRATIONS = [
      d30   REAL
    );`,
   `ALTER TABLE invites ADD COLUMN sealed TEXT;`,
+  `CREATE TABLE heat_seen (
+     user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+     asset   TEXT NOT NULL,
+     since   TEXT NOT NULL,
+     PRIMARY KEY (user_id, asset)
+   );`,
 ];
 
 export function migrate(db: DatabaseSync, target = MIGRATIONS.length): void {

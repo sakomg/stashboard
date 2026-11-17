@@ -46,6 +46,11 @@ The Signals view says how much of the portfolio sits in each zone, and lists eve
 readings. A reading that is overheated or cold on its own is coloured. Every reading has a help button with an
 explanation and a link to its source.
 
+When something you hold turns overheated, a notice under the accounts says which assets and how much of the
+portfolio they are. _Show in Signals_ opens the view with only the overheated assets, and _Dismiss_ hides the
+notice on every device you sign in on. An asset that dips into warm and comes back stays dismissed. One that
+cools to neutral or cold and then overheats again brings the notice back.
+
 This describes market conditions. It is not advice to buy or sell.
 
 ## Assets and categories

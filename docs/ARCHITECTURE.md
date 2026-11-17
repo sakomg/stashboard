@@ -373,6 +373,12 @@ The thresholds and weights are in the README. In addition:
 - Stablecoins and assets under a dollar are not scored. One asset failing does not stop the rest.
 - The same daily candles give each asset's price change over 7 and 30 days, kept for the estimated changes
   (see History).
+- An asset's overheated episode starts at its first overheated reading after it was last neutral or cold, so a
+  score hovering around the overheated line, warm one run and overheated the next, stays one episode instead of
+  notifying on every run. `/api/portfolio` gives each overheated asset the start of its episode
+  (`overheatedSince`) and whether this person dismissed that episode. Dismissing (`POST /api/heat/dismiss`
+  with asset names) records the episode start per person in `heat_seen`, so the notice stays gone on every
+  device until a new episode begins. Only assets overheated at that moment are recorded.
 
 ## Logos
 
@@ -596,7 +602,10 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
   a deploy sees the stamp change and reloads, instead of running old code against new answers.
 - **Notices.** Problems are grouped by cause, one notice per cause rather than per account. Only allowance
   notes and failures are shown; routine warnings such as unpriced spam stay in the Accounts view. A chip
-  gets a clock when some of its balances are older than two scheduled updates.
+  gets a clock when some of its balances are older than two scheduled updates. Holdings worth a dollar or more
+  that turned overheated and were not dismissed share one notice, largest first, with their share of the
+  portfolio. It links to Signals filtered to the overheated zone and can be dismissed. The tab's _N hot_
+  count stays either way, since it says what the view lists.
 - **Colour.** Eight categorical hues validated for the dark surface are used in a fixed order, and a ninth
   group is "Other". Colour follows the group, not its rank, so a category keeps its hue whatever its size.
   The allocation strip folds groups under 0.5% into "Other". Bands in the history chart get a
@@ -631,6 +640,7 @@ and `PRAGMA user_version` records how many have run.
 | `holdings`          | Positions per account and run; `read_at` when it comes from an earlier answer                                  |
 | `signals`           | Market readings and heat score per asset, with the Binance market used                                         |
 | `price_changes`     | Each asset's latest price change over 7 and 30 days, from the signals run                                      |
+| `heat_seen`         | Per person and asset, the start of the overheated episode they dismissed                                       |
 | `sessions`          | Hashes of session tokens, whose they are, and their expiry                                                     |
 | `settings`          | The imported config key and when the Zerion chain list was fetched                                             |
 | `logos`             | Where each logo comes from, its stored file, and when it was last tried                                        |

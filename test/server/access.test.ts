@@ -221,3 +221,15 @@ test('on this machine alone, without sign-in, the dashboard is the admin’s and
   assert.equal((await call(app, 'POST', '/api/invites', undefined, {})).statusCode, 409);
   assert.equal(await status(app, '/join'), '302 /setup');
 });
+
+test('dismissing an overheated asset takes a list of asset names', async () => {
+  const { app, db } = server({}, true);
+  const admin = sessionOf(db, ADMIN_ID);
+  for (const payload of [{}, { assets: [] }, { assets: 'ETH' }, { assets: [1] }, { assets: [''] }]) {
+    assert.equal((await call(app, 'POST', '/api/heat/dismiss', admin, payload)).statusCode, 400);
+  }
+  const done = await call(app, 'POST', '/api/heat/dismiss', admin, { assets: ['ETH'] });
+  assert.equal(done.statusCode, 200);
+  assert.deepEqual(done.json(), { dismissed: [] });
+  assert.equal((await call(app, 'POST', '/api/heat/dismiss', undefined, { assets: ['ETH'] })).statusCode, 401);
+});

@@ -6,13 +6,17 @@ import { test } from 'node:test';
 import { createResolver, loadAssetRules } from '../../src/domain/assets.ts';
 import {
   ADMIN_ID,
+  addUser,
   addWallet,
   finishSnapshot,
+  markHeatSeen,
   openDb,
   saveOutcome,
   savePriceChanges,
+  saveSignals,
   startSnapshot,
 } from '../../src/storage/index.ts';
+import type { Zone } from '../../src/domain/heat.ts';
 import type { Holding } from '../../src/domain/types.ts';
 import { historyView, portfolioView } from '../../src/services/view.ts';
 
@@ -110,4 +114,51 @@ test('7 and 30 days are estimated from prices only until history reaches that fa
 
   const later = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
   assert.equal(portfolioView(db, ADMIN_ID, resolve, later).estimates.d7, null);
+});
+
+test('an overheated asset is new to each person until they dismiss it, and again once it has cooled', () => {
+  const db = openDb(mkdtempSync(join(tmpdir(), 'stashboard-test-')));
+  const kate = addUser(db, { name: 'Kate', passwordHash: 'h', totpSecret: 'S', totpStep: 0 });
+  const mine = addWallet(db, ADMIN_ID, '0x52908400098527886E0F7030069857D2E4169EE7');
+  const theirs = addWallet(db, kate.id, '0x8617E340B3D01FA5F11F306F4090FD50E238070D');
+  const snapshot = startSnapshot(db);
+  saveOutcome(db, snapshot, mine.id, { status: 'ok', holdings: [holding('ETH', 1, 2000)], warnings: [] });
+  saveOutcome(db, snapshot, theirs.id, { status: 'ok', holdings: [holding('ETH', 2, 2000)], warnings: [] });
+  finishSnapshot(db, snapshot);
+
+  const read = (hour: number, zone: Zone, score: number) =>
+    saveSignals(db, [
+      {
+        asset: 'ETH',
+        time: `2026-11-01T${String(hour).padStart(2, '0')}:00:00.000Z`,
+        pair: 'ETHUSDT',
+        score,
+        zone,
+        components: [],
+      },
+    ]);
+  const signal = (userId: number) => portfolioView(db, userId, resolve).assets.find((a) => a.key === 'ETH')!.signal!;
+
+  read(0, 'neutral', 50);
+  assert.equal(signal(ADMIN_ID).overheatedSince, null);
+  assert.deepEqual(markHeatSeen(db, ADMIN_ID, ['ETH']), [], 'nothing to dismiss while it is not overheated');
+
+  read(4, 'overheated', 82);
+  read(8, 'warm', 78);
+  read(12, 'overheated', 81);
+  assert.equal(signal(ADMIN_ID).overheatedSince, '2026-11-01T04:00:00.000Z', 'a dip into warm is the same episode');
+  assert.equal(signal(ADMIN_ID).dismissed, false);
+
+  assert.deepEqual(markHeatSeen(db, ADMIN_ID, ['ETH', 'SOL']), ['ETH']);
+  assert.equal(signal(ADMIN_ID).dismissed, true);
+  assert.equal(signal(kate.id).dismissed, false, 'dismissing is one person’s');
+
+  read(16, 'warm', 70);
+  read(20, 'overheated', 84);
+  assert.equal(signal(ADMIN_ID).dismissed, true);
+
+  read(22, 'neutral', 55);
+  read(23, 'overheated', 85);
+  assert.equal(signal(ADMIN_ID).overheatedSince, '2026-11-01T23:00:00.000Z');
+  assert.equal(signal(ADMIN_ID).dismissed, false, 'overheating again after cooling is news again');
 });

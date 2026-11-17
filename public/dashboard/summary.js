@@ -1,10 +1,13 @@
 import { h, help, icon, skeleton } from '/common/ui.js';
+import { api } from './api.js';
 import { openAdd } from './dialogs.js';
-import { MASK, ago, change, inTime, money, moneyRound, usd } from './format.js';
+import { showBanner } from './feedback.js';
+import { MASK, ago, change, inTime, money, moneyRound, percent, usd } from './format.js';
 import { HELP, SOURCES, fearGreedTone } from './help.js';
 import { kindLogo } from './logos.js';
 import { groups } from './overview.js';
-import { $, actions, busy, firstRead, state } from './state.js';
+import { renderSignals } from './signals.js';
+import { $, DUST_USD, actions, busy, firstRead, state } from './state.js';
 import { switchView } from './views.js';
 
 export const CHIP_LIMIT = 10;
@@ -204,6 +207,7 @@ export function renderNotices() {
     for (const w of s.warnings) if (/allowance|rate limiting|left out/i.test(w)) add(`warn\n${w}`, s, w);
   }
   $('notices').replaceChildren(
+    heatNotice(),
     ...[...groups].map(([key, { text, sources }]) => {
       const names = joinNames(sources.map((s) => s.label));
       const error = key.startsWith('error');
@@ -228,5 +232,55 @@ export function renderNotices() {
         ),
       );
     }),
+  );
+}
+
+export const newlyOverheated = () =>
+  state.data.assets
+    .filter((a) => a.signal?.zone === 'overheated' && !a.signal.dismissed && Math.abs(a.value) >= DUST_USD)
+    .sort((a, b) => b.share - a.share);
+
+async function dismissHeat(assets) {
+  for (const a of assets) a.signal.dismissed = true;
+  renderNotices();
+  try {
+    await api('/api/heat/dismiss', { method: 'POST', body: JSON.stringify({ assets: assets.map((a) => a.key) }) });
+  } catch (err) {
+    showBanner(err);
+  }
+}
+
+function heatNotice() {
+  const hot = newlyOverheated();
+  if (hot.length === 0) return null;
+  const share = hot.reduce((s, a) => s + Math.max(0, a.share), 0);
+  const [first] = hot;
+  const text =
+    hot.length === 1
+      ? ` turned overheated ${ago(first.signal.overheatedSince)}, with heat ${first.signal.score.toFixed(0)}.${share > 0 ? ` It is ${percent(share)} of the portfolio.` : ''}`
+      : ` turned overheated.${share > 0 ? ` Together they are ${percent(share)} of the portfolio.` : ''}`;
+  return h(
+    'li',
+    { class: 'hot' },
+    icon('flame'),
+    h('span', {}, h('b', {}, joinNames(hot.map((a) => a.key))), text),
+    h(
+      'span',
+      { class: 'notice-actions' },
+      h(
+        'button',
+        {
+          class: 'link',
+          type: 'button',
+          onclick: () => {
+            state.signalZone = 'overheated';
+            renderSignals();
+            switchView('signals');
+          },
+        },
+        'Show in Signals',
+      ),
+      h('button', { class: 'link', type: 'button', onclick: () => dismissHeat(hot) }, 'Dismiss'),
+    ),
   );
 }

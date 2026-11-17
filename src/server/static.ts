@@ -119,6 +119,7 @@ const ICONS = [
   'arrow-down',
   'triangle-alert',
   'clock',
+  'flame',
   'wallet',
   'user-plus',
 ];

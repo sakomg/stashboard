@@ -2,8 +2,10 @@ import type { DatabaseSync } from 'node:sqlite';
 import type { Asset } from '../domain/assets.ts';
 import {
   currentState,
+  heatSeen,
   historySince,
   latestSignals,
+  overheatedSince,
   listSnapshots,
   priceChangesSince,
   snapshotAt,
@@ -33,7 +35,14 @@ export function portfolioView(db: DatabaseSync, userId: number, resolve: (symbol
   const priceThen = (p: typeof d1, key: string): number | undefined =>
     p?.assets.find((a) => a.key === key)?.price ?? undefined;
 
-  const signals = new Map(latestSignals(db).map((s) => [s.asset, s]));
+  const episodes = overheatedSince(db);
+  const seen = heatSeen(db, userId);
+  const signals = new Map(
+    latestSignals(db).map((s) => {
+      const since = s.zone === 'overheated' ? (episodes.get(s.asset) ?? s.time) : null;
+      return [s.asset, { ...s, overheatedSince: since, dismissed: since !== null && seen.get(s.asset) === since }];
+    }),
+  );
   const hints = exchangeHints(db);
   const changes = {
     d1: ratio(portfolio.netWorth, d1?.netWorth),
