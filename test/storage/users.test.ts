@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { randomBytes } from 'node:crypto';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -31,6 +32,7 @@ import {
 } from '../../src/storage/index.ts';
 
 const freshDb = () => openDb(mkdtempSync(join(tmpdir(), 'stashboard-test-')));
+const key = randomBytes(32);
 const EVM = '0x52908400098527886E0F7030069857D2E4169EE7';
 const OTHER = '0x8617E340B3D01FA5F11F306F4090FD50E238070D';
 const eth: Holding = {
@@ -166,7 +168,7 @@ test('one collection run serves everyone, and each sees only their own accounts'
 test('an invite works once, until it expires, and the name must be free', () => {
   const db = freshDb();
   const now = Date.parse('2026-11-16T12:00:00Z');
-  const invite = createInvite(db, ADMIN_ID, 60_000, now);
+  const invite = createInvite(db, ADMIN_ID, 60_000, key, now);
   assert.ok(inviteValid(db, invite.token, now));
   assert.ok(!inviteValid(db, invite.token, now + 60_000));
   assert.ok(!inviteValid(db, 'not a token', now));
@@ -184,9 +186,26 @@ test('an invite works once, until it expires, and the name must be free', () => 
     /expired or was already used/,
   );
 
-  createInvite(db, ADMIN_ID, 60_000, now);
-  assert.equal(listInvites(db, now).length, 1);
-  assert.equal(listInvites(db, now + 60_000).length, 0, 'expired invites are cleared');
+  createInvite(db, ADMIN_ID, 60_000, key, now);
+  assert.equal(listInvites(db, key, now).length, 1);
+  assert.equal(listInvites(db, key, now + 60_000).length, 0, 'expired invites are cleared');
+});
+
+test('a pending invite link can be shown again, but only with the vault key, and never from the database alone', () => {
+  const db = freshDb();
+  const now = Date.parse('2026-11-17T09:00:00Z');
+  const invite = createInvite(db, ADMIN_ID, 60_000, key, now);
+  const stored = JSON.stringify(db.prepare('SELECT * FROM invites').all());
+  assert.ok(!stored.includes(invite.token), 'the token is not stored in the clear');
+
+  assert.deepEqual(listInvites(db, key, now), [
+    { id: invite.id, createdAt: invite.createdAt, expiresAt: invite.expiresAt, token: invite.token },
+  ]);
+  assert.equal(listInvites(db, randomBytes(32), now)[0]?.token, null, 'another key opens nothing and breaks nothing');
+
+  db.prepare('UPDATE invites SET sealed = NULL').run();
+  assert.equal(listInvites(db, key, now)[0]?.token, null, 'an invite from before links were kept has none');
+  assert.ok(inviteValid(db, invite.token, now), 'and still works');
 });
 
 test('removing a person removes everything they had and nothing else, and the admin stays', () => {
@@ -199,7 +218,7 @@ test('removing a person removes everything they had and nothing else, and the ad
   saveOutcome(db, run, theirs.id, { status: 'ok', holdings: [eth], warnings: [] });
   finishSnapshot(db, run);
   const session = createSession(db, friend.id, 60_000);
-  createInvite(db, friend.id, 60_000);
+  createInvite(db, friend.id, 60_000, key);
 
   assert.equal(removeUser(db, friend.id), true);
   assert.equal(sessionUser(db, session), null);

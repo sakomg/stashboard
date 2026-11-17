@@ -184,6 +184,7 @@ const MIGRATIONS = [
      d7    REAL,
      d30   REAL
    );`,
+  `ALTER TABLE invites ADD COLUMN sealed TEXT;`,
 ];
 
 export function migrate(db: DatabaseSync, target = MIGRATIONS.length): void {

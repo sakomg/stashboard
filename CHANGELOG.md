@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A pending invite link can be copied again from its row in Settings. The token is kept encrypted with the same
+  key as exchange secrets. Invites made before this keep only a hash, and their link cannot be shown again.
 - Gate next to Binance, Bybit and OKX: add a read-only APIv4 key on the page. Gate reads the unified account,
   or Spot and perpetual futures on a classic account, and Simple Earn, fixed-term Earn and staking.
 - Aster is read for every EVM wallet without a key, like Lighter: futures collateral with unrealised PnL,

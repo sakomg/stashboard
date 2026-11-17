@@ -7,8 +7,8 @@ be used to move money, and so that the dashboard is safe to expose to the intern
 
 - **Nothing can move funds.** Wallets are public addresses. An exchange key is checked with the exchange
   before it is saved and refused if it can trade, transfer or withdraw.
-- **Exchange secrets are encrypted at rest** with AES-256-GCM under a key file kept next to the database
-  (`secret.key`, readable by the app only). The page only ever sees the last four characters of a key.
+- **Exchange secrets and pending invite links are encrypted at rest** with AES-256-GCM under a key file kept
+  next to the database (`secret.key`, readable by the app only). The page only ever sees the last four characters of a key.
 - **Each person, two factors.** A name, a password (argon2id) and an authenticator code, each code accepted
   once. Five wrong attempts from one address lock it out for 15 minutes.
 - **First run cannot be hijacked.** Until the admin's account exists, a server reachable from other machines
