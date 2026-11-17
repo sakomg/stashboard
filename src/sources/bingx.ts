@@ -31,10 +31,12 @@ interface Reply<T> {
   data: T;
 }
 
+const wrapped = <T>(body: unknown): body is Reply<T> => typeof body === 'object' && body !== null && 'code' in body;
+
 async function request<T>(path: string, query = '', headers: Record<string, string> = {}): Promise<T> {
-  let reply: Reply<T>;
+  let reply: unknown;
   try {
-    reply = await getJson<Reply<T>>(`https://${BINGX_HOST}${path}${query ? `?${query}` : ''}`, headers);
+    reply = await getJson(`https://${BINGX_HOST}${path}${query ? `?${query}` : ''}`, headers);
   } catch (err) {
     if (!(err instanceof HttpError)) throw err;
     let body: Partial<Reply<T>> = {};
@@ -46,6 +48,7 @@ async function request<T>(path: string, query = '', headers: Record<string, stri
     if (!Number(body.code)) throw err;
     throw new BingxError(Number(body.code), body.msg ?? '');
   }
+  if (!wrapped<T>(reply)) return reply as T;
   if (Number(reply.code) !== 0) throw new BingxError(Number(reply.code), reply.msg ?? '');
   return reply.data;
 }

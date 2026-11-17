@@ -7,7 +7,8 @@
   their name, accounts and history. Before, the only way was to remove them and invite them again.
 - BingX next to Binance, Bybit, OKX and Gate: add a read-only API key on the page. BingX reads Spot, Funding,
   USDT and coin-margined perpetuals and standard futures. Earn, copy trading and grid bots have no API, so a
-  warning names them with their value.
+  warning names them with their value. Adding a key no longer fails with "open-api.bingx.com → NaN": BingX
+  sends the key's permissions without the usual wrapper.
 - Icons no longer blink on an iPhone during an update. The icon sprite is part of every page now. As a file of
   its own, Safari and every other iPhone browser asked the server for it again whenever the account chips were
   redrawn, every second during an update. Chips are also redrawn only when their own state changes, so the
