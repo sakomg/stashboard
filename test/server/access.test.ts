@@ -105,6 +105,7 @@ test('the demo refuses to change accounts or people, or collect', async () => {
     ['POST', '/api/exchanges'],
     ['POST', '/api/collect'],
     ['POST', '/api/invites'],
+    ['POST', '/api/users/2/reset'],
     ['DELETE', '/api/accounts/1'],
     ['DELETE', '/api/users/2'],
     ['PATCH', '/api/me'],
@@ -182,6 +183,72 @@ test('a friend joins with an invite, signs in by name, and sees and changes only
   assert.equal((await login('Kate', totpCode(secret, step))).statusCode, 401, 'the code used to join is spent');
   assert.equal((await login('Nobody', totpCode(secret, step + 1))).statusCode, 401);
   assert.equal((await login(' KATE ', totpCode(secret, step + 1))).statusCode, 200);
+});
+
+test('a friend who lost their sign-in sets a new one from a reset link, and their old sessions end', async () => {
+  const { app, db } = server({}, true);
+  const friend = addUser(db, { name: 'Kate', passwordHash: 'h', totpSecret: 'S', totpStep: 0 });
+  addWallet(db, friend.id, EVM);
+  const admin = sessionOf(db, ADMIN_ID);
+  const oldKate = sessionOf(db, friend.id);
+  const step = Math.floor(Date.now() / 30_000);
+
+  assert.equal((await call(app, 'POST', `/api/users/${friend.id}/reset`, oldKate, {})).statusCode, 403);
+  assert.equal((await call(app, 'POST', `/api/users/${ADMIN_ID}/reset`, admin, {})).statusCode, 404);
+  assert.equal((await call(app, 'POST', '/api/users/99/reset', admin, {})).statusCode, 404);
+  const reset = (await call(app, 'POST', `/api/users/${friend.id}/reset`, admin, {})).json();
+  assert.equal(reset.person, 'Kate');
+  const pending = (await call(app, 'GET', '/api/invites', admin)).json();
+  assert.deepEqual(
+    pending.map((i: { token: string; person: string }) => [i.token, i.person]),
+    [[reset.token, 'Kate']],
+  );
+  assert.equal(await status(app, '/reset'), '200');
+  assert.equal(await status(app, '/reset/reset.js'), '200');
+
+  const joining = await call(app, 'POST', '/api/join/start', undefined, {
+    token: reset.token,
+    name: 'Bob',
+    password: 'bob password 12',
+  });
+  assert.equal(joining.statusCode, 401, 'a reset link lets nobody new in');
+  assert.equal(
+    (await call(app, 'POST', '/api/reset/start', undefined, { token: reset.token, password: 'short' })).statusCode,
+    400,
+  );
+  const started = await call(app, 'POST', '/api/reset/start', undefined, {
+    token: reset.token,
+    password: 'kate new password',
+  });
+  assert.equal(started.statusCode, 200);
+  assert.equal(started.json().name, 'Kate');
+  const secret = started.json().key.replaceAll(' ', '');
+  assert.equal(
+    (await call(app, 'POST', '/api/reset/finish', undefined, { token: reset.token, code: '000000' })).statusCode,
+    401,
+  );
+  const done = await call(app, 'POST', '/api/reset/finish', undefined, {
+    token: reset.token,
+    code: totpCode(secret, step),
+  });
+  assert.equal(done.statusCode, 200);
+  const kate = cookieFrom(done);
+
+  assert.equal((await call(app, 'GET', '/api/progress', oldKate)).statusCode, 401, 'old sessions end');
+  assert.equal((await call(app, 'GET', '/api/portfolio', kate)).json().sources.length, 1, 'accounts stay');
+  assert.equal((await call(app, 'GET', '/api/progress', admin)).statusCode, 200);
+  assert.deepEqual((await call(app, 'GET', '/api/invites', admin)).json(), []);
+  const again = await call(app, 'POST', '/api/reset/start', undefined, {
+    token: reset.token,
+    password: 'someone else 12',
+  });
+  assert.equal(again.statusCode, 401, 'a reset link works once');
+
+  const login = (password: string, code: string) =>
+    call(app, 'POST', '/api/login', undefined, { name: 'Kate', password, code });
+  assert.equal((await login('kate new password', totpCode(secret, step))).statusCode, 401, 'the code is spent');
+  assert.equal((await login('kate password 1', totpCode(secret, step + 1))).statusCode, 401);
+  assert.equal((await login('kate new password', totpCode(secret, step + 1))).statusCode, 200);
 });
 
 test('the admin renames themselves, lists people and removes a friend with all they had, but not themselves', async () => {

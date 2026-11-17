@@ -4,6 +4,7 @@ import {
   backupNow,
   checkName,
   createInvite,
+  createReset,
   deleteInvite,
   getUser,
   listInvites,
@@ -14,7 +15,8 @@ import {
 } from '../../storage/index.ts';
 import type { Context } from '../context.ts';
 
-const INVITE_DAYS = 7;
+const LINK_MS = 7 * 24 * 60 * 60_000;
+const NOT_CLAIMED = 'Set up your own sign-in at /setup first. Friends join through it.';
 
 export function registerUserRoutes(app: FastifyInstance, ctx: Context): void {
   const adminOnly = async (request: FastifyRequest, reply: FastifyReply) => {
@@ -60,10 +62,14 @@ export function registerUserRoutes(app: FastifyInstance, ctx: Context): void {
   app.get('/api/invites', { preHandler: adminOnly }, async () => listInvites(ctx.db, vaultKey()));
 
   app.post('/api/invites', { preHandler: adminOnly }, async (request, reply) => {
-    if (!ctx.auth.claimed) {
-      return reply.code(409).send({ error: 'Set up your own sign-in at /setup first. Friends join through it.' });
-    }
-    return createInvite(ctx.db, request.userId, INVITE_DAYS * 24 * 60 * 60_000, vaultKey());
+    if (!ctx.auth.claimed) return reply.code(409).send({ error: NOT_CLAIMED });
+    return createInvite(ctx.db, request.userId, LINK_MS, vaultKey());
+  });
+
+  app.post<{ Params: { id: string } }>('/api/users/:id/reset', { preHandler: adminOnly }, async (request, reply) => {
+    if (!ctx.auth.claimed) return reply.code(409).send({ error: NOT_CLAIMED });
+    const link = createReset(ctx.db, request.userId, Number(request.params.id), LINK_MS, vaultKey());
+    return link ?? reply.code(404).send({ error: 'No such person' });
   });
 
   app.delete<{ Params: { id: string } }>('/api/invites/:id', { preHandler: adminOnly }, async (request, reply) => {

@@ -113,5 +113,10 @@ history, categories chosen by hand and shared links. Updates read everyone's acc
 Zerion key in `config.json`, so more wallets use the daily allowance faster. Whoever runs the server can read
 its database, so friends should trust them. Removing a person deletes everything they added.
 
+A friend who forgot their password or lost their authenticator gets a reset link: the key next to their name
+under People copies one that works once, for 7 days. Their old sign-in keeps working until the link is used.
+There they choose a new password and add the authenticator again, keeping their name, accounts and history,
+and every other device they were signed in on is signed out. A new reset link replaces the one before.
+
 Running on your own computer with `npm start`, the dashboard listens on localhost only and stays open until
 you create an account at `/setup`. Set `REQUIRE_LOGIN=1` to demand one from the start.

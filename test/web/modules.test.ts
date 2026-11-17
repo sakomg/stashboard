@@ -46,7 +46,7 @@ test('every dashboard module is loaded from main.js', () => {
 });
 
 test('every name a page module imports is exported where it points', () => {
-  for (const folder of ['dashboard', 'share', 'login', 'setup', 'join']) {
+  for (const folder of ['dashboard', 'share', 'login', 'setup', 'join', 'reset']) {
     const graph = moduleGraph(folder);
     const common = moduleGraph('common');
     for (const [file, { imports }] of graph) {
@@ -62,7 +62,7 @@ test('every name a page module imports is exported where it points', () => {
 });
 
 test('every name a page module exports is imported by another module', () => {
-  const folders = ['common', 'dashboard', 'share', 'login', 'setup', 'join'];
+  const folders = ['common', 'dashboard', 'share', 'login', 'setup', 'join', 'reset'];
   const graphs = new Map(folders.map((folder) => [folder, moduleGraph(folder)]));
   const used = new Set<string>();
   for (const [folder, graph] of graphs) {

@@ -20,8 +20,9 @@ function openRemovePerson(person) {
   $('remove-person-dialog').showModal();
 }
 
-async function showInvite(token, expiresAt) {
-  const url = `${location.origin}/join#${token}`;
+async function showLink({ token, expiresAt, person }) {
+  const url = `${location.origin}/${person ? 'reset' : 'join'}#${token}`;
+  const what = person ? `Reset link for ${person}` : 'Link';
   let copied = true;
   try {
     await navigator.clipboard.writeText(url);
@@ -29,11 +30,24 @@ async function showInvite(token, expiresAt) {
     copied = false;
   }
   $('invite-status').replaceChildren(
-    copied ? 'Link copied: ' : 'Link: ',
+    copied ? `${what} copied: ` : `${what}: `,
     h('a', { href: url, target: '_blank', rel: 'noopener' }, url),
     `. It works once, for ${timeLeft(expiresAt)}.`,
   );
   $('invite-status').hidden = false;
+}
+
+async function makeLink(button, path) {
+  button.disabled = true;
+  setError('people-error', null);
+  try {
+    await showLink(await api(path, { method: 'POST', body: '{}' }));
+    await renderPeople();
+  } catch (err) {
+    setError('people-error', err.message);
+  } finally {
+    button.disabled = false;
+  }
 }
 
 async function turnOffInvite(invite) {
@@ -74,6 +88,9 @@ async function renderPeople() {
           h(
             'span',
             { class: 'actions' },
+            iconButton('rotate-ccw-key', `Reset sign-in for ${person.name}`, (event) =>
+              makeLink(event.currentTarget, `/api/users/${person.id}/reset`),
+            ),
             iconButton('trash-2', `Remove ${person.name}`, () => openRemovePerson(person)),
           ),
       ),
@@ -89,19 +106,23 @@ async function renderPeople() {
         h(
           'div',
           {},
-          h('b', {}, 'Invite link'),
+          h('b', {}, invite.person ? 'Reset link' : 'Invite link'),
           h(
             'small',
             {},
-            `Not used yet, works for ${timeLeft(invite.expiresAt)} more`,
+            invite.person ? `For ${invite.person}, works` : 'Not used yet, works',
+            ` for ${timeLeft(invite.expiresAt)} more`,
             !invite.token && '. Its link cannot be shown again',
           ),
         ),
         h(
           'span',
           { class: 'actions' },
-          invite.token && iconButton('copy', 'Copy this invite link', () => showInvite(invite.token, invite.expiresAt)),
-          iconButton('trash-2', 'Turn off this invite link', () => turnOffInvite(invite)),
+          invite.token &&
+            iconButton('copy', `Copy this ${invite.person ? 'reset' : 'invite'} link`, () => showLink(invite)),
+          iconButton('trash-2', `Turn off this ${invite.person ? 'reset' : 'invite'} link`, () =>
+            turnOffInvite(invite),
+          ),
         ),
       ),
     ),
@@ -109,20 +130,7 @@ async function renderPeople() {
   );
 }
 
-$('invite').addEventListener('click', async (event) => {
-  const button = event.currentTarget;
-  button.disabled = true;
-  setError('people-error', null);
-  try {
-    const { token, expiresAt } = await api('/api/invites', { method: 'POST', body: '{}' });
-    await showInvite(token, expiresAt);
-    await renderPeople();
-  } catch (err) {
-    setError('people-error', err.message);
-  } finally {
-    button.disabled = false;
-  }
-});
+$('invite').addEventListener('click', (event) => makeLink(event.currentTarget, '/api/invites'));
 
 $('remove-person-form').addEventListener('submit', async (event) => {
   event.preventDefault();

@@ -20,11 +20,18 @@ const AREAS: Record<string, Access[]> = {
   dashboard: ['session'],
   join: ['signin'],
   login: ['signin'],
+  reset: ['signin'],
   setup: ['setup'],
   share: ['public'],
 };
 
-const PAGES: Record<string, string> = { '/': 'dashboard', '/join': 'join', '/login': 'login', '/setup': 'setup' };
+const PAGES: Record<string, string> = {
+  '/': 'dashboard',
+  '/join': 'join',
+  '/login': 'login',
+  '/reset': 'reset',
+  '/setup': 'setup',
+};
 
 const TYPES: Record<string, string> = {
   html: 'text/html; charset=utf-8',
@@ -120,6 +127,7 @@ const ICONS = [
   'flame',
   'wallet',
   'user-plus',
+  'rotate-ccw-key',
 ];
 
 const LOGO_POLICY = "sandbox; default-src 'none'; style-src 'unsafe-inline'";

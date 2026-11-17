@@ -137,12 +137,33 @@ export function setHideAmounts(db: DatabaseSync, id: number, hide: boolean): voi
 }
 
 const tokenHash = (token: string): string => createHash('sha256').update(token).digest('hex');
+const TOKEN = /^[A-Za-z0-9_-]{16,64}$/;
 
 interface Invite {
   id: number;
   createdAt: string;
   expiresAt: string;
   token: string | null;
+  person: string | null;
+}
+
+function createLink(
+  db: DatabaseSync,
+  createdBy: number,
+  forUser: User | null,
+  lifetimeMs: number,
+  key: Buffer,
+  now: number,
+): Invite & { token: string } {
+  const token = randomBytes(24).toString('base64url');
+  const createdAt = new Date(now).toISOString();
+  const expiresAt = new Date(now + lifetimeMs).toISOString();
+  const { lastInsertRowid } = db
+    .prepare(
+      'INSERT INTO invites (token_hash, sealed, created_by, for_user, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
+    )
+    .run(tokenHash(token), seal(key, token), createdBy, forUser?.id ?? null, createdAt, expiresAt);
+  return { id: Number(lastInsertRowid), token, createdAt, expiresAt, person: forUser?.name ?? null };
 }
 
 export function createInvite(
@@ -152,13 +173,21 @@ export function createInvite(
   key: Buffer,
   now = Date.now(),
 ): Invite & { token: string } {
-  const token = randomBytes(24).toString('base64url');
-  const createdAt = new Date(now).toISOString();
-  const expiresAt = new Date(now + lifetimeMs).toISOString();
-  const { lastInsertRowid } = db
-    .prepare('INSERT INTO invites (token_hash, sealed, created_by, created_at, expires_at) VALUES (?, ?, ?, ?, ?)')
-    .run(tokenHash(token), seal(key, token), createdBy, createdAt, expiresAt);
-  return { id: Number(lastInsertRowid), token, createdAt, expiresAt };
+  return createLink(db, createdBy, null, lifetimeMs, key, now);
+}
+
+export function createReset(
+  db: DatabaseSync,
+  createdBy: number,
+  userId: number,
+  lifetimeMs: number,
+  key: Buffer,
+  now = Date.now(),
+): (Invite & { token: string }) | null {
+  const user = getUser(db, userId);
+  if (!user || user.admin) return null;
+  db.prepare('DELETE FROM invites WHERE for_user = ?').run(userId);
+  return createLink(db, createdBy, user, lifetimeMs, key, now);
 }
 
 function openInvite(key: Buffer, sealed: string | null): string | null {
@@ -173,25 +202,60 @@ function openInvite(key: Buffer, sealed: string | null): string | null {
 export function listInvites(db: DatabaseSync, key: Buffer, now = Date.now()): Invite[] {
   db.prepare('DELETE FROM invites WHERE expires_at <= ?').run(new Date(now).toISOString());
   const rows = db
-    .prepare('SELECT id, created_at AS createdAt, expires_at AS expiresAt, sealed FROM invites ORDER BY id')
+    .prepare(
+      `SELECT i.id, i.created_at AS createdAt, i.expires_at AS expiresAt, i.sealed, u.name AS person
+         FROM invites i LEFT JOIN users u ON u.id = i.for_user ORDER BY i.id`,
+    )
     .all() as unknown as (Omit<Invite, 'token'> & { sealed: string | null })[];
   return rows.map(({ sealed, ...invite }) => ({ ...invite, token: openInvite(key, sealed) }));
 }
 
 export function inviteValid(db: DatabaseSync, token: string, now = Date.now()): boolean {
-  if (!/^[A-Za-z0-9_-]{16,64}$/.test(token)) return false;
+  if (!TOKEN.test(token)) return false;
   return (
     db
-      .prepare('SELECT 1 FROM invites WHERE token_hash = ? AND expires_at > ?')
+      .prepare('SELECT 1 FROM invites WHERE token_hash = ? AND expires_at > ? AND for_user IS NULL')
       .get(tokenHash(token), new Date(now).toISOString()) !== undefined
   );
+}
+
+export function resetFor(db: DatabaseSync, token: string, now = Date.now()): User | null {
+  if (!TOKEN.test(token)) return null;
+  const row = db
+    .prepare('SELECT u.* FROM invites i JOIN users u ON u.id = i.for_user WHERE i.token_hash = ? AND i.expires_at > ?')
+    .get(tokenHash(token), new Date(now).toISOString()) as UserRow | undefined;
+  return row ? toUser(row) : null;
+}
+
+export function resetWithLink(db: DatabaseSync, token: string, credentials: Credentials, now = Date.now()): User {
+  db.exec('BEGIN');
+  try {
+    const spent = db
+      .prepare(
+        'DELETE FROM invites WHERE token_hash = ? AND expires_at > ? AND for_user IS NOT NULL RETURNING for_user',
+      )
+      .get(tokenHash(token), new Date(now).toISOString()) as { for_user: number } | undefined;
+    if (!spent) throw new Error('This reset link has expired or was already used. Ask for a new one.');
+    db.prepare('DELETE FROM sessions WHERE user_id = ?').run(spent.for_user);
+    db.prepare('UPDATE users SET password_hash = ?, totp_secret = ?, totp_step = ? WHERE id = ?').run(
+      credentials.passwordHash,
+      credentials.totpSecret,
+      credentials.totpStep,
+      spent.for_user,
+    );
+    db.exec('COMMIT');
+    return getUser(db, spent.for_user)!;
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
 }
 
 export function joinWithInvite(db: DatabaseSync, token: string, user: NewUser, now = Date.now()): User {
   db.exec('BEGIN');
   try {
     const used = db
-      .prepare('DELETE FROM invites WHERE token_hash = ? AND expires_at > ?')
+      .prepare('DELETE FROM invites WHERE token_hash = ? AND expires_at > ? AND for_user IS NULL')
       .run(tokenHash(token), new Date(now).toISOString()).changes;
     if (used === 0) throw new Error('This invite link has expired or was already used. Ask for a new one.');
     const created = addUser(db, user);
