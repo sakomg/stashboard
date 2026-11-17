@@ -96,7 +96,7 @@ All screenshots use the demo data.
 | Solana: tokens, staking, tokenized stocks               | Zerion API         | Free key                |
 | Lighter and Lighter on Robinhood Chain                  | Lighter public API | None                    |
 | Aster: futures collateral with PnL, spot, staked ASTER  | Aster public RPC   | None, privacy mode off  |
-| TON: TON and jettons                                    | TonAPI             | Free key, optional      |
+| TON: GRAM (formerly TON) and jettons                    | TonAPI             | Free key, optional      |
 | Fallback prices, logos and categories                   | CoinGecko          | Free demo key, optional |
 | RSI, funding, open interest                             | Binance public API | None                    |
 | Fear & Greed                                            | alternative.me     | None                    |

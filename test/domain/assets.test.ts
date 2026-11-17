@@ -13,6 +13,12 @@ test('wrappers resolve to the canonical asset', () => {
   assert.deepEqual(resolve('USD₮'), { key: 'USDT', category: 'Stablecoins' });
 });
 
+test('TON, the coin renamed GRAM in 2026, counts as GRAM, and so do its staking receipts', () => {
+  for (const symbol of ['GRAM', 'TON', 'tsTON', 'stTON']) {
+    assert.deepEqual(resolve(symbol), { key: 'GRAM', category: 'L1' });
+  }
+});
+
 test('Aave deposit receipts count as the token that was lent', () => {
   assert.deepEqual(resolve('aEthWETH'), { key: 'ETH', category: 'ETH' });
   assert.deepEqual(resolve('aEthWBTC'), { key: 'BTC', category: 'BTC' });

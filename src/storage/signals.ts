@@ -70,15 +70,16 @@ export function markHeatSeen(db: DatabaseSync, userId: number, assets: string[])
 export interface PriceChange {
   asset: string;
   time: string;
+  d1: number | null;
   d7: number | null;
   d30: number | null;
 }
 
 export function savePriceChanges(db: DatabaseSync, rows: PriceChange[]): void {
-  const upsert = db.prepare('INSERT OR REPLACE INTO price_changes (asset, time, d7, d30) VALUES (?, ?, ?, ?)');
+  const upsert = db.prepare('INSERT OR REPLACE INTO price_changes (asset, time, d1, d7, d30) VALUES (?, ?, ?, ?, ?)');
   db.exec('BEGIN');
   try {
-    for (const r of rows) upsert.run(r.asset, r.time, r.d7, r.d30);
+    for (const r of rows) upsert.run(r.asset, r.time, r.d1, r.d7, r.d30);
     db.exec('COMMIT');
   } catch (err) {
     db.exec('ROLLBACK');
@@ -88,7 +89,7 @@ export function savePriceChanges(db: DatabaseSync, rows: PriceChange[]): void {
 
 export function priceChangesSince(db: DatabaseSync, since: string): Map<string, PriceChange> {
   const rows = db
-    .prepare('SELECT asset, time, d7, d30 FROM price_changes WHERE time >= ?')
+    .prepare('SELECT asset, time, d1, d7, d30 FROM price_changes WHERE time >= ?')
     .all(since) as unknown as PriceChange[];
   return new Map(rows.map((r) => [r.asset, r]));
 }

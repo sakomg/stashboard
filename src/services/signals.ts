@@ -6,7 +6,14 @@ import { currentState, savePriceChanges, saveSignals, type PriceChange, type Sig
 import { heatScore, type Readings } from '../domain/heat.ts';
 import { priceChange, rsi, sma } from '../domain/indicators.ts';
 import { buildPortfolio } from '../domain/portfolio.ts';
-import { closes, funding8hPct, listMarkets, openInterestChange7dPct, type Markets } from '../sources/market.ts';
+import {
+  change24h,
+  closes,
+  funding8hPct,
+  listMarkets,
+  openInterestChange7dPct,
+  type Markets,
+} from '../sources/market.ts';
 
 const MIN_VALUE_USD = 1;
 const NO_SIGNALS = new Set([STABLECOINS_CATEGORY]);
@@ -53,8 +60,10 @@ export async function runSignals(
   db: DatabaseSync,
   config: Config,
   resolve: (symbol: string) => Asset,
+  only?: Set<string>,
 ): Promise<SignalRow[]> {
-  const { assets } = buildPortfolio(currentState(db, 'all'), resolve);
+  const assets = buildPortfolio(currentState(db, 'all'), resolve).assets.filter((a) => !only || only.has(a.key));
+  if (assets.length === 0) return [];
   const markets = await listMarkets();
   const time = new Date().toISOString();
   const rows: SignalRow[] = [];
@@ -65,8 +74,10 @@ export async function runSignals(
     const pair = findPair(asset, markets);
     if (!pair.candles) continue;
     try {
-      const daily = await closes(pair.candles.market, pair.candles.symbol, '1d', 300);
-      moves.push({ asset: asset.key, time, d7: priceChange(daily, 7), d30: priceChange(daily, 30) });
+      const { market, symbol } = pair.candles;
+      const daily = await closes(market, symbol, '1d', 300);
+      const d1 = await change24h(market, symbol);
+      moves.push({ asset: asset.key, time, d1, d7: priceChange(daily, 7), d30: priceChange(daily, 30) });
       const heat = heatScore(await readings(pair, daily), config.heat);
       if (heat) rows.push({ asset: asset.key, time, pair: pair.candles.symbol, ...heat });
     } catch (err) {

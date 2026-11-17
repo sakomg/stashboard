@@ -70,7 +70,8 @@ While a run is going, the collector reports each account as waiting, being read,
 or failed. The server keeps that state and serves it at `/api/progress`, to each person only for their own
 accounts; after the accounts it reports the signals phase.
 
-After the balances, signals are recomputed if they are older than `schedule.signalsMinutes`. Logos and
+After the balances, signals are recomputed when the last full run of them (`signals_at` in `settings`) is older
+than `schedule.signalsMinutes`. Logos and
 categories of newly seen assets are fetched in the background: they are cosmetic and never hold up an update.
 
 ### How often
@@ -108,12 +109,13 @@ wait is long), and enables it again by itself when the time comes.
 
 ### Adding an account
 
-A wallet or exchange that has just been added is read on its own, straight away and whatever the gap: the run
-reads that one account and writes a snapshot holding only it. The history carries every other account
-forward, so nothing else changes. It costs one or two Zerion requests for an EVM or Solana wallet, which the
-10% left out of the plan covers, and it does not count as an update, so it neither waits for the gap nor moves
-the schedule. Updates and such reads go through one queue, so they never overlap. An account removed while
-waiting in the queue is skipped without a snapshot.
+A wallet or exchange that has just been added is read on its own, straight away and whatever the gap: the run reads
+that one account and writes a snapshot holding only it. The history carries every other account forward, so nothing
+else changes. It costs one or two Zerion requests for an EVM or Solana wallet, which the 10% left out of the plan
+covers, and it does not count as an update, so it neither waits for the gap nor moves the schedule. Right after it,
+signals and price changes are computed for that account's assets alone, so a new person sees heat and estimated
+changes at once instead of after the next full signals run. Updates and such reads go through one queue, so they
+never overlap. An account removed while waiting in the queue is skipped without a snapshot.
 
 ### History
 
@@ -128,16 +130,16 @@ changes compare with the snapshot at or before that time and stay empty until hi
 
 ### Estimated changes
 
-Until history reaches 7 or 30 days back, those changes are estimated from prices instead: today's holdings
-valued at the prices of that many days ago. Each signals run records, per asset it reads candles for, the
-change of the daily close over 7 and over 30 days (`price_changes`), from the same Binance candles the heat
-score uses, so it costs no extra request. Stablecoins count as flat. Assets without a Binance market, or worth
-under a dollar across all accounts, are left out, and the estimate covers only the rest. A borrowed asset that
-got dearer counts against it. With less than half of the portfolio covered, or price changes older than two
-days, there is no estimate and the countdown stays. The page shows an estimate with `≈` and a help button
-saying what it covers and when the change from history takes over. It leaves out deposits, withdrawals and
-trades, which the change from history includes, and an account added in the meantime, which the change from
-history counts as growth.
+Until history reaches 24 hours, 7 or 30 days back, those changes are estimated from prices instead: today's holdings
+valued at the prices of that long ago. Each signals run records, per asset it reads candles for, the change of the
+daily close over 7 and over 30 days (`price_changes`), from the same Binance candles the heat score uses, and the
+rolling 24-hour change from Binance's 24-hour ticker of the same market, one request more. Stablecoins count as flat.
+Assets without a Binance market, or worth under a dollar across all accounts, are left out, and the estimate covers
+only the rest. A borrowed asset that got dearer counts against it. With less than half of the portfolio covered, or
+price changes older than two days (half a day for the 24-hour one), there is no estimate. The page shows an estimate
+with `≈` and a help button saying what it covers and when the change from history takes over. It leaves out deposits,
+withdrawals and trades, which the change from history includes, and an account added in the meantime, which the
+change from history counts as growth.
 
 ## Sources
 
@@ -150,8 +152,18 @@ needs a passphrase and the words for a read-only key on that exchange. `domain/e
 share: the list of exchanges, pricing a balance from spot tickers, and turning balances into holdings.
 
 Before anything is saved, the key's permissions are read from the exchange: a key that can trade, transfer or
-withdraw is refused with the permissions named, a key not restricted to trusted IP addresses is accepted with a
-warning. Several accounts on one exchange can be added; the same key twice cannot. Removing an exchange removes
+withdraw is refused with the permissions named. A key need not be bound to an IP address, and the dialog asks for
+none on Binance and OKX. Bybit and Gate turn off an unbound key, after three months and 90 days, so for them the
+dialog shows this server's address with a copy button, and adding an unbound key warns that it will stop. Which
+exchanges these are comes from `ipRequired` in `services/exchanges.ts`, sent to the page in `/api/portfolio`, so
+the dialog and the warning say the same.
+
+The address is the IPv4 record of `domain`, resolved by the server (`server/address.ts`), kept for an hour and
+sent as `serverAddress`. It is the address exchanges see for a server on a VPS or behind a home router alike.
+On localhost there is none, since the domain then names another machine, and the dialog asks for the public
+address of the server instead.
+
+Several accounts on one exchange can be added; the same key twice cannot. Removing an exchange removes
 its history and its stored key. The page only ever sees the last four characters of a key. The key, the secret,
 the passphrase and the API host the key belongs to are sealed together.
 
@@ -315,6 +327,11 @@ Aster deposits, so nothing of Zerion's is dropped for it.
 
 Anyone can send any jetton to any wallet, so only whitelisted jettons count; the rest is mostly spam. TonAPI
 answers without a key at a much lower rate, which is not enough for scheduled collection.
+
+The native coin was renamed from TON to GRAM in 2026. Exchanges list it as GRAM and halted their TON markets
+(Binance's `TONUSDT` stands still at its last price), while TonAPI still calls its rate TON. So the coin is read
+as GRAM, and `assets.json` makes TON an alias of GRAM, which also merges history read before. The network keeps
+its name: TON wallets and the TON chain are drawn with the TON logo.
 
 TonAPI has no image for the native coin, and a lookup by ticker finds an unrelated token that shares it
 (Tokamak Network), so the TON logo is named explicitly.
@@ -502,9 +519,9 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
     the net worth names the account being read, and accounts not read yet are not flagged as problems;
   - `ready`.
     The summary and the views fade in when the state changes, except with reduced motion, and skeletons do not
-    shimmer then. Past the first read, empty places say when they fill: the 24-hour, 7-day and 30-day changes count
-    down from when history began (`historySince` in `/api/portfolio`) unless the 7-day and 30-day ones can be
-    estimated from prices, the history chart says when the next update
+    shimmer then. Past the first read, empty places say when they fill: a 24-hour, 7-day or 30-day change that
+    neither history nor prices can give yet shows a dash, and hovering it says when it appears (from
+    `historySince` in `/api/portfolio`), the history chart says when the next update
     is due, and the overview says why there are no balances when accounts exist but none could be priced.
 - **Core components.** `public/common/ui.js` is the one place controls are built, for the dashboard and the shared
   page alike: `h` (elements, never `innerHTML`), `icon` and `iconButton`, `select` (a listbox that replaces the
@@ -553,8 +570,8 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
 - **Adding an account** shows what each choice covers before anything is typed: Wallet carries the ETH, SOL and
   TON logos, Exchange the logos of the exchanges, and the exchange list has a logo on every option. A pasted
   address is recognised by its shape, its network's logo appears inside the field, and the line under it says
-  what is read: every EVM chain at once (with the logos of the main ones), Solana tokens and staking, TON and
-  whitelisted jettons.
+  what is read: every EVM chain at once (with the logos of the main ones), Solana tokens and staking, GRAM and
+  whitelisted jettons on TON. For Bybit and Gate it shows this server's address to bind the key to.
 - **Account chips.** `/api/portfolio` lists accounts largest first, so the chips and the Accounts view share one
   order. The summary shows the ten largest and folds the rest into an "N more" chip that switches to the
   Accounts view and scrolls to it, so a long list of small wallets does not push the views down. An account
@@ -581,15 +598,19 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
   screen being seen, not a security boundary: the API still returns amounts to the signed-in person. The share
   dialog starts with amounts off while they are hidden.
 
-- **Views.** Overview, Positions, Signals, DeFi and Accounts share one tab bar. The bar sticks to the top and shows the net worth at its right end once the large figure scrolls away. The
-  tabs never move: the figure takes space only on the right, so a tab cannot slide from under the pointer when
-  the bar sticks or unsticks. The bar is opaque, so nothing shows through it. A short view stays as
-  short as its content: switching to it from deep in a long one may unstick the bar, which is harmless now that
-  the tabs do not move. Arrow keys move
-  between tabs. Switching from deep in a long view opens the next one at its start. The history chart is
-  resized when the overview is shown, because a chart drawn while hidden has no size. A tab's count is what
-  its view lists: DeFi counts its cards, one per protocol and chain worth at least a dollar, from the same
-  grouping that draws them.
+- **Views.** Overview, Positions, Signals, DeFi and Accounts share one tab bar. The DeFi tab is left out while there
+  is no DeFi position worth a dollar, and the overview opens instead when it was the one open. The bar sticks to the
+  top and shows the net worth at its right end once the large figure scrolls away. The tabs never move: the figure
+  takes space only on the right, so a tab cannot slide from under the pointer when the bar sticks or unsticks. The bar
+  is opaque, so nothing shows through it. A short view stays as short as its content: switching to it from deep in a
+  long one may unstick the bar, which is harmless now that the tabs do not move. On a phone the tabs share the width
+  of the bar, the net worth stays out of it, counts other than overheated assets and accounts in trouble are left out
+  and those two become a dot, so the tabs fit down to 320 pixels. The bar itself never scrolls, and nothing in it
+  reaches past its edge: a bar that could scroll even by a pixel let iOS drag the tabs up, down and sideways under a
+  swipe. Arrow keys move between tabs. Switching from deep in a long view opens the next one at its start. The history
+  chart is resized when the overview is shown, because a chart drawn while hidden has no size. A tab's count is what
+  its view lists: DeFi counts its cards, one per protocol and chain worth at least a dollar, from the same grouping
+  that draws them.
 - **Progress.** While an update runs, the page asks `/api/progress` every second and shows each account's
   state on its chip and the account being read under the net worth. Logos and categories of new tokens arrive
   after an update, so the page reloads its data 20 seconds later.
@@ -634,10 +655,10 @@ and `PRAGMA user_version` records how many have run.
 | `snapshot_accounts` | Each account's result in a run: ok with warnings and reported total, or error                                  |
 | `holdings`          | Positions per account and run; `read_at` when it comes from an earlier answer                                  |
 | `signals`           | Market readings and heat score per asset, with the Binance market used                                         |
-| `price_changes`     | Each asset's latest price change over 7 and 30 days, from the signals run                                      |
+| `price_changes`     | Each asset's latest price change over 24 hours, 7 and 30 days, from the signals run                            |
 | `heat_seen`         | Per person and asset, the start of the overheated episode they dismissed                                       |
 | `sessions`          | Hashes of session tokens, whose they are, and their expiry                                                     |
-| `settings`          | When the last update started, Zerion's daily allowance, and when its chain list was fetched                    |
+| `settings`          | When the last update and signals run started, Zerion's daily allowance, and when its chain list was fetched    |
 | `logos`             | Where each logo comes from, its stored file, and when it was last tried                                        |
 | `asset_categories`  | Categories looked up, with the coin's tags                                                                     |
 | `user_categories`   | Categories each person chose by hand                                                                           |

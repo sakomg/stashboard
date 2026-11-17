@@ -47,7 +47,7 @@ const NETWORKS = [
     'ton',
     /^(?:[A-Za-z0-9_-]{48}|-?\d+:[0-9a-fA-F]{64})$/,
     'TON address.',
-    'TON and whitelisted jettons are read. Other jettons are mostly spam.',
+    'GRAM, the coin once called TON, and whitelisted jettons are read. Other jettons are mostly spam.',
   ],
   ['solana', /^[1-9A-HJ-NP-Za-km-z]{32,44}$/, 'Solana address.', 'Tokens and staking are read.'],
 ];
@@ -58,25 +58,25 @@ const KEY_HELP = {
   binance: {
     lead: 'Create a key with only ',
     mark: 'Enable Reading',
-    rest: " ticked and restrict it to this server's IP address.",
+    rest: ' ticked, and leave IP access unrestricted.',
     source: SOURCES.binanceKeys,
   },
   bybit: {
     lead: 'Create a system-generated key with ',
     mark: 'Read-Only',
-    rest: " permissions, tick every box it offers so Funding and Earn are read too, and restrict it to this server's IP address.",
+    rest: ' permissions, and tick every box it offers so Funding and Earn are read too.',
     source: SOURCES.bybitKeys,
   },
   okx: {
     lead: 'Create a key with only the ',
     mark: 'Read',
-    rest: " permission and restrict it to this server's IP address. Enter the passphrase you chose for the key.",
+    rest: ' permission, and leave its IP address empty. Enter the passphrase you chose for the key.',
     source: SOURCES.okxKeys,
   },
   gate: {
     lead: 'Create an APIv4 key on the main account and set Spot Trading, Perpetual Futures, Margin Trading (Unified Account), Earn, Wallets and Account to ',
     mark: 'Read Only',
-    rest: ". Leave Withdraw off. Account lets the key be checked, and Margin Trading lets a unified account be read. Bind the key to this server's IP address, since Gate turns off a key without one after 90 days.",
+    rest: '. Leave Withdraw off. Account lets the key be checked, and Margin Trading lets a unified account be read.',
     source: SOURCES.gateKeys,
   },
 };
@@ -109,10 +109,45 @@ function setExchange(kind) {
       icon('external-link'),
     ),
   );
+  renderIpNote(state.data?.ipRequired[kind]);
   $('passphrase-field').hidden = !NEEDS_PASSPHRASE.has(kind);
   if (addKind === 'exchange') addForm.label.placeholder = `Optional, for example ${EXCHANGES[kind]} main`;
 }
 setExchange(exchangeChoice.value);
+
+function renderIpNote(reason) {
+  const box = $('exchange-ip');
+  box.hidden = !reason;
+  const address = state.data?.serverAddress;
+  if (!reason) return box.replaceChildren();
+  if (!address) {
+    return box.replaceChildren(
+      h('p', {}, reason, ' Bind it to the public IP address of the server Stashboard runs on to keep it working.'),
+    );
+  }
+  const value = h('code', { class: 'ip-address num' }, address);
+  const copy = h(
+    'button',
+    {
+      class: 'button',
+      type: 'button',
+      onclick: async () => {
+        try {
+          await navigator.clipboard.writeText(address);
+          copy.replaceChildren(icon('check'), 'Copied');
+        } catch {
+          getSelection().selectAllChildren(value);
+        }
+      },
+    },
+    icon('copy'),
+    'Copy',
+  );
+  box.replaceChildren(
+    h('p', {}, reason, " Bind it to this server's address to keep it working."),
+    h('div', { class: 'ip-row' }, value, copy),
+  );
+}
 
 function setAddKind(kind) {
   addKind = kind;

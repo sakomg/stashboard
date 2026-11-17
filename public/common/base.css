@@ -230,6 +230,7 @@ input {
 }
 
 .banner .link {
+  flex: none;
   color: var(--bone);
 }
 

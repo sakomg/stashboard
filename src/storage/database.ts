@@ -191,6 +191,7 @@ const MIGRATIONS = [
      since   TEXT NOT NULL,
      PRIMARY KEY (user_id, asset)
    );`,
+  `ALTER TABLE price_changes ADD COLUMN d1 REAL;`,
 ];
 
 export function migrate(db: DatabaseSync, target = MIGRATIONS.length): void {

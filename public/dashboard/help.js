@@ -32,6 +32,10 @@ export const SOURCES = {
     label: 'Gate: how to create and manage API keys',
     href: 'https://www.gate.com/help/guide/faq/17521/how-to-utilize-api',
   },
+  dayTicker: {
+    label: 'Binance: 24-hour price change',
+    href: 'https://developers.binance.com/docs/binance-spot-api-docs/rest-api/market-data-endpoints#24hr-ticker-price-change-statistics',
+  },
   dailyPrices: {
     label: 'Binance: daily candles',
     href: 'https://developers.binance.com/docs/binance-spot-api-docs/rest-api/market-data-endpoints#klinecandlestick-data',

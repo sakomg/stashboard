@@ -102,16 +102,19 @@ key's permissions before saving it and refuses a key that can trade, transfer or
 permissions to turn off. The secret, and the OKX passphrase, are encrypted before they are stored, and the page
 only ever shows the last four characters of the key.
 
+A key need not be bound to an IP address. Bybit and Gate turn off a key without one after a while, so for them
+the dialog shows your server's address with a copy button to bind the key to.
+
 **Binance.** Open **API Management**, create a **System generated** key, tick **Enable Reading** only, and
-restrict it to **trusted IPs** with your server's public address.
+leave IP access unrestricted.
 
 **Bybit.** Open **API**, create a **System-generated** key with **Read-Only** permissions, tick every box it
 offers (they only allow reading, and Funding and Earn are read only with them), and bind it to your server's
-public address. A key without an IP address expires after three months. A key from Bybit's regional sites
+public address, which the dialog shows. A key without an IP address expires after three months. A key from Bybit's regional sites
 (Turkey, Kazakhstan, Georgia, UAE, Indonesia) works too: the site that issued it is found when it is added.
 Bybit EU keys are not supported, since its API is open only to brokers.
 
-**OKX.** Open **API**, create a key with only the **Read** permission, bind it to your server's public address,
+**OKX.** Open **API**, create a key with only the **Read** permission, leave its IP address empty,
 and keep the passphrase you set: the dashboard asks for it. Keys from my.okx.com (EEA) and app.okx.com (US) work
 too, and are recognised by themselves.
 
@@ -119,7 +122,8 @@ too, and are recognised by themselves.
 **Perpetual Futures**, **Margin Trading (Unified Account)**, **Earn**, **Wallets** and **Account**, each
 **Read Only**, and leave **Withdraw** off. Account is where Gate tells whether the key can trade, so a key
 without it is refused. Margin Trading is what reads a unified account: without it only Spot is read. Bind the
-key to your server's public address, since Gate turns off a key without one after 90 days. A key of a
+key to your server's public address, which the dialog shows, since Gate turns off a key without one after 90
+days. A key of a
 sub-account cannot be checked and is refused.
 
 ## Configuration
