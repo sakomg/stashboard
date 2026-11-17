@@ -20,7 +20,7 @@ export function registerAccountRoutes(app: FastifyInstance, ctx: Context, collec
         address,
         typeof label === 'string' ? label.slice(0, 40) : undefined,
       );
-      collection.collectAfterCurrent();
+      void collection.readAccount(wallet.id);
       return { id: wallet.id, kind: wallet.kind, label: wallet.label };
     } catch (err) {
       return reply.code(400).send({ error: err instanceof Error ? err.message : String(err) });
@@ -61,7 +61,7 @@ export function registerAccountRoutes(app: FastifyInstance, ctx: Context, collec
         host ? { ...keys, host } : keys,
         typeof label === 'string' ? label.slice(0, 40) : undefined,
       );
-      collection.collectAfterCurrent();
+      void collection.readAccount(account.id);
       return {
         id: account.id,
         label: account.label,

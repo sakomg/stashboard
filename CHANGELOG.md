@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- A wallet or exchange that has just been added is read on its own, not with every account on the server.
+- Updates are spaced so a day of them fits in Zerion's allowance, from the key's limit and the number of EVM
+  and Solana wallets. The schedule never runs faster, an update asked for pushes the next scheduled one back,
+  and **Update now** stays greyed out, saying when it comes back, until the gap has passed. Settings shows how
+  many updates a day the key allows.
 - The DeFi tab counts the cards it shows. It counted protocol names instead, including ones worth under a
   dollar that the view leaves out, and a protocol on two chains once.
 - A pending invite link can be copied again from its row in Settings. The token is kept encrypted with the same

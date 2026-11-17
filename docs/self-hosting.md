@@ -126,15 +126,15 @@ sub-account cannot be checked and is refused.
 
 `config.json`:
 
-| Key                        | Meaning                                         | Default                              |
-| -------------------------- | ----------------------------------------------- | ------------------------------------ |
-| `zerion.apiKey`            | Zerion key                                      |                                      |
-| `tonapi.apiKey`            | TonAPI key                                      |                                      |
-| `coingecko.apiKey`         | CoinGecko demo key                              |                                      |
-| `domain`                   | The host name the dashboard is served on        |                                      |
-| `schedule.balancesMinutes` | How often balances are read, at least 5         | 60                                   |
-| `schedule.signalsMinutes`  | How often heat signals are recomputed           | 240                                  |
-| `heat`                     | Weights, thresholds and zones of the heat score | see [the guide](guide.md#heat-score) |
+| Key                        | Meaning                                                                                    | Default                              |
+| -------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------ |
+| `zerion.apiKey`            | Zerion key                                                                                 |                                      |
+| `tonapi.apiKey`            | TonAPI key                                                                                 |                                      |
+| `coingecko.apiKey`         | CoinGecko demo key                                                                         |                                      |
+| `domain`                   | The host name the dashboard is served on                                                   |                                      |
+| `schedule.balancesMinutes` | How often balances are read, at least 5, never more often than the Zerion allowance allows | 60                                   |
+| `schedule.signalsMinutes`  | How often heat signals are recomputed                                                      | 240                                  |
+| `heat`                     | Weights, thresholds and zones of the heat score                                            | see [the guide](guide.md#heat-score) |
 
 [`assets.json`](../assets.json) decides how holdings are merged and grouped; see
 [the guide](guide.md#assets-and-categories).
