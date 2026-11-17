@@ -66,7 +66,7 @@ Open `https://your-host/setup` and:
 3. scan the QR code with an authenticator app (any TOTP app works) and enter one code.
 
 From then on every page needs a sign-in. Sessions last 30 days. You are the admin: under People in Settings you
-can invite friends, each with their own accounts, and remove them.
+can invite friends, each with their own accounts, reset their sign-in and remove them.
 
 A server set up before people came in keeps its account as the admin's, with the name `admin`: sign in with
 that name, the same password and the same authenticator, then change the name under Session in Settings.
@@ -245,8 +245,10 @@ and accounts are kept. Until then friends cannot sign in either:
 docker compose run --rm stashboard src/cli/auth-reset.ts && docker compose restart stashboard
 ```
 
-**A friend forgot their password or lost their authenticator.** There is no reset for them yet. Remove them
-under People in Settings, which deletes their accounts and history, and invite them again.
+**A friend forgot their password or lost their authenticator.** Press the key next to their name under People
+in Settings. It copies a reset link that works once, for 7 days. On it they choose a new password and add the
+authenticator again, under the same name. Their accounts and history stay, and every device they were signed
+in on is signed out.
 
 **The exchange refused the key.** The key, the secret or, for OKX, the passphrase is wrong, or the key does not
 allow the server's IP address. When the exchange says which, the message says so. Bybit also refuses servers in

@@ -192,6 +192,7 @@ const MIGRATIONS = [
      PRIMARY KEY (user_id, asset)
    );`,
   `ALTER TABLE price_changes ADD COLUMN d1 REAL;`,
+  `ALTER TABLE invites ADD COLUMN for_user INTEGER REFERENCES users (id) ON DELETE CASCADE;`,
 ];
 
 export function migrate(db: DatabaseSync, target = MIGRATIONS.length): void {

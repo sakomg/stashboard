@@ -481,12 +481,13 @@ stylesheet, the common ones, the logo and the font). A dead link answers 404 wit
   looked-up categories are shared, since they are about markets rather than anyone's holdings; the logo list
   a page gets names only what that person holds. Names are compared without case or surrounding spaces.
 - **The admin** is person 1. They exist from the first start, without a password, and the setup page gives
-  them a name, password and authenticator. Only the admin invites and removes people, and cannot be removed.
+  them a name, password and authenticator. Only the admin invites, resets and removes people, and cannot be
+  removed.
   Removing a person deletes their accounts with their history and keys, sessions, categories and links, after
   copying the database to `backups/stashboard-before-removing-a-person-<time>.db`.
-- **Access.** Once the admin has signed up, every page and API call needs a session; only the sign-in and
-  join pages and their assets are open. Before that, a server reachable from other machines serves only the
-  setup page, and signing up needs the setup code printed in the server log, so a stranger who finds the
+- **Access.** Once the admin has signed up, every page and API call needs a session; only the sign-in, join
+  and reset pages and their assets are open. Before that, a server reachable from other machines serves only
+  the setup page, and signing up needs the setup code printed in the server log, so a stranger who finds the
   address first cannot claim it. On localhost alone the dashboard is open as the admin's, unless
   `REQUIRE_LOGIN=1`, and nobody can be invited until the admin has signed up.
 - **Setup.** The setup code is 12 characters from a 32-character alphabet without look-alikes, about 60
@@ -501,6 +502,14 @@ stylesheet, the common ones, the logo and the font). A dead link answers 404 wit
   steps like setup, with nothing saved before a code proves the authenticator works, and the invite is spent
   in the same transaction that adds the person, so two people cannot join on one link. A wrong or used link
   counts as a failed attempt.
+- **Resets.** A reset link is `/reset#<token>`, an invite row whose `for_user` names the person, made and kept
+  like an invite. A join takes only a row without `for_user` and a reset only a row with it, so neither link
+  works on the other page. Each person has at most one: a new one replaces the one before, and removing the
+  person removes it. Their old sign-in keeps working until the link is used, so making one locks nobody out.
+  Using it is two steps like joining, a new password and then a new authenticator, and the last step, in one
+  transaction, spends the link, replaces the password, authenticator secret and last used step, and ends
+  every session of that person. Their name, accounts and history stay. The admin has no reset link and
+  resets through `npm run auth:reset`.
 - **Password.** argon2id with 64 MiB of memory, 3 passes and a 32-byte tag, stored as
   `argon2id$<salt>$<hash>` in base64url.
 - **Authenticator.** TOTP per RFC 6238: SHA-1, six digits, 30-second steps, one step of clock drift either
@@ -607,9 +616,9 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
   ragged lines, and _Add wallet or exchange_ spans both columns.
 - **Settings panel.** The Settings button in the header opens a panel from the right with the privacy switch,
   the shared links (copy, open, turn off), the update schedule and whether an update is possible now, for
-  the admin the Zerion requests left today and the people (invite, remove, pending invites), and the session with
-  who is signed in and sign-out. A new invite link is copied at once, and a pending one can be
-  copied again from its row. The lists that grow with use (shared links, people, pending invites) carry their count in
+  the admin the Zerion requests left today and the people (invite, reset, remove, pending links), and the session
+  with who is signed in and sign-out. A new invite or reset link is copied at once, and a pending one can be
+  copied again from its row, which for a reset names the person. The lists that grow with use (shared links, people, pending invites) carry their count in
   the heading and show the first few rows, three links, four people, two invites, with _Show all_ for the
   rest. A list one row longer than that shows the row instead of a button that would reveal just one. They
   fold again each time the panel opens. The name to sign in with is shown with a pencil: it turns into a field
@@ -677,7 +686,7 @@ and `PRAGMA user_version` records how many have run.
 | Table               | Holds                                                                                                          |
 | ------------------- | -------------------------------------------------------------------------------------------------------------- |
 | `users`             | People: name, password hash, authenticator secret and last used step, admin, hidden amounts                    |
-| `invites`           | Invite tokens, hashed to look them up and sealed to copy again, who made them, and when they expire            |
+| `invites`           | Invite and reset tokens, hashed and sealed, who made them, whose sign-in a reset is for, and their expiry      |
 | `accounts`          | Each person's wallets and exchanges; an exchange is an account like any wallet                                 |
 | `snapshots`         | One row per collection run                                                                                     |
 | `snapshot_accounts` | Each account's result in a run: ok with warnings and reported total, or error                                  |

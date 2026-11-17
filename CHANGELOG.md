@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- The admin can reset a friend's sign-in. The key next to their name under People copies a reset link that
+  works once, for 7 days. On it the friend chooses a new password and adds the authenticator again, and keeps
+  their name, accounts and history. Before, the only way was to remove them and invite them again.
 - BingX next to Binance, Bybit, OKX and Gate: add a read-only API key on the page. BingX reads Spot, Funding,
   USDT and coin-margined perpetuals and standard futures. Earn, copy trading and grid bots have no API, so a
   warning names them with their value.

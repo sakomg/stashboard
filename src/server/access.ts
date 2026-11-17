@@ -9,7 +9,7 @@ export const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
 const CONTENT_POLICY =
   "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
 const DEMO_LOCKED =
-  /^(POST \/api\/(wallets|exchanges|collect|invites)|DELETE \/api\/(accounts|users|invites)\/|PATCH \/api\/me$)/;
+  /^(POST \/api\/(wallets|exchanges|collect|invites|users\/)|DELETE \/api\/(accounts|users|invites)\/|PATCH \/api\/me$)/;
 const PUBLIC_ROUTES = [/^\/s\/[A-Za-z0-9_-]+(\/logo\/[a-z]+\/[^/]+)?$/, /^\/api\/shared\/[A-Za-z0-9_-]+$/];
 
 declare module 'fastify' {
@@ -38,7 +38,15 @@ export function setSessionCookie(
 
 export function registerAccess(app: FastifyInstance, ctx: Context, files: StaticFile[]): void {
   const openTo = (access: Access): string[] => files.filter((f) => f.access.includes(access)).map((f) => f.path);
-  const signin = new Set([...openTo('signin'), '/healthz', '/api/login', '/api/join/start', '/api/join/finish']);
+  const signin = new Set([
+    ...openTo('signin'),
+    '/healthz',
+    '/api/login',
+    '/api/join/start',
+    '/api/join/finish',
+    '/api/reset/start',
+    '/api/reset/finish',
+  ]);
   const setup = new Set([...openTo('setup'), '/healthz', '/api/setup/start', '/api/setup/finish']);
   const open = new Set(openTo('public'));
   const isPublic = (path: string): boolean => open.has(path) || PUBLIC_ROUTES.some((route) => route.test(path));
@@ -73,7 +81,7 @@ export function registerAccess(app: FastifyInstance, ctx: Context, files: Static
       return api ? reply.code(401).send({ error: 'Sign in to continue' }) : reply.redirect('/login');
     }
 
-    if (path === '/login' || path === '/join') return reply.redirect('/setup');
+    if (path === '/login' || path === '/join' || path === '/reset') return reply.redirect('/setup');
     if (ctx.local) {
       request.userId = ADMIN_ID;
       return;

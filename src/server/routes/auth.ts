@@ -20,6 +20,8 @@ import {
   inviteValid,
   joinWithInvite,
   noteTotpStep,
+  resetFor,
+  resetWithLink,
 } from '../../storage/index.ts';
 import { SESSION_MS, sessionToken, setSessionCookie } from '../access.ts';
 import type { Context } from '../context.ts';
@@ -28,6 +30,8 @@ const MIN_PASSWORD = 12;
 const PENDING_MS = 15 * 60_000;
 const NAME_RULE = 'Use a name of up to 32 letters, digits, spaces, dots, dashes or underscores.';
 const INVITE_USED = 'This invite link has expired or was already used. Ask for a new one.';
+const RESET_USED = 'This reset link has expired or was already used. Ask for a new one.';
+const CODE_WRONG = 'That code does not match. Check the app shows this account and try the next code.';
 
 interface Pending {
   name: string;
@@ -43,6 +47,7 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: Context): void {
   const decoyHash = (): string => (decoy ??= hashPassword(randomBytes(16).toString('base64url')));
   let pendingSetup: Pending | null = null;
   const pendingJoins = new Map<string, Pending>();
+  const pendingResets = new Map<string, Pending>();
 
   const lockedOut = (request: FastifyRequest, reply: FastifyReply): boolean => {
     const wait = Math.max(perAddress.retryAfter(request.ip), everyone.retryAfter('all'));
@@ -78,16 +83,26 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: Context): void {
     return timingSafeEqual(normalised, Buffer.from(setupCode));
   };
 
+  const withPassword = (name: string, password: unknown): Pending | string =>
+    typeof password === 'string' && password.length >= MIN_PASSWORD
+      ? { name, passwordHash: hashPassword(password), totpSecret: newTotpSecret(), at: Date.now() }
+      : `Use a password of at least ${MIN_PASSWORD} characters.`;
+
   const enrol = (name: unknown, password: unknown, self: number | null): Pending | string => {
     const checked = checkName(name);
     if (!checked) return NAME_RULE;
     const taken = findUser(ctx.db, checked);
     if (taken && taken.id !== self) return `The name ${checked} is taken. Choose another one.`;
-    if (typeof password !== 'string' || password.length < MIN_PASSWORD) {
-      return `Use a password of at least ${MIN_PASSWORD} characters.`;
-    }
-    return { name: checked, passwordHash: hashPassword(password), totpSecret: newTotpSecret(), at: Date.now() };
+    return withPassword(checked, password);
   };
+
+  const hold = (pending: Map<string, Pending>, token: string, value: Pending): void => {
+    for (const [key, old] of pending) if (Date.now() - old.at > PENDING_MS) pending.delete(key);
+    pending.set(token, value);
+  };
+
+  const tokenOf = (body: { token?: unknown } | undefined): string =>
+    typeof body?.token === 'string' ? body.token : '';
 
   const authenticator = ({ name, totpSecret }: Pending) => ({
     key: totpSecret.match(/.{1,4}/g)!.join(' '),
@@ -129,9 +144,7 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: Context): void {
     const step = codeStep(pendingSetup, request.body?.code);
     if (step === null) {
       failed(request, 'wrong authenticator code during setup');
-      return reply
-        .code(401)
-        .send({ error: 'That code does not match. Check the app shows this account and try the next code.' });
+      return reply.code(401).send({ error: CODE_WRONG });
     }
     const { name, passwordHash, totpSecret } = pendingSetup;
     try {
@@ -152,15 +165,14 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: Context): void {
     async (request, reply) => {
       if (!ctx.auth.claimed) return reply.code(409).send({ error: 'This server has no account to join yet.' });
       if (lockedOut(request, reply)) return reply;
-      const token = typeof request.body?.token === 'string' ? request.body.token : '';
+      const token = tokenOf(request.body);
       if (!inviteValid(ctx.db, token)) {
         failed(request, 'unknown or used invite');
         return reply.code(401).send({ error: INVITE_USED });
       }
       const pending = enrol(request.body?.name, request.body?.password, null);
       if (typeof pending === 'string') return reply.code(400).send({ error: pending });
-      for (const [key, old] of pendingJoins) if (Date.now() - old.at > PENDING_MS) pendingJoins.delete(key);
-      pendingJoins.set(token, pending);
+      hold(pendingJoins, token, pending);
       return authenticator(pending);
     },
   );
@@ -168,7 +180,7 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: Context): void {
   app.post<{ Body: { token?: unknown; code?: unknown } }>('/api/join/finish', async (request, reply) => {
     if (!ctx.auth.claimed) return reply.code(409).send({ error: 'This server has no account to join yet.' });
     if (lockedOut(request, reply)) return reply;
-    const token = typeof request.body?.token === 'string' ? request.body.token : '';
+    const token = tokenOf(request.body);
     const pending = pendingJoins.get(token);
     if (!pending || Date.now() - pending.at > PENDING_MS) {
       pendingJoins.delete(token);
@@ -177,15 +189,54 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: Context): void {
     const step = codeStep(pending, request.body?.code);
     if (step === null) {
       failed(request, 'wrong authenticator code while joining');
-      return reply
-        .code(401)
-        .send({ error: 'That code does not match. Check the app shows this account and try the next code.' });
+      return reply.code(401).send({ error: CODE_WRONG });
     }
     pendingJoins.delete(token);
     const { name, passwordHash, totpSecret } = pending;
     let userId: number;
     try {
       userId = joinWithInvite(ctx.db, token, { name, passwordHash, totpSecret, totpStep: step }).id;
+    } catch (err) {
+      return reply.code(400).send({ error: errorText(err) });
+    }
+    signIn(request, reply, userId);
+    return { ok: true };
+  });
+
+  app.post<{ Body: { token?: unknown; password?: unknown } }>('/api/reset/start', async (request, reply) => {
+    if (!ctx.auth.claimed) return reply.code(409).send({ error: 'There is no account yet. Create it first.' });
+    if (lockedOut(request, reply)) return reply;
+    const token = tokenOf(request.body);
+    const user = resetFor(ctx.db, token);
+    if (!user) {
+      failed(request, 'unknown or used reset link');
+      return reply.code(401).send({ error: RESET_USED });
+    }
+    const pending = withPassword(user.name, request.body?.password);
+    if (typeof pending === 'string') return reply.code(400).send({ error: pending });
+    hold(pendingResets, token, pending);
+    return { name: user.name, ...authenticator(pending) };
+  });
+
+  app.post<{ Body: { token?: unknown; code?: unknown } }>('/api/reset/finish', async (request, reply) => {
+    if (!ctx.auth.claimed) return reply.code(409).send({ error: 'There is no account yet. Create it first.' });
+    if (lockedOut(request, reply)) return reply;
+    const token = tokenOf(request.body);
+    const pending = pendingResets.get(token);
+    if (!pending || Date.now() - pending.at > PENDING_MS) {
+      pendingResets.delete(token);
+      return reply.code(400).send({ error: 'The reset took too long and was cancelled. Start again.' });
+    }
+    const step = codeStep(pending, request.body?.code);
+    if (step === null) {
+      failed(request, 'wrong authenticator code while resetting');
+      return reply.code(401).send({ error: CODE_WRONG });
+    }
+    pendingResets.delete(token);
+    const { passwordHash, totpSecret } = pending;
+    let userId: number;
+    try {
+      userId = resetWithLink(ctx.db, token, { passwordHash, totpSecret, totpStep: step }).id;
     } catch (err) {
       return reply.code(400).send({ error: errorText(err) });
     }

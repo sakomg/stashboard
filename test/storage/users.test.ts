@@ -13,6 +13,7 @@ import {
   addUser,
   addWallet,
   createInvite,
+  createReset,
   createSession,
   currentState,
   finishSnapshot,
@@ -26,6 +27,8 @@ import {
   removeAccount,
   removeUser,
   renameAccount,
+  resetFor,
+  resetWithLink,
   saveOutcome,
   sessionUser,
   startSnapshot,
@@ -199,13 +202,73 @@ test('a pending invite link can be shown again, but only with the vault key, and
   assert.ok(!stored.includes(invite.token), 'the token is not stored in the clear');
 
   assert.deepEqual(listInvites(db, key, now), [
-    { id: invite.id, createdAt: invite.createdAt, expiresAt: invite.expiresAt, token: invite.token },
+    { id: invite.id, createdAt: invite.createdAt, expiresAt: invite.expiresAt, token: invite.token, person: null },
   ]);
   assert.equal(listInvites(db, randomBytes(32), now)[0]?.token, null, 'another key opens nothing and breaks nothing');
 
   db.prepare('UPDATE invites SET sealed = NULL').run();
   assert.equal(listInvites(db, key, now)[0]?.token, null, 'an invite from before links were kept has none');
   assert.ok(inviteValid(db, invite.token, now), 'and still works');
+});
+
+test('a reset link gives one person a new sign-in once, ends their sessions and keeps everything else', () => {
+  const db = freshDb();
+  const now = Date.parse('2026-11-17T09:00:00Z');
+  const friend = friendOf(db);
+  const wallet = addWallet(db, friend.id, EVM);
+  const session = createSession(db, friend.id, 60_000);
+  const adminSession = createSession(db, ADMIN_ID, 60_000);
+
+  assert.equal(createReset(db, ADMIN_ID, ADMIN_ID, 60_000, key, now), null, 'the admin resets through the console');
+  assert.equal(createReset(db, ADMIN_ID, 99, 60_000, key, now), null);
+  const first = createReset(db, ADMIN_ID, friend.id, 60_000, key, now)!;
+  const reset = createReset(db, ADMIN_ID, friend.id, 60_000, key, now)!;
+  assert.equal(first.person, 'Kate');
+  assert.equal(resetFor(db, first.token, now), null, 'a new reset link replaces the one before');
+  assert.deepEqual(
+    listInvites(db, key, now).map((i) => [i.token, i.person]),
+    [[reset.token, 'Kate']],
+  );
+
+  assert.equal(resetFor(db, reset.token, now)?.id, friend.id);
+  assert.equal(resetFor(db, reset.token, now + 60_000), null);
+  assert.ok(!inviteValid(db, reset.token, now), 'a reset link does not let a new person join');
+  assert.throws(
+    () => joinWithInvite(db, reset.token, { name: 'Bob', passwordHash: 'h', totpSecret: 'S', totpStep: 0 }, now),
+    /expired or was already used/,
+  );
+  const invite = createInvite(db, ADMIN_ID, 60_000, key, now);
+  assert.throws(
+    () => resetWithLink(db, invite.token, { passwordHash: 'h2', totpSecret: 'S2', totpStep: 7 }, now),
+    /expired or was already used/,
+    'an invite link resets nobody',
+  );
+
+  assert.equal(
+    resetWithLink(db, reset.token, { passwordHash: 'h2', totpSecret: 'S2', totpStep: 7 }, now).id,
+    friend.id,
+  );
+  const row = db.prepare('SELECT name, password_hash, totp_secret, totp_step FROM users WHERE id = ?').get(friend.id);
+  assert.deepEqual({ ...row }, { name: 'Kate', password_hash: 'h2', totp_secret: 'S2', totp_step: 7 });
+  assert.equal(sessionUser(db, session), null);
+  assert.equal(sessionUser(db, adminSession), ADMIN_ID);
+  assert.deepEqual(
+    listAccounts(db, friend.id).map((a) => a.id),
+    [wallet.id],
+  );
+  assert.throws(
+    () => resetWithLink(db, reset.token, { passwordHash: 'h3', totpSecret: 'S3', totpStep: 8 }, now),
+    /expired or was already used/,
+  );
+  assert.ok(inviteValid(db, invite.token, now));
+
+  createReset(db, ADMIN_ID, friend.id, 60_000, key, now);
+  removeUser(db, friend.id);
+  assert.deepEqual(
+    listInvites(db, key, now).map((i) => i.id),
+    [invite.id],
+    'removing a person turns off their reset link',
+  );
 });
 
 test('removing a person removes everything they had and nothing else, and the admin stays', () => {

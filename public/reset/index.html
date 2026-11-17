@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <meta name="color-scheme" content="dark" />
+    <title>Reset your Stashboard sign-in</title>
+    <link rel="icon" href="/logo.svg" />
+    <link rel="stylesheet" href="/common/base.css" />
+    <link rel="stylesheet" href="/common/components.css" />
+    <link rel="stylesheet" href="/common/auth.css" />
+  </head>
+  <body class="login-page">
+    <main class="login">
+      <a class="brand" href="/"
+        ><img src="/logo.svg" alt="" width="28" height="28" /><span>stash</span><span>board</span></a
+      >
+
+      <form id="details" novalidate>
+        <h1>Reset your sign-in</h1>
+        <p class="lead">Choose a new password, then add the authenticator again.</p>
+        <label>
+          <span>New password</span>
+          <input name="password" type="password" autofocus autocomplete="new-password" />
+          <small>At least 12 characters.</small>
+        </label>
+        <label>
+          <span>Repeat the password</span>
+          <input name="repeat" type="password" autocomplete="new-password" />
+        </label>
+        <button class="button primary" type="submit">Continue</button>
+        <p class="form-error" id="details-error" role="alert" hidden></p>
+      </form>
+
+      <form id="authenticator" hidden novalidate>
+        <h1>Add the authenticator again</h1>
+        <p class="lead">
+          Scan this with your authenticator app. Codes from the old entry stop working. You sign in as
+          <b id="name"></b>.
+        </p>
+        <img class="qr" id="qr" alt="QR code for the authenticator app" width="220" height="220" />
+        <p class="key"><span>Or enter this key by hand</span><code id="key"></code></p>
+        <label>
+          <span>Code the app shows now</span>
+          <input name="code" inputmode="numeric" autocomplete="one-time-code" />
+        </label>
+        <button class="button primary" type="submit">Save and sign in</button>
+        <button class="link" id="back" type="button">Start again</button>
+        <p class="form-error" id="authenticator-error" role="alert" hidden></p>
+      </form>
+    </main>
+    <script type="module" src="/reset/reset.js"></script>
+  </body>
+</html>
