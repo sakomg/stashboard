@@ -9,6 +9,7 @@ import {
   listUsers,
   removeUser,
   renameUser,
+  vaultKey,
 } from '../../storage/index.ts';
 import type { Context } from '../context.ts';
 
@@ -55,13 +56,13 @@ export function registerUserRoutes(app: FastifyInstance, ctx: Context): void {
     return { ok: true, backup: backup.split('/').pop() };
   });
 
-  app.get('/api/invites', { preHandler: adminOnly }, async () => listInvites(ctx.db));
+  app.get('/api/invites', { preHandler: adminOnly }, async () => listInvites(ctx.db, vaultKey()));
 
   app.post('/api/invites', { preHandler: adminOnly }, async (request, reply) => {
     if (!ctx.auth.claimed) {
       return reply.code(409).send({ error: 'Set up your own sign-in at /setup first. Friends join through it.' });
     }
-    return createInvite(ctx.db, request.userId, INVITE_DAYS * 24 * 60 * 60_000);
+    return createInvite(ctx.db, request.userId, INVITE_DAYS * 24 * 60 * 60_000, vaultKey());
   });
 
   app.delete<{ Params: { id: string } }>('/api/invites/:id', { preHandler: adminOnly }, async (request, reply) => {

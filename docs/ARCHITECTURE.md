@@ -418,9 +418,11 @@ at `/s/<token>/logo/<kind>/<key>` for logos that link's rows name, and the files
   bits, printed with a `[setup-code]` marker that `deploy.sh` looks for. The password and authenticator
   secret chosen in the first step stay in memory until a code proves the authenticator works; nothing is
   saved before that.
-- **Invites.** An invite link is `/join#<token>`, 24 random bytes in base64url, of which only a hash is
-  stored. The token sits after `#`, so it never reaches the server's log or a `Referer`; the page sends it
-  in the body. A link works once, for 7 days, and the admin can turn it off before it is used. Joining is two
+- **Invites.** An invite link is `/join#<token>`, 24 random bytes in base64url. The token is looked up by its
+  hash, and kept sealed with the same key as exchange secrets, so the admin can copy a pending link again from
+  Settings while a copy of the database alone does not reveal it. Invites made before tokens were sealed have
+  only the hash, and their link cannot be shown again. The token sits after `#`, so it never reaches the
+  server's log or a `Referer`; the page sends it in the body. A link works once, for 7 days, and the admin can turn it off before it is used. Joining is two
   steps like setup, with nothing saved before a code proves the authenticator works, and the invite is spent
   in the same transaction that adds the person, so two people cannot join on one link. A wrong or used link
   counts as a failed attempt.
@@ -532,8 +534,8 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
 - **Settings panel.** The Settings button in the header opens a panel from the right with the privacy switch,
   the shared links (copy, open, turn off), the update schedule and whether an update is possible now, the
   Zerion allowance, for the admin the people (invite, remove, pending invites), and the
-  session with who is signed in and sign-out. A new invite link is copied at once and shown once, since only
-  its hash is kept. The lists that grow with use (shared links, people, pending invites) carry their count in
+  session with who is signed in and sign-out. A new invite link is copied at once, and a pending one can be
+  copied again from its row. The lists that grow with use (shared links, people, pending invites) carry their count in
   the heading and show the first few rows, three links, four people, two invites, with _Show all_ for the
   rest. A list one row longer than that shows the row instead of a button that would reveal just one. They
   fold again each time the panel opens. The name to sign in with is shown with a pencil: it turns into a field
@@ -590,7 +592,7 @@ and `PRAGMA user_version` records how many have run.
 | Table               | Holds                                                                                                          |
 | ------------------- | -------------------------------------------------------------------------------------------------------------- |
 | `users`             | People: name, password hash, authenticator secret and last used step, admin, hidden amounts                    |
-| `invites`           | Hashes of invite tokens, who made them, and when they expire                                                   |
+| `invites`           | Invite tokens, hashed to look them up and sealed to copy again, who made them, and when they expire            |
 | `accounts`          | Each person's wallets and exchanges; an exchange is an account like any wallet                                 |
 | `snapshots`         | One row per collection run                                                                                     |
 | `snapshot_accounts` | Each account's result in a run: ok with warnings and reported total, or error                                  |

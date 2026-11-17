@@ -20,6 +20,22 @@ function openRemovePerson(person) {
   $('remove-person-dialog').showModal();
 }
 
+async function showInvite(token, expiresAt) {
+  const url = `${location.origin}/join#${token}`;
+  let copied = true;
+  try {
+    await navigator.clipboard.writeText(url);
+  } catch {
+    copied = false;
+  }
+  $('invite-status').replaceChildren(
+    copied ? 'Link copied: ' : 'Link: ',
+    h('a', { href: url, target: '_blank', rel: 'noopener' }, url),
+    `. It works once, for ${timeLeft(expiresAt)}. Send it to one person privately: whoever opens it first can join.`,
+  );
+  $('invite-status').hidden = false;
+}
+
 async function turnOffInvite(invite) {
   try {
     await api(`/api/invites/${invite.id}`, { method: 'DELETE' });
@@ -74,11 +90,17 @@ export async function renderPeople() {
           'div',
           {},
           h('b', {}, 'Invite link'),
-          h('small', {}, `Not used yet, works for ${timeLeft(invite.expiresAt)} more`),
+          h(
+            'small',
+            {},
+            `Not used yet, works for ${timeLeft(invite.expiresAt)} more`,
+            !invite.token && '. Its link cannot be shown again',
+          ),
         ),
         h(
           'span',
           { class: 'actions' },
+          invite.token && iconButton('copy', 'Copy this invite link', () => showInvite(invite.token, invite.expiresAt)),
           iconButton('trash-2', 'Turn off this invite link', () => turnOffInvite(invite)),
         ),
       ),
@@ -93,19 +115,7 @@ $('invite').addEventListener('click', async (event) => {
   setError('people-error', null);
   try {
     const { token, expiresAt } = await api('/api/invites', { method: 'POST', body: '{}' });
-    const url = `${location.origin}/join#${token}`;
-    let copied = true;
-    try {
-      await navigator.clipboard.writeText(url);
-    } catch {
-      copied = false;
-    }
-    $('invite-status').replaceChildren(
-      copied ? 'Link copied: ' : 'Link: ',
-      h('a', { href: url, target: '_blank', rel: 'noopener' }, url),
-      `. It works once, for ${timeLeft(expiresAt)}. Send it to one person privately: whoever opens it first can join.`,
-    );
-    $('invite-status').hidden = false;
+    await showInvite(token, expiresAt);
     await renderPeople();
   } catch (err) {
     setError('people-error', err.message);
