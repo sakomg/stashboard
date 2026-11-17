@@ -99,7 +99,8 @@ and each authenticator code works once. To reset it, see [troubleshooting](self-
 ## Friends
 
 The admin can let friends keep their own portfolio on the same server: _Invite someone_ under People in
-Settings copies a link that works once, for 7 days. The friend opens it, picks a name and a password and adds
+Settings copies a link that works once, for 7 days. Until it is used, the copy button on its row copies it
+again. The friend opens it, picks a name and a password and adds
 an authenticator, and from then on signs in like anyone else. Each person sees only their own accounts,
 history, categories chosen by hand and shared links. Updates read everyone's accounts together, with the one
 Zerion key in `config.json`, so more wallets use the daily allowance faster. Whoever runs the server can read

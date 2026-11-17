@@ -95,6 +95,7 @@ export const COINGECKO_EXCHANGES: Record<ExchangeKind, string> = {
   binance: 'binance',
   bybit: 'bybit_spot',
   okx: 'okex',
+  gate: 'gate',
 };
 
 async function coingeckoExchangeLogos(apiKey: string): Promise<Map<string, string>> {

@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
+import { seal, unseal } from './vault.ts';
 
 export const ADMIN_ID = 1;
 
@@ -141,28 +142,40 @@ export interface Invite {
   id: number;
   createdAt: string;
   expiresAt: string;
+  token: string | null;
 }
 
 export function createInvite(
   db: DatabaseSync,
   createdBy: number,
   lifetimeMs: number,
+  key: Buffer,
   now = Date.now(),
 ): Invite & { token: string } {
   const token = randomBytes(24).toString('base64url');
   const createdAt = new Date(now).toISOString();
   const expiresAt = new Date(now + lifetimeMs).toISOString();
   const { lastInsertRowid } = db
-    .prepare('INSERT INTO invites (token_hash, created_by, created_at, expires_at) VALUES (?, ?, ?, ?)')
-    .run(tokenHash(token), createdBy, createdAt, expiresAt);
+    .prepare('INSERT INTO invites (token_hash, sealed, created_by, created_at, expires_at) VALUES (?, ?, ?, ?, ?)')
+    .run(tokenHash(token), seal(key, token), createdBy, createdAt, expiresAt);
   return { id: Number(lastInsertRowid), token, createdAt, expiresAt };
 }
 
-export function listInvites(db: DatabaseSync, now = Date.now()): Invite[] {
+function openInvite(key: Buffer, sealed: string | null): string | null {
+  if (!sealed) return null;
+  try {
+    return unseal<string>(key, sealed);
+  } catch {
+    return null;
+  }
+}
+
+export function listInvites(db: DatabaseSync, key: Buffer, now = Date.now()): Invite[] {
   db.prepare('DELETE FROM invites WHERE expires_at <= ?').run(new Date(now).toISOString());
-  return db
-    .prepare('SELECT id, created_at AS createdAt, expires_at AS expiresAt FROM invites ORDER BY id')
-    .all() as unknown as Invite[];
+  const rows = db
+    .prepare('SELECT id, created_at AS createdAt, expires_at AS expiresAt, sealed FROM invites ORDER BY id')
+    .all() as unknown as (Omit<Invite, 'token'> & { sealed: string | null })[];
+  return rows.map(({ sealed, ...invite }) => ({ ...invite, token: openInvite(key, sealed) }));
 }
 
 export function inviteValid(db: DatabaseSync, token: string, now = Date.now()): boolean {

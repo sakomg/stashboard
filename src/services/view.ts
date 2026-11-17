@@ -158,7 +158,7 @@ export function historyView(
   return thinned;
 }
 
-export const NATIVE_TOKENS = ['BNB', 'OKB', 'ETH', 'SOL', 'TON'];
+export const NATIVE_TOKENS = ['BNB', 'OKB', 'GT', 'ETH', 'SOL', 'TON'];
 export const NETWORK_CHAINS = ['ethereum', 'base', 'arbitrum', 'binance-smart-chain', 'optimism', 'polygon', 'solana'];
 
 export function wantedLogos(states: AccountState[], resolve: (symbol: string) => Asset): Wanted[] {

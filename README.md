@@ -5,14 +5,14 @@ spread across exchanges, several chains and a handful of DeFi protocols.
 
 ![The Stashboard overview with demo data: net worth, accounts, allocation by category and 30 days of history](assets/screenshots/overview.png)
 
-Stashboard reads your balances from Binance, Bybit, OKX, EVM chains, Solana and TON, merges them into one portfolio,
-shows how it is allocated, keeps its history, and scores every position from cold to overheated. It runs on
-your own server, needs only free API keys, and never asks for anything that can move your money.
+Stashboard reads your balances from Binance, Bybit, OKX, Gate, EVM chains, Solana and TON, merges them into one
+portfolio, shows how it is allocated, keeps its history, and scores every position from cold to overheated. It
+runs on your own server, needs only free API keys, and never asks for anything that can move your money.
 
 ## What it does
 
-- **One net worth** across Binance, Bybit and OKX, wallets on any EVM chain, Solana and TON, positions in DeFi
-  protocols, and perpetuals on Lighter and Aster.
+- **One net worth** across Binance, Bybit, OKX and Gate, wallets on any EVM chain, Solana and TON, positions in
+  DeFi protocols, and perpetuals on Lighter and Aster.
 - **Allocation** by category, asset, chain, account or kind, with every place an asset is held.
 - **History** of the whole portfolio, and changes over 24 hours, 7 and 30 days.
 - **Heat signals**: RSI, funding, distance from the 200-day average and open interest blended into one score
@@ -91,6 +91,7 @@ All screenshots use the demo data.
 | Binance: Spot, Funding, Earn, Futures, tokenized stocks | Binance API        | Read-only key, per user |
 | Bybit: Unified Trading, Funding, Earn                   | Bybit API          | Read-only key, per user |
 | OKX: Trading, Funding, Simple and on-chain Earn         | OKX API            | Read-only key, per user |
+| Gate: Unified or Spot and Futures, Earn, staking        | Gate API v4        | Read-only key, per user |
 | EVM chains: tokens and DeFi positions                   | Zerion API         | Free key                |
 | Solana: tokens, staking, tokenized stocks               | Zerion API         | Free key                |
 | Lighter and Lighter on Robinhood Chain                  | Lighter public API | None                    |
@@ -112,7 +113,7 @@ All screenshots use the demo data.
 ## Roadmap
 
 - A desktop app built from the same code, for people who prefer to keep everything on their computer.
-- More exchanges, through read-only API keys, beyond Binance, Bybit and OKX.
+- More exchanges, through read-only API keys, beyond Binance, Bybit, OKX and Gate.
 - More chains through free sources.
 
 Ideas and bug reports are welcome in the issues.

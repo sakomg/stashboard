@@ -130,6 +130,12 @@ test('a friend joins with an invite, signs in by name, and sees and changes only
 
   const invite = (await call(app, 'POST', '/api/invites', admin, {})).json();
   assert.match(invite.token, /^[A-Za-z0-9_-]{32}$/);
+  const pending = (await call(app, 'GET', '/api/invites', admin)).json();
+  assert.deepEqual(
+    pending.map((i: { token: string | null }) => i.token),
+    [invite.token],
+    'the admin can copy a pending link again',
+  );
   assert.equal(await status(app, '/join'), '200');
   assert.equal(await status(app, '/join/join.js'), '200');
 
@@ -161,6 +167,7 @@ test('a friend joins with an invite, signs in by name, and sees and changes only
   assert.equal((await call(app, 'DELETE', `/api/accounts/${mine.id}`, kate)).statusCode, 404);
   assert.equal(listAccounts(db, ADMIN_ID)[0]?.label, 'Main');
   assert.equal((await call(app, 'POST', '/api/invites', kate, {})).statusCode, 403);
+  assert.equal((await call(app, 'GET', '/api/invites', kate)).statusCode, 403);
   assert.equal((await call(app, 'GET', '/api/users', kate)).statusCode, 403);
 
   const own = (await call(app, 'GET', '/api/portfolio', admin)).json();

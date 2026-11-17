@@ -7,6 +7,12 @@
   and Solana wallets. The schedule never runs faster, an update asked for pushes the next scheduled one back,
   and **Update now** stays greyed out, saying when it comes back, until the gap has passed. Settings shows how
   many updates a day the key allows.
+- The DeFi tab counts the cards it shows. It counted protocol names instead, including ones worth under a
+  dollar that the view leaves out, and a protocol on two chains once.
+- A pending invite link can be copied again from its row in Settings. The token is kept encrypted with the same
+  key as exchange secrets. Invites made before this keep only a hash, and their link cannot be shown again.
+- Gate next to Binance, Bybit and OKX: add a read-only APIv4 key on the page. Gate reads the unified account,
+  or Spot and perpetual futures on a classic account, and Simple Earn, fixed-term Earn and staking.
 - Aster is read for every EVM wallet without a key, like Lighter: futures collateral with unrealised PnL,
   spot balances and staked ASTER, priced from Aster's own tickers. It needs the account's privacy mode off.
   A wallet that never opened an Aster account is not a failure.

@@ -12,8 +12,8 @@ src/
   domain/          pure logic, no I/O: addresses, exchange balances and prices, asset rules, portfolio maths,
                    heat score, indicators, types
   storage/         SQLite: schema and migrations, one module per concern, and the vault for secrets
-  sources/         one client per external API: Binance, Bybit, OKX, Zerion, Lighter, TonAPI, market data,
-                   Fear & Greed
+  sources/         one client per external API: Binance, Bybit, OKX, Gate, Zerion, Lighter, Aster, TonAPI,
+                   market data, Fear & Greed
   services/        processes that combine them: collection, signals, categories, logos, exchanges, shares, views
   auth/            password hashing, TOTP, attempt limiting, the setup QR code
   server/          HTTP: context, access control, static files, the collection schedule, routes by area
@@ -140,8 +140,8 @@ history counts as growth.
 
 ### Exchanges
 
-Binance, Bybit and OKX are added on the page (Add wallet or exchange, Exchange) with an API key and its secret,
-and for OKX the passphrase chosen with the key. Each has a client in `sources` with the same shape: check a key,
+Binance, Bybit, OKX and Gate are added on the page (Add wallet or exchange, Exchange) with an API key and its
+secret, and for OKX the passphrase chosen with the key. Each has a client in `sources` with the same shape: check a key,
 read the balances, ping the public API. `services/exchanges.ts` maps each kind to its client, with whether it
 needs a passphrase and the words for a read-only key on that exchange. `domain/exchange.ts` holds what they
 share: the list of exchanges, pricing a balance from spot tickers, and turning balances into holdings.
@@ -218,6 +218,36 @@ The trading account (`/api/v5/account/balance`) gives each currency's equity, ne
 read separately: their receipts, BETH and OKSOL, sit in the trading and funding accounts already. The
 cross-check is `/api/v5/asset/asset-valuation` in USD. Spot instruments are named `BTC-USDT` and are looked up
 without the hyphen, like the other exchanges' tickers.
+
+### Gate
+
+Gate signs with HMAC-SHA512 over the method, the path with `/api/v4`, the query, the SHA-512 of the (empty) body
+and the time in seconds, each on its own line. Errors come as a non-2xx status with a `label`: `INVALID_KEY`,
+`INVALID_SIGNATURE`, `IP_FORBIDDEN`, `REQUEST_EXPIRED` for a clock that is off. Only the global host,
+`api.gateio.ws`, is used.
+
+No endpoint describes the key that calls it. `/account/main_keys` lists every key of the main account with its
+permissions (`perms`, each `read_only` or not) and IP whitelist, the key masked as `c5dcfbf1f3a7*****`; the
+added key is the one whose visible characters match. A permission that is not read-only refuses the key. A key
+that is not in that list, a sub-account's key or one without read access to account information, cannot be
+checked and is refused, since saying nothing about a key that can withdraw would be worse.
+
+Gate accounts are either classic or unified (`/unified/accounts`, `mode`). In single-currency, multi-currency
+and portfolio mode, spot and USDT perpetuals are one account: each currency is counted at its equity, which is
+the balance less what is borrowed plus the futures' unrealised PnL, and its isolated futures margin
+(`iso_balance`) is added, since equity is cross only. Simple Earn lent as margin (`use_funding`, `funding` per
+currency) is part of that equity and also listed in Earn, so it is taken out of the unified balance. A classic
+account, or one whose key may not read the unified account, is read as Spot (`/spot/accounts`) and USDT
+perpetuals at their balance plus unrealised PnL (`/futures/usdt/accounts`). BTC-settled perpetuals are read in
+both cases. An account that never opened futures answers `USER_NOT_FOUND`, which means nothing there, not a
+failure.
+
+Earn is Simple Earn (`/earn/uni/lends`), fixed-term orders still held (`/earn/fixed-term/user/lend`, status 1)
+and staking (`/earn/staking/assets`), all optional. Staking of the voucher kind (type 0) hands out a token that
+sits in Spot already, like OKX's BETH, so it is not read again; a position staking several coins at once is
+named in a warning. Margin, delivery futures, options and bots are not read. The cross-check,
+`/wallet/total_balance` in USDT, covers them, so a gap shows in `npm run collect`. Spot pairs are named
+`BTC_USDT` and are looked up without the underscore.
 
 ### Zerion
 
@@ -359,11 +389,12 @@ image, because browsers keep logos for a week. Logos are served with a sandbox p
 directly cannot run anything.
 
 Exchanges are drawn with their own logo. No exchange API names one, so it comes from CoinGecko's list of
-exchanges, one request for all of them, by CoinGecko's id (`binance`, `bybit_spot`, `okex`). Until it is
-stored, Binance falls back to BNB, OKX to OKB and Bybit, which has no coin of its own, to its initials. Wallets
+exchanges, one request for all of them, by CoinGecko's id (`binance`, `bybit_spot`, `okex`, `gate`). Until it
+is stored, Binance falls back to BNB, OKX to OKB, Gate to GT and Bybit, which has no coin of its own, to its
+initials. Wallets
 are drawn with their native coin: EVM with ETH, Solana with SOL, TON with TON.
 
-The logos the add dialog shows are wanted whatever the portfolio holds: the native coins, the three exchanges
+The logos the add dialog shows are wanted whatever the portfolio holds: the native coins, the exchanges
 and the chains a pasted EVM or Solana address is read on (Ethereum, Base, Arbitrum, BNB Chain, Optimism,
 Polygon, Solana). Chain logos come from Zerion's chain list, so without a Zerion key the dialog shows the ones
 it can draw from a coin (ETH for Ethereum, BNB for BNB Chain) and leaves the rest out rather than show
@@ -414,9 +445,11 @@ at `/s/<token>/logo/<kind>/<key>` for logos that link's rows name, and the files
   bits, printed with a `[setup-code]` marker that `deploy.sh` looks for. The password and authenticator
   secret chosen in the first step stay in memory until a code proves the authenticator works; nothing is
   saved before that.
-- **Invites.** An invite link is `/join#<token>`, 24 random bytes in base64url, of which only a hash is
-  stored. The token sits after `#`, so it never reaches the server's log or a `Referer`; the page sends it
-  in the body. A link works once, for 7 days, and the admin can turn it off before it is used. Joining is two
+- **Invites.** An invite link is `/join#<token>`, 24 random bytes in base64url. The token is looked up by its
+  hash, and kept sealed with the same key as exchange secrets, so the admin can copy a pending link again from
+  Settings while a copy of the database alone does not reveal it. Invites made before tokens were sealed have
+  only the hash, and their link cannot be shown again. The token sits after `#`, so it never reaches the
+  server's log or a `Referer`; the page sends it in the body. A link works once, for 7 days, and the admin can turn it off before it is used. Joining is two
   steps like setup, with nothing saved before a code proves the authenticator works, and the invite is spent
   in the same transaction that adds the person, so two people cannot join on one link. A wrong or used link
   counts as a failed attempt.
@@ -528,8 +561,8 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
 - **Settings panel.** The Settings button in the header opens a panel from the right with the privacy switch,
   the shared links (copy, open, turn off), the update schedule and whether an update is possible now, the
   Zerion allowance, for the admin the people (invite, remove, pending invites), and the
-  session with who is signed in and sign-out. A new invite link is copied at once and shown once, since only
-  its hash is kept. The lists that grow with use (shared links, people, pending invites) carry their count in
+  session with who is signed in and sign-out. A new invite link is copied at once, and a pending one can be
+  copied again from its row. The lists that grow with use (shared links, people, pending invites) carry their count in
   the heading and show the first few rows, three links, four people, two invites, with _Show all_ for the
   rest. A list one row longer than that shows the row instead of a button that would reveal just one. They
   fold again each time the panel opens. The name to sign in with is shown with a pencil: it turns into a field
@@ -550,7 +583,9 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
   short as its content: switching to it from deep in a long one may unstick the bar, which is harmless now that
   the tabs do not move. Arrow keys move
   between tabs. Switching from deep in a long view opens the next one at its start. The history chart is
-  resized when the overview is shown, because a chart drawn while hidden has no size.
+  resized when the overview is shown, because a chart drawn while hidden has no size. A tab's count is what
+  its view lists: DeFi counts its cards, one per protocol and chain worth at least a dollar, from the same
+  grouping that draws them.
 - **Progress.** While an update runs, the page asks `/api/progress` every second and shows each account's
   state on its chip and the account being read under the net worth. Logos and categories of new tokens arrive
   after an update, so the page reloads its data 20 seconds later.
@@ -586,7 +621,7 @@ and `PRAGMA user_version` records how many have run.
 | Table               | Holds                                                                                                          |
 | ------------------- | -------------------------------------------------------------------------------------------------------------- |
 | `users`             | People: name, password hash, authenticator secret and last used step, admin, hidden amounts                    |
-| `invites`           | Hashes of invite tokens, who made them, and when they expire                                                   |
+| `invites`           | Invite tokens, hashed to look them up and sealed to copy again, who made them, and when they expire            |
 | `accounts`          | Each person's wallets and exchanges; an exchange is an account like any wallet                                 |
 | `snapshots`         | One row per collection run                                                                                     |
 | `snapshot_accounts` | Each account's result in a run: ok with warnings and reported total, or error                                  |
