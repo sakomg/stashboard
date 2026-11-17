@@ -27,7 +27,7 @@ const REFUSED: Record<string, string> = {
 const UNKNOWN_KEY = new Set(['INVALID_KEY', 'INVALID_CREDENTIALS']);
 
 const UNCHECKED =
-  "Gate did not list this key's permissions, so it cannot be checked to be read-only. Create the key on the main account and give it read-only access to account information too.";
+  "Gate did not list this key's permissions, so it cannot be checked to be read-only. Create the key on the main account and set Account to Read Only.";
 
 export class GateError extends Error {
   readonly label: string;

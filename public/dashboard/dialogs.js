@@ -74,9 +74,9 @@ export const KEY_HELP = {
     source: SOURCES.okxKeys,
   },
   gate: {
-    lead: 'Create an APIv4 key on the main account with every permission set to ',
+    lead: 'Create an APIv4 key on the main account and set Spot Trading, Perpetual Futures, Margin Trading (Unified Account), Earn, Wallets and Account to ',
     mark: 'Read Only',
-    rest: ", including account information, so the key can be checked, and restrict it to this server's IP address.",
+    rest: ". Leave Withdraw off. Account lets the key be checked, and Margin Trading lets a unified account be read. Bind the key to this server's IP address, since Gate turns off a key without one after 90 days.",
     source: SOURCES.gateKeys,
   },
 };

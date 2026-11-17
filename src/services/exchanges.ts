@@ -47,7 +47,7 @@ export const CLIENTS: Record<ExchangeKind, ExchangeClient> = {
     collect: collectGate,
     ping: pingGate,
     passphrase: false,
-    readOnly: 'Create a key with every permission set to Read Only.',
+    readOnly: 'Set every permission of the key to Read Only and leave Withdraw off.',
   },
 };
 
