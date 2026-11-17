@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Self-hosted, read-only portfolio dashboard for Binance, Bybit, OKX, Gate, EVM, Solana, TON and DeFi",
+  "description": "Self-hosted, read-only portfolio dashboard for Binance, Bybit, OKX, Gate, BingX, EVM, Solana, TON and DeFi",
   "license": "MIT",
   "engines": {
     "node": ">=24"

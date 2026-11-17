@@ -12,8 +12,8 @@ src/
   domain/          pure logic, no I/O: addresses, exchange balances and prices, asset rules, portfolio maths,
                    heat score, indicators, types
   storage/         SQLite: schema and migrations, one module per concern, and the vault for secrets
-  sources/         one client per external API: Binance, Bybit, OKX, Gate, Zerion, Lighter, Aster, TonAPI,
-                   market data, Fear & Greed
+  sources/         one client per external API: Binance, Bybit, OKX, Gate, BingX, Zerion, Lighter, Aster,
+                   TonAPI, market data, Fear & Greed
   services/        processes that combine them: collection, signals, categories, logos, exchanges, shares, views
   auth/            password hashing, TOTP, attempt limiting, the setup QR code
   server/          HTTP: context, access control, static files, the collection schedule, routes by area
@@ -144,15 +144,15 @@ change from history counts as growth.
 
 ### Exchanges
 
-Binance, Bybit, OKX and Gate are added on the page (Add wallet or exchange, Exchange) with an API key and its
-secret, and for OKX the passphrase chosen with the key. Each has a client in `sources` with the same shape: check a key,
+Binance, Bybit, OKX, Gate and BingX are added on the page (Add wallet or exchange, Exchange) with an API key and
+its secret, and for OKX the passphrase chosen with the key. Each has a client in `sources` with the same shape: check a key,
 read the balances, ping the public API. `services/exchanges.ts` maps each kind to its client, with whether it
 needs a passphrase and the words for a read-only key on that exchange. `domain/exchange.ts` holds what they
 share: the list of exchanges, pricing a balance from spot tickers, and turning balances into holdings.
 
 Before anything is saved, the key's permissions are read from the exchange: a key that can trade, transfer or
 withdraw is refused with the permissions named. A key need not be bound to an IP address, and the dialog asks for
-none on Binance and OKX. Bybit and Gate turn off an unbound key, after three months and 90 days, so for them the
+none on Binance, OKX and BingX. Bybit and Gate turn off an unbound key, after three months and 90 days, so for them the
 dialog shows this server's address with a copy button, and adding an unbound key warns that it will stop. Which
 exchanges these are comes from `ipRequired` in `services/exchanges.ts`, sent to the page in `/api/portfolio`, so
 the dialog and the warning say the same.
@@ -257,6 +257,29 @@ sits in Spot already, like OKX's BETH, so it is not read again; a position staki
 named in a warning. Margin, delivery futures, options and bots are not read. The cross-check,
 `/wallet/total_balance` in USDT, covers them, so a gap shows in `npm run collect`. Spot pairs are named
 `BTC_USDT` and are looked up without the underscore.
+
+### BingX
+
+BingX signs with HMAC-SHA256 over the query string, its parameters in ASCII order, and the signature goes last
+in the query as `signature`, with the key in the `X-BX-APIKEY` header. Every read takes no parameter of its own,
+so the query is only the time in milliseconds. Errors come with HTTP 200 and a `code`: 100413 an unknown key,
+100001 a wrong secret, 100419 an IP address the key does not allow, 100421 a clock that is off. Only the main
+host, `open-api.bingx.com`, is used.
+
+The key describes itself (`/openApi/v1/account/apiPermissions`): `permissions` lists numbers, 2 for Read, and any
+other (1 spot trading, 3 futures trading, 4 transfers, 5 withdrawals, 7 sub-account transfers) refuses the key.
+An answer without that list refuses the key too, since it cannot be checked. `ipAddresses` is empty when the key
+is bound to no address. BingX deletes an unbound key only when it can trade or transfer and has not been used for
+14 days, so a read-only key is not asked for an address.
+
+BingX keeps separate accounts, each read on its own: Spot (`/openApi/spot/v1/account/balance`), the main one,
+Funding (`/openApi/fund/v1/account/balance`, its list named `assets`, though the documentation says `balances`),
+USDT and USDC perpetuals (`/openApi/swap/v3/user/balance`) and coin-margined perpetuals
+(`/openApi/cswap/v1/user/balance`), both counted at their equity, which includes unrealised PnL, and Standard
+Futures (`/openApi/contract/v1/balance`), counted at the balance plus cross unrealised PnL. There is no API for
+Earn, copy trading or grid bots. The cross-check is the asset overview (`/openApi/account/v1/allAccountBalance`),
+which values every account in USDT, and an account it lists that is not read, worth a dollar or more, is named
+in a warning with its value. Spot pairs are named `BTC-USDT` and are looked up without the hyphen.
 
 ### Zerion
 
@@ -411,8 +434,9 @@ image, because browsers keep logos for a week. Logos are served with a sandbox p
 directly cannot run anything.
 
 Exchanges are drawn with their own logo. No exchange API names one, so it comes from CoinGecko's list of exchanges,
-one request for all of them, by CoinGecko's id (`binance`, `bybit_spot`, `okex`, `gate`). Until it is stored, Binance
-falls back to BNB, OKX to OKB, Gate to GT and Bybit, which has no coin of its own, to its initials. Wallets are drawn
+one request for all of them, by CoinGecko's id (`binance`, `bybit_spot`, `okex`, `gate`, `bingx`). Until it is
+stored, Binance falls back to BNB, OKX to OKB, Gate to GT, and Bybit and BingX, which have no coin of their own, to
+their initials. Wallets are drawn
 with their native coin: EVM with ETH, Solana with SOL, TON with TON.
 
 The logos the add dialog shows are wanted whatever the portfolio holds: the native coins, the exchanges and the

@@ -43,6 +43,7 @@ test('an exchange key is kept sealed, shown by its last characters, and removed 
 test('a key need not be bound to an IP address, except where the exchange turns an unbound one off', () => {
   assert.equal(bindingAdvice('binance', false, '203.0.113.7'), null);
   assert.equal(bindingAdvice('okx', false, null), null);
+  assert.equal(bindingAdvice('bingx', false, '203.0.113.7'), null);
   assert.equal(bindingAdvice('bybit', true, '203.0.113.7'), null);
   assert.equal(
     bindingAdvice('bybit', false, '203.0.113.7'),
