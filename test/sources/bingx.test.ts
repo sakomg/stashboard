@@ -14,6 +14,7 @@ afterEach(() => {
 
 type Answer = { status?: number; body: unknown };
 const ok = (data: unknown): Answer => ({ body: { code: 0, msg: '', data } });
+const bare = (body: unknown): Answer => ({ body });
 const refused = (code: number, status = 200): Answer => ({ status, body: { code, msg: 'refused' } });
 
 function serve(route: (url: URL) => Answer): { url: URL; headers: Headers }[] {
@@ -28,7 +29,7 @@ function serve(route: (url: URL) => Answer): { url: URL; headers: Headers }[] {
 }
 
 test('a read-only key passes, and the request is signed with HMAC-SHA256 over the query', async () => {
-  const calls = serve(() => ok({ apiKey: keys.apiKey, permissions: [2], ipAddresses: ['203.0.113.7'], note: '' }));
+  const calls = serve(() => bare({ apiKey: keys.apiKey, permissions: [2], ipAddresses: ['203.0.113.7'], note: '' }));
   assert.deepEqual(await checkBingxKey(keys), { extra: [], ipRestricted: true });
 
   const [call] = calls;
@@ -41,8 +42,13 @@ test('a read-only key passes, and the request is signed with HMAC-SHA256 over th
   assert.equal(call!.url.search, `?timestamp=${timestamp}&signature=${expected}`);
 });
 
+test('the permissions come unwrapped, without code and data, and a wrapped answer still reads', async () => {
+  serve(() => ok({ apiKey: keys.apiKey, permissions: [2], ipAddresses: [], note: '' }));
+  assert.deepEqual(await checkBingxKey(keys), { extra: [], ipRestricted: false });
+});
+
 test('a key that can trade or move funds is refused with what it can do, and an unbound key is not IP-restricted', async () => {
-  serve(() => ok({ apiKey: keys.apiKey, permissions: [1, 2, 3, 5, 9], ipAddresses: [], note: '' }));
+  serve(() => bare({ apiKey: keys.apiKey, permissions: [1, 2, 3, 5, 9], ipAddresses: [], note: '' }));
   assert.deepEqual(await checkBingxKey(keys), {
     extra: ['spot trading', 'futures trading', 'withdrawals', 'permission 9'],
     ipRestricted: false,
@@ -50,7 +56,7 @@ test('a key that can trade or move funds is refused with what it can do, and an 
 });
 
 test('a key whose permissions are not listed is refused, and refusals are in plain words', async () => {
-  serve(() => ok({ apiKey: keys.apiKey, ipAddresses: [] }));
+  serve(() => bare({ apiKey: keys.apiKey, ipAddresses: [] }));
   await assert.rejects(checkBingxKey(keys), /did not list this key's permissions/);
   serve(() => refused(100413));
   await assert.rejects(checkBingxKey(keys), /BingX refused the key: it does not know this API key\./);

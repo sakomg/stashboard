@@ -262,9 +262,10 @@ named in a warning. Margin, delivery futures, options and bots are not read. The
 
 BingX signs with HMAC-SHA256 over the query string, its parameters in ASCII order, and the signature goes last
 in the query as `signature`, with the key in the `X-BX-APIKEY` header. Every read takes no parameter of its own,
-so the query is only the time in milliseconds. Errors come with HTTP 200 and a `code`: 100413 an unknown key,
-100001 a wrong secret, 100419 an IP address the key does not allow, 100421 a clock that is off. Only the main
-host, `open-api.bingx.com`, is used.
+so the query is only the time in milliseconds. Answers are wrapped as `{code, msg, data}`, except the key's
+permissions, which come bare, so an answer without `code` is the data itself. Errors come with HTTP 200 and a
+`code`: 100413 an unknown key, 100001 a wrong secret, 100419 an IP address the key does not allow, 100421 a clock
+that is off. Only the main host, `open-api.bingx.com`, is used.
 
 The key describes itself (`/openApi/v1/account/apiPermissions`): `permissions` lists numbers, 2 for Read, and any
 other (1 spot trading, 3 futures trading, 4 transfers, 5 withdrawals, 7 sub-account transfers) refuses the key.
