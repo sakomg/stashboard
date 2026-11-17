@@ -556,7 +556,9 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
   short as its content: switching to it from deep in a long one may unstick the bar, which is harmless now that
   the tabs do not move. Arrow keys move
   between tabs. Switching from deep in a long view opens the next one at its start. The history chart is
-  resized when the overview is shown, because a chart drawn while hidden has no size.
+  resized when the overview is shown, because a chart drawn while hidden has no size. A tab's count is what
+  its view lists: DeFi counts its cards, one per protocol and chain worth at least a dollar, from the same
+  grouping that draws them.
 - **Progress.** While an update runs, the page asks `/api/progress` every second and shows each account's
   state on its chip and the account being read under the net worth. Logos and categories of new tokens arrive
   after an update, so the page reloads its data 20 seconds later.

@@ -14,18 +14,22 @@ export function readNote(items) {
   );
 }
 
-export function renderDefi() {
+export function defiGroups(holdings) {
   const byProtocol = new Map();
-  for (const x of state.data.holdings) {
+  for (const x of holdings) {
     if (!x.protocol || isExchange(x.kind)) continue;
     const key = `${x.protocol}\n${x.chain}`;
     if (!byProtocol.has(key)) byProtocol.set(key, []);
     byProtocol.get(key).push(x);
   }
-  const protocols = [...byProtocol.values()]
+  return [...byProtocol.values()]
     .map((items) => ({ items, net: items.reduce((s, x) => s + x.value, 0) }))
     .filter((p) => Math.abs(p.net) >= DUST_USD)
     .sort((a, b) => b.net - a.net);
+}
+
+export function renderDefi() {
+  const protocols = defiGroups(state.data.holdings);
 
   $('defi-list').replaceChildren(
     ...protocols.map(({ items, net }) =>
