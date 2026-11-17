@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Zerion is asked up to three times a second, as its free plan allows, instead of once, so an update with many
+  wallets finishes sooner. A key that refuses that pace is asked once a second for an hour.
 - A wallet or exchange that has just been added is read on its own, not with every account on the server.
 - Updates are spaced so a day of them fits in Zerion's allowance, from the key's limit and the number of EVM
   and Solana wallets. The schedule never runs faster, an update asked for pushes the next scheduled one back,
