@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The DeFi tab counts the cards it shows. It counted protocol names instead, including ones worth under a
+  dollar that the view leaves out, and a protocol on two chains once.
 - A pending invite link can be copied again from its row in Settings. The token is kept encrypted with the same
   key as exchange secrets. Invites made before this keep only a hash, and their link cannot be shown again.
 - Gate next to Binance, Bybit and OKX: add a read-only APIv4 key on the page. Gate reads the unified account,

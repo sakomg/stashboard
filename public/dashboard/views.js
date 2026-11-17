@@ -1,4 +1,4 @@
-import { isExchange } from './logos.js';
+import { defiGroups } from './defi.js';
 import { chart } from './overview.js';
 import { $, DUST_USD, busy, state } from './state.js';
 
@@ -28,10 +28,7 @@ export function renderCounts() {
   set('positions', String(data.assets.filter((a) => Math.abs(a.value) >= DUST_USD).length || ''));
   const hot = data.assets.filter((a) => a.signal?.zone === 'overheated' && Math.abs(a.value) >= DUST_USD).length;
   set('signals', hot ? `${hot} hot` : '', hot ? 'hot' : '');
-  set(
-    'defi',
-    String(new Set(data.holdings.filter((x) => x.protocol && !isExchange(x.kind)).map((x) => x.protocol)).size || ''),
-  );
+  set('defi', String(defiGroups(data.holdings).length || ''));
   const troubled = data.sources.filter((s) => s.stale || (s.status === null && !busy())).length;
   set('accounts', troubled ? `${troubled} !` : String(data.sources.length), troubled ? 'warn' : '');
 }
