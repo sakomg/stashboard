@@ -77,7 +77,7 @@ Use **Add wallet or exchange** on the dashboard.
 
 - **Wallets**: paste a public address. The network (EVM, Solana or TON) is recognised from the address. One
   EVM address covers every EVM chain and DeFi protocol Zerion knows, and the Lighter and Aster exchanges.
-- **Exchanges**: Binance, Bybit, OKX or Gate, with an API key that can only read. See
+- **Exchanges**: Binance, Bybit, OKX, Gate or BingX, with an API key that can only read. See
   [Exchange keys](#exchange-keys).
 
 The first update starts as soon as an account is added and usually takes under a minute.
@@ -125,6 +125,10 @@ without it is refused. Margin Trading is what reads a unified account: without i
 key to your server's public address, which the dialog shows, since Gate turns off a key without one after 90
 days. A key of a
 sub-account cannot be checked and is refused.
+
+**BingX.** Open **API Management**, create a key with only **Read** ticked, and leave the IP address empty: BingX
+keeps a read-only key working without one. Spot, Funding and perpetual and standard futures are read. Earn, copy
+trading and grid bots have no API, so a warning on the account names them with their value.
 
 ## Configuration
 

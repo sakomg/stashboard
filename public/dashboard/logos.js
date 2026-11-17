@@ -27,7 +27,7 @@ export function logo(kind, key, label = key) {
   return img;
 }
 
-export const EXCHANGES = { binance: 'Binance', bybit: 'Bybit', okx: 'OKX', gate: 'Gate' };
+export const EXCHANGES = { binance: 'Binance', bybit: 'Bybit', okx: 'OKX', gate: 'Gate', bingx: 'BingX' };
 export const isExchange = (kind) => Object.hasOwn(EXCHANGES, kind);
 const KIND_TOKEN = { binance: 'BNB', okx: 'OKB', gate: 'GT', evm: 'ETH', solana: 'SOL', ton: 'TON' };
 const CHAIN_TOKEN = { binance: 'BNB', okx: 'OKB', gate: 'GT', ton: 'TON' };

@@ -69,6 +69,12 @@ const KEY_HELP = {
     rest: '. Leave Withdraw off. Account lets the key be checked, and Margin Trading lets a unified account be read.',
     source: SOURCES.gateKeys,
   },
+  bingx: {
+    lead: 'Create a key with only ',
+    mark: 'Read',
+    rest: ' ticked, and leave the IP address empty.',
+    source: SOURCES.bingxKeys,
+  },
 };
 const NEEDS_PASSPHRASE = new Set(['okx']);
 

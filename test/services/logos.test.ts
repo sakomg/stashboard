@@ -113,6 +113,7 @@ test('the portfolio asks for its assets, chains and protocols, and always for th
       ['bybit', ['bybit_spot']],
       ['okx', ['okex']],
       ['gate', ['gate']],
+      ['bingx', ['bingx']],
     ],
   );
   assert.deepEqual(

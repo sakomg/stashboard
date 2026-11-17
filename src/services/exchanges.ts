@@ -5,6 +5,7 @@ import { checkBinanceKey, collectBinance, pingBinance } from '../sources/binance
 import { checkBybitKey, collectBybit, pingBybit } from '../sources/bybit.ts';
 import { checkOkxKey, collectOkx, pingOkx } from '../sources/okx.ts';
 import { checkGateKey, collectGate, pingGate } from '../sources/gate.ts';
+import { checkBingxKey, collectBingx, pingBingx } from '../sources/bingx.ts';
 import { seal, unseal, vaultKey } from '../storage/vault.ts';
 import { EXCHANGES, type ExchangeKeys, type ExchangeKind, type KeyCheck } from '../domain/exchange.ts';
 import type { CollectResult } from '../domain/types.ts';
@@ -53,6 +54,14 @@ export const CLIENTS: Record<ExchangeKind, ExchangeClient> = {
     passphrase: false,
     readOnly: 'Set every permission of the key to Read Only and leave Withdraw off.',
     ipRequired: 'Gate turns off a key that is not bound to an IP address after 90 days.',
+  },
+  bingx: {
+    check: checkBingxKey,
+    collect: collectBingx,
+    ping: pingBingx,
+    passphrase: false,
+    readOnly: 'Create a key with only Read ticked.',
+    ipRequired: null,
   },
 };
 
