@@ -99,6 +99,26 @@ main > .summary {
   box-shadow: inset 0 0 0 1px var(--line);
 }
 
+.notices .hot {
+  flex-wrap: wrap;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--overheated) 55%, transparent);
+}
+
+.notices .hot .icon {
+  color: var(--overheated);
+}
+
+.notices .hot > span:first-of-type {
+  flex: 1 1 260px;
+}
+
+.notice-actions {
+  display: flex;
+  gap: 16px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
 #content {
   margin-top: 40px;
 }

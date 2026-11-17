@@ -3,7 +3,7 @@ import { EXCHANGES } from '../../services/exchanges.ts';
 import { historyView, portfolioView } from '../../services/view.ts';
 import { fearGreed } from '../../sources/feargreed.ts';
 import { zerionQuota } from '../../sources/zerion.ts';
-import { getUser, listAccounts, setHideAmounts } from '../../storage/index.ts';
+import { getUser, listAccounts, markHeatSeen, setHideAmounts } from '../../storage/index.ts';
 import type { Collection } from '../collection.ts';
 import type { Context } from '../context.ts';
 
@@ -70,5 +70,16 @@ export function registerDashboardRoutes(
     if (typeof hideAmounts !== 'boolean') return reply.code(400).send({ error: 'hideAmounts must be true or false' });
     setHideAmounts(ctx.db, request.userId, hideAmounts);
     return { hideAmounts };
+  });
+
+  app.post<{ Body: { assets?: unknown } }>('/api/heat/dismiss', async (request, reply) => {
+    const { assets } = request.body ?? {};
+    const valid =
+      Array.isArray(assets) &&
+      assets.length > 0 &&
+      assets.length <= 200 &&
+      assets.every((a) => typeof a === 'string' && a.length > 0 && a.length <= 64);
+    if (!valid) return reply.code(400).send({ error: 'assets must be a list of asset names' });
+    return { dismissed: markHeatSeen(ctx.db, request.userId, assets as string[]) };
   });
 }

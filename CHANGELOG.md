@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- A notice under the accounts says when a holding turns overheated: which assets, with their heat and share of
+  the portfolio, and a link to Signals showing only them. Dismissing it holds on every device until the asset
+  cools to neutral or cold and overheats again.
 - Zerion is asked up to three times a second, as its free plan allows, instead of once, so an update with many
   wallets finishes sooner. A key that refuses that pace is asked once a second for an hour.
 - A wallet or exchange that has just been added is read on its own, not with every account on the server.
