@@ -25,7 +25,18 @@ export type ProgressEvent =
 
 type Notify = (event: ProgressEvent) => void;
 
-function collectAccount(db: DatabaseSync, config: Config, account: Account, notify: Notify): Promise<CollectResult> {
+export interface RunOptions {
+  only?: number[];
+  defiEveryMs?: number;
+}
+
+function collectAccount(
+  db: DatabaseSync,
+  config: Config,
+  account: Account,
+  notify: Notify,
+  defiEveryMs?: number,
+): Promise<CollectResult> {
   const onWait = (note: string): void => notify({ type: 'waiting', accountId: account.id, note });
   if (isExchange(account.kind)) {
     const keys = exchangeKeys(db, account.id);
@@ -35,7 +46,7 @@ function collectAccount(db: DatabaseSync, config: Config, account: Account, noti
   switch (account.kind) {
     case 'evm':
       if (!config.zerion.apiKey) throw new Error('Zerion key is not set in config.json');
-      return collectEvm(db, config.zerion.apiKey, account.address, onWait);
+      return collectEvm(db, config.zerion.apiKey, account.address, onWait, defiEveryMs);
     case 'solana':
       if (!config.zerion.apiKey) throw new Error('Zerion key is not set in config.json');
       return collectZerion(db, config.zerion.apiKey, account.address, 'solana', { onWait });
@@ -49,8 +60,9 @@ async function collectEvm(
   apiKey: string,
   address: string,
   onWait: (note: string) => void,
+  defiEveryMs?: number,
 ): Promise<CollectResult> {
-  const indexed = await collectZerion(db, apiKey, address, 'evm', { onWait });
+  const indexed = await collectZerion(db, apiKey, address, 'evm', { onWait, defiEveryMs });
   const venues = [await collectLighter(address), await collectAster(address)];
   return {
     holdings: [...indexed.holdings, ...venues.flatMap((v) => v.holdings)],
@@ -82,14 +94,20 @@ function largestFirst(states: AccountState[]): Account[] {
     .map((s) => s.account);
 }
 
-export async function runCollection(db: DatabaseSync, config: Config, notify: Notify = () => {}): Promise<number> {
-  const accounts = largestFirst(currentState(db, 'all'));
+export async function runCollection(
+  db: DatabaseSync,
+  config: Config,
+  notify: Notify = () => {},
+  { only, defiEveryMs }: RunOptions = {},
+): Promise<number | null> {
+  const accounts = largestFirst(currentState(db, 'all')).filter((a) => !only || only.includes(a.id));
+  if (only && accounts.length === 0) return null;
   notify({ type: 'start', accounts });
   const results: { account: Account; result?: CollectResult; error?: string }[] = [];
   for (const account of accounts) {
     notify({ type: 'reading', accountId: account.id });
     try {
-      const result = await collectAccount(db, config, account, notify);
+      const result = await collectAccount(db, config, account, notify, defiEveryMs);
       results.push({ account, result });
       notify({ type: 'done', accountId: account.id, ok: true });
     } catch (err) {
@@ -123,18 +141,18 @@ export interface UpdateGate {
   availableAt: number | null;
 }
 
-export const UPDATE_COOLDOWN_MS = 60_000;
-
 export function updateGate({
   running,
-  lastFinishedAt,
+  lastStartedAt,
+  gapMinutes,
   zerionWallets,
   zerionUsedUp,
   zerionRenewsAt,
   now = Date.now(),
 }: {
   running: boolean;
-  lastFinishedAt: number;
+  lastStartedAt: number;
+  gapMinutes: number;
   zerionWallets: number;
   zerionUsedUp: boolean;
   zerionRenewsAt: number | null;
@@ -149,8 +167,14 @@ export function updateGate({
       availableAt: zerionRenewsAt,
     };
   }
-  if (now - lastFinishedAt < UPDATE_COOLDOWN_MS) {
-    return { allowed: false, reason: 'Updated a moment ago', availableAt: lastFinishedAt + UPDATE_COOLDOWN_MS };
+  const availableAt = lastStartedAt + gapMinutes * 60_000;
+  if (now < availableAt) {
+    return {
+      allowed: false,
+      reason:
+        zerionWallets > 0 ? `Zerion's daily allowance fits one update every ${gapMinutes} min` : 'Updated a moment ago',
+      availableAt,
+    };
   }
   return { allowed: true, reason: null, availableAt: null };
 }

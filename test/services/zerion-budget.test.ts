@@ -80,18 +80,18 @@ test('an EVM wallet is read as tokens and DeFi positions, then reused instead of
   assert.ok(again.holdings.every((h) => h.readAt));
 
   calls = [];
-  await collectZerion(db, 'key', ADDRESS, 'evm', { now: Date.now() + 60 * 60_000 });
+  await collectZerion(db, 'key', ADDRESS, 'evm', { now: Date.now() + 60 * 60_000, defiEveryMs: 130 * 60_000 });
   assert.deepEqual(calls, ['only_simple']);
 });
 
-test('a key with a large allowance reads DeFi positions on every hourly update', async () => {
+test('DeFi positions are read again once the planned interval for them has passed', async () => {
   const db = freshDb();
   fakeZerion({ limit: 2000 });
   await collectZerion(db, 'key', ADDRESS, 'evm');
   calls = [];
-  await collectZerion(db, 'key', ADDRESS, 'evm', { now: Date.now() + 60 * 60_000 });
+  await collectZerion(db, 'key', ADDRESS, 'evm', { now: Date.now() + 60 * 60_000, defiEveryMs: 55 * 60_000 });
   assert.deepEqual(calls, ['only_simple', 'only_complex']);
-  assert.equal(zerionQuota().defiEveryMinutes, 55);
+  assert.equal(zerionQuota().dayLimit, 2000);
 });
 
 test('a refused DeFi read keeps the earlier positions, says so, and is not repeated', async () => {
@@ -186,15 +186,25 @@ test('positions from an earlier read take the price this run found for the same 
   );
 });
 
-test('updates are refused while one runs, right after one, or when Zerion has nothing left today', () => {
+test('updates are refused while one runs, until the planned gap has passed, or when Zerion has nothing left', () => {
   const now = Date.now();
-  const base = { running: false, lastFinishedAt: 0, zerionWallets: 2, zerionUsedUp: false, zerionRenewsAt: null, now };
+  const base = {
+    running: false,
+    lastStartedAt: 0,
+    gapMinutes: 15,
+    zerionWallets: 2,
+    zerionUsedUp: false,
+    zerionRenewsAt: null,
+    now,
+  };
   assert.deepEqual(updateGate(base), { allowed: true, reason: null, availableAt: null });
   assert.equal(updateGate({ ...base, running: true }).allowed, false);
 
-  const soon = updateGate({ ...base, lastFinishedAt: now - 20_000 });
+  const soon = updateGate({ ...base, lastStartedAt: now - 5 * 60_000 });
   assert.equal(soon.allowed, false);
-  assert.equal(soon.availableAt, now + 40_000);
+  assert.equal(soon.availableAt, now + 10 * 60_000);
+  assert.match(soon.reason ?? '', /one update every 15 min/);
+  assert.equal(updateGate({ ...base, lastStartedAt: now - 15 * 60_000 }).allowed, true);
 
   const renews = now + 5 * 3_600_000;
   const usedUp = updateGate({ ...base, zerionUsedUp: true, zerionRenewsAt: renews });
@@ -203,4 +213,8 @@ test('updates are refused while one runs, right after one, or when Zerion has no
   assert.match(usedUp.reason ?? '', /resume in about 5 h/);
 
   assert.equal(updateGate({ ...base, zerionWallets: 0, zerionUsedUp: true }).allowed, true);
+  assert.equal(
+    updateGate({ ...base, zerionWallets: 0, gapMinutes: 1, lastStartedAt: now - 20_000 }).reason,
+    'Updated a moment ago',
+  );
 });

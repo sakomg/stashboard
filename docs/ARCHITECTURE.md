@@ -70,18 +70,47 @@ accounts; after the accounts it reports the signals phase.
 After the balances, signals are recomputed if they are older than `schedule.signalsMinutes`. Logos and
 categories of newly seen assets are fetched in the background: they are cosmetic and never hold up an update.
 
-The schedule runs every `schedule.balancesMinutes` (at least 5). On start, a run happens only if the last
-snapshot is older than that, so a restart or a deploy does not trigger a collection by itself.
+### How often
+
+An update reads everyone's accounts, since they share one run and one Zerion key. Updates, scheduled or asked
+for, are kept far enough apart that a whole day of them fits in Zerion's daily allowance (`domain/updates.ts`).
+With E EVM wallets and S Solana wallets across all people, an update costs E + S reads of plain tokens, and
+positions in protocols cost E reads each time they are due. Of the allowance L (from Zerion's answers, kept in
+`settings` as `zerion_day_limit` so a restart knows it, and assumed to be 500 until the first answer), 90% is
+planned and the rest is left for adding accounts and retries:
+
+- positions in protocols are read at most every `max(55 min, 24 h × E / (0.9 L / 4))`, keeping them inside
+  the quarter of the allowance Zerion sets aside for them;
+- what is left after them, `0.9 L − E × 24 h / that interval`, divided by E + S, is how many updates fit in a
+  day, and its inverse is the gap between updates, at least 10 minutes (the time plain tokens are reused for).
+
+Both intervals are rounded up to 5 minutes. Without EVM or Solana wallets only a one-minute pause remains. For
+example, a key of 300 requests a day with 6 EVM and 2 Solana wallets gives an update every hour and positions
+in protocols every 2 h 10 min. A key of 2,000 gives the 10-minute floor and 55 minutes. The settings panel shows
+the result for the key and wallets at hand.
+
+The schedule runs every `schedule.balancesMinutes` (at least 5), or every gap when the gap is longer, counted
+from the start of the last update, whether it was scheduled or asked for, so an update asked for on the page
+pushes the next scheduled one back and the day's count stays within the plan. The start of the last update is
+kept in `settings` (`collected_all_at`). On start, an update runs only if the last one is older than the
+schedule, so a restart or a deploy does not trigger a collection by itself.
 
 ### Manual updates
 
-An update asked for on the page reads everyone's accounts, since they share one run and one Zerion key. It is
-refused while one runs, for a minute after the last one finished, and, when there are EVM or Solana wallets,
-while Zerion's daily allowance is used up. The server answers 429 with
-the reason and when updates are possible again; `/api/portfolio` and `/api/progress` carry the same answer, so
-the page disables its update button, says why on hover (and under the net worth when the wait is long), and
-enables it again by itself when the time comes. The scheduled updates are not affected. Adding a wallet
-starts a collection on the server, so a new wallet is read straight away even inside the minute.
+An update asked for on the page is refused while one runs, until the gap above has passed since the last one
+started, and, when there are EVM or Solana wallets, while Zerion's daily allowance is used up. The server
+answers 429 with the reason and when updates are possible again. `/api/portfolio` and `/api/progress` carry
+the same answer, so the page disables its update button, says why on hover (and under the net worth when the
+wait is long), and enables it again by itself when the time comes.
+
+### Adding an account
+
+A wallet or exchange that has just been added is read on its own, straight away and whatever the gap: the run
+reads that one account and writes a snapshot holding only it. The history carries every other account
+forward, so nothing else changes. It costs one or two Zerion requests for an EVM or Solana wallet, which the
+10% left out of the plan covers, and it does not count as an update, so it neither waits for the gap nor moves
+the schedule. Updates and such reads go through one queue, so they never overlap. An account removed while
+waiting in the queue is skipped without a snapshot.
 
 ### History
 
@@ -200,10 +229,8 @@ repeated requests for the same wallet in a short time.
 To stay inside it:
 
 - Plain tokens (`only_simple`) and positions in protocols (`only_complex`) are separate requests, each kept
-  per wallet in the `zerion_cache` table. Plain tokens are reused for 10 minutes, so adding a wallet, a second
-  click or a restart does not re-read every other wallet. Positions in protocols are reused for 55 minutes
-  on a key allowing 1,000 or more requests a day, so every hourly run reads them, and for 3 hours on a
-  smaller key.
+  per wallet in the `zerion_cache` table. Plain tokens are reused for 10 minutes and positions in protocols for
+  the interval planned above (see How often), so a restart costs nothing.
 - Requests are at least 1.1 seconds apart. A 429 is retried after 2, 5 and 10 seconds. A read of positions
   in protocols refused twice in a row is the quarter being used up, not a burst, so no more such reads are
   sent until the daily allowance renews (at least an hour).

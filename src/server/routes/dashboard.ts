@@ -28,6 +28,7 @@ export function registerDashboardRoutes(
       categories: ctx.categories,
       progress: progressOf(request.userId),
       zerion: zerionQuota(),
+      updates: collection.plan(),
       fearGreed: await fearGreed(),
       collecting: collection.running,
       update: collection.gate(),
@@ -35,7 +36,7 @@ export function registerDashboardRoutes(
       heat: { weights: ctx.config.heat.weights, zones: ctx.config.heat.zones },
       exchanges: EXCHANGES,
       preferences: { hideAmounts: me?.hideAmounts ?? false },
-      collectEveryMinutes: collection.intervalMs / 60_000,
+      collectEveryMinutes: collection.everyMinutes,
       loginEnabled: ctx.auth.claimed,
       me: me && { name: me.name, admin: me.admin },
     };

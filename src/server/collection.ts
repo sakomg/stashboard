@@ -1,10 +1,11 @@
 import type { FastifyBaseLogger } from 'fastify';
 import { fetchMissingCategories, loadLearned } from '../services/categories.ts';
+import { planUpdates, type UpdatePlan } from '../domain/updates.ts';
 import { runCollection, updateGate, type ProgressEvent, type UpdateGate } from '../services/collector.ts';
 import { fetchMissingLogos, noteLogos } from '../services/logos.ts';
 import { runSignals } from '../services/signals.ts';
 import { wantedLogos } from '../services/view.ts';
-import { fetchChains, zerionDayUsedUp, zerionQuota } from '../sources/zerion.ts';
+import { fetchChains, seedZerionDayLimit, zerionDayUsedUp, zerionQuota } from '../sources/zerion.ts';
 import { currentState, getSetting, latestSignals, listSnapshots, listWallets, setSetting } from '../storage/index.ts';
 import type { Context } from './context.ts';
 
@@ -16,19 +17,33 @@ export interface Progress {
 export interface Collection {
   readonly running: boolean;
   readonly progress: Progress | null;
-  readonly intervalMs: number;
+  readonly everyMinutes: number;
+  plan(): UpdatePlan;
   collect(): Promise<void>;
-  collectAfterCurrent(): void;
+  readAccount(accountId: number): Promise<void>;
   gate(): UpdateGate;
   start(): void;
 }
 
+const LAST_FULL_RUN = 'collected_all_at';
+const ZERION_DAY_LIMIT = 'zerion_day_limit';
+
 export function createCollection(ctx: Context, log: FastifyBaseLogger): Collection {
   const { db, config } = ctx;
-  const intervalMs = Math.max(config.schedule.balancesMinutes, 5) * 60_000;
-  let collecting: Promise<void> | null = null;
   let progress: Progress | null = null;
-  let lastFinishedAt = 0;
+  let queue: Promise<void> = Promise.resolve();
+  let jobs = 0;
+  let fullRun: Promise<void> | null = null;
+  let timer: NodeJS.Timeout | undefined;
+  let lastStartedAt =
+    Number(getSetting(db, LAST_FULL_RUN) ?? 0) || Date.parse(listSnapshots(db).at(-1)?.startedAt ?? '') || 0;
+
+  const knownLimit = Number(getSetting(db, ZERION_DAY_LIMIT));
+  if (knownLimit > 0) seedZerionDayLimit(knownLimit);
+
+  const plan = (): UpdatePlan =>
+    planUpdates(zerionQuota().dayLimit, listWallets(db, 'all', 'evm').length, listWallets(db, 'all', 'solana').length);
+  const everyMs = (): number => Math.max(config.schedule.balancesMinutes, 5, plan().gapMinutes) * 60_000;
 
   const track = (event: ProgressEvent): void => {
     if (event.type === 'start') {
@@ -72,42 +87,76 @@ export function createCollection(ctx: Context, log: FastifyBaseLogger): Collecti
     }
   };
 
-  const collect = (): Promise<void> => {
-    collecting ??= runCollection(db, config, track)
-      .then(() => {
-        if (progress) progress.phase = 'signals';
-        return refreshSignals();
-      })
-      .then(() => {
-        void refreshLogos();
-        void refreshCategories();
-      })
+  const rememberLimit = (): void => {
+    const { dayLimit } = zerionQuota();
+    if (dayLimit !== null && String(dayLimit) !== getSetting(db, ZERION_DAY_LIMIT))
+      setSetting(db, ZERION_DAY_LIMIT, String(dayLimit));
+  };
+
+  const enqueue = (job: () => Promise<void>): Promise<void> => {
+    jobs++;
+    const run = queue
+      .then(job)
       .catch((err: unknown) => log.error(err))
       .finally(() => {
-        collecting = null;
+        jobs--;
         progress = null;
-        lastFinishedAt = Date.now();
       });
-    return collecting;
+    queue = run;
+    return run;
   };
+
+  const arm = (): void => {
+    clearTimeout(timer);
+    if (ctx.demo) return;
+    timer = setTimeout(() => void collect(), Math.max(0, lastStartedAt + everyMs() - Date.now()));
+    timer.unref();
+  };
+
+  const collect = (): Promise<void> => {
+    fullRun ??= enqueue(async () => {
+      lastStartedAt = Date.now();
+      setSetting(db, LAST_FULL_RUN, String(lastStartedAt));
+      await runCollection(db, config, track, { defiEveryMs: plan().defiEveryMinutes * 60_000 });
+      rememberLimit();
+      if (progress) progress.phase = 'signals';
+      await refreshSignals();
+      void refreshLogos();
+      void refreshCategories();
+    }).finally(() => {
+      fullRun = null;
+      arm();
+    });
+    return fullRun;
+  };
+
+  const readAccount = (accountId: number): Promise<void> =>
+    enqueue(async () => {
+      await runCollection(db, config, track, { only: [accountId], defiEveryMs: plan().defiEveryMinutes * 60_000 });
+      rememberLimit();
+      void refreshLogos();
+      void refreshCategories();
+    });
 
   return {
     get running() {
-      return collecting !== null;
+      return jobs > 0;
     },
     get progress() {
       return progress;
     },
-    intervalMs,
-    collect,
-    collectAfterCurrent() {
-      void (collecting ?? Promise.resolve()).then(collect);
+    get everyMinutes() {
+      return everyMs() / 60_000;
     },
+    plan,
+    collect,
+    readAccount,
     gate() {
       if (ctx.demo) return { allowed: false, reason: 'Demo data. Updates are off', availableAt: null };
       return updateGate({
-        running: collecting !== null,
-        lastFinishedAt,
+        running: jobs > 0,
+        lastStartedAt,
+        gapMinutes: plan().gapMinutes,
         zerionWallets: listWallets(db, 'all', 'evm').length + listWallets(db, 'all', 'solana').length,
         zerionUsedUp: zerionDayUsedUp(),
         zerionRenewsAt: zerionQuota().dayResetsAt,
@@ -118,13 +167,13 @@ export function createCollection(ctx: Context, log: FastifyBaseLogger): Collecti
         void refreshLogos();
         return;
       }
-      setInterval(collect, intervalMs).unref();
-      const last = listSnapshots(db).at(-1);
-      if (!last || Date.now() - Date.parse(last.startedAt) > intervalMs) void collect();
-      else
+      if (Date.now() - lastStartedAt >= everyMs()) void collect();
+      else {
+        arm();
         void refreshSignals()
           .then(refreshLogos)
           .catch((err: unknown) => log.error(err));
+      }
     },
   };
 }

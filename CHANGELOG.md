@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- A wallet or exchange that has just been added is read on its own, not with every account on the server.
+- Updates are spaced so a day of them fits in Zerion's allowance, from the key's limit and the number of EVM
+  and Solana wallets. The schedule never runs faster, an update asked for pushes the next scheduled one back,
+  and **Update now** stays greyed out, saying when it comes back, until the gap has passed. Settings shows how
+  many updates a day the key allows.
 - Aster is read for every EVM wallet without a key, like Lighter: futures collateral with unrealised PnL,
   spot balances and staked ASTER, priced from Aster's own tickers. It needs the account's privacy mode off.
   A wallet that never opened an Aster account is not a failure.

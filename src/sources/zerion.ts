@@ -3,6 +3,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { receiptUnderlying } from '../domain/assets.ts';
 import { getJsonWithHeaders, HttpError } from '../lib/http.ts';
 import { LIGHTER_PROTOCOL } from './lighter.ts';
+import { MIN_DEFI_MINUTES, MIN_GAP_MINUTES } from '../domain/updates.ts';
 import type { CollectResult, Holding, HoldingType, LogoHint } from '../domain/types.ts';
 
 export interface ZerionPosition {
@@ -44,11 +45,11 @@ export interface ZerionQuota {
 }
 
 const quota: ZerionQuota = { tier: null, dayLimit: null, dayRemaining: null, dayResetsAt: null, defiBlockedUntil: 0 };
-export const zerionQuota = (): ZerionQuota & { balancesEveryMinutes: number; defiEveryMinutes: number } => ({
-  ...quota,
-  balancesEveryMinutes: reuseMs('only_simple') / 60_000,
-  defiEveryMinutes: reuseMs('only_complex') / 60_000,
-});
+export const zerionQuota = (): ZerionQuota => ({ ...quota });
+
+export function seedZerionDayLimit(limit: number): void {
+  quota.dayLimit ??= limit;
+}
 
 export function resetZerionQuota(): void {
   Object.assign(quota, { tier: null, dayLimit: null, dayRemaining: null, dayResetsAt: null, defiBlockedUntil: 0 });
@@ -177,12 +178,11 @@ export function withoutDepositReceipts(positions: ZerionPosition[]): ZerionPosit
 
 const readSeparately = (p: ZerionPosition): boolean => p.protocol?.toLowerCase() === LIGHTER_PROTOCOL.toLowerCase();
 
-export const LARGE_KEY_DAILY_LIMIT = 1000;
+export const BALANCES_REUSE_MS = MIN_GAP_MINUTES * 60_000;
+export const DEFI_REUSE_MS = MIN_DEFI_MINUTES * 60_000;
 
-export function reuseMs(part: PositionFilter, dayLimit = quota.dayLimit): number {
-  if (part === 'only_simple') return 10 * 60_000;
-  return dayLimit !== null && dayLimit >= LARGE_KEY_DAILY_LIMIT ? 55 * 60_000 : 3 * 60 * 60_000;
-}
+const reuseMs = (part: PositionFilter, defiEveryMs: number): number =>
+  part === 'only_simple' ? BALANCES_REUSE_MS : defiEveryMs;
 
 const PART_NAMES: Record<PositionFilter, string> = { only_simple: 'Token balances', only_complex: 'DeFi positions' };
 
@@ -250,6 +250,7 @@ const ago = (ms: number): string =>
 export interface ZerionOptions {
   now?: number;
   onWait?: (note: string) => void;
+  defiEveryMs?: number;
 }
 
 export async function collectZerion(
@@ -257,7 +258,7 @@ export async function collectZerion(
   apiKey: string,
   address: string,
   kind: 'evm' | 'solana',
-  { now = Date.now(), onWait }: ZerionOptions = {},
+  { now = Date.now(), onWait, defiEveryMs = DEFI_REUSE_MS }: ZerionOptions = {},
 ): Promise<CollectResult> {
   const parts: PositionFilter[] = kind === 'evm' ? ['only_simple', 'only_complex'] : ['only_simple'];
   const warnings: string[] = [];
@@ -265,7 +266,7 @@ export async function collectZerion(
 
   for (const part of parts) {
     const cached = readCache(db, address, part);
-    if (cached && now - cached.at < reuseMs(part)) {
+    if (cached && now - cached.at < reuseMs(part, defiEveryMs)) {
       read.push({ positions: cached.positions, readAt: new Date(cached.at).toISOString() });
       continue;
     }

@@ -119,7 +119,9 @@ export function renderAccountPanel() {
   const gate = data.update ?? { allowed: true };
   $('hide-amounts').checked = state.hideAmounts;
   const fact = (term, ...description) => h('div', {}, h('dt', {}, term), h('dd', {}, ...description));
-  const every = (minutes) => (minutes >= 120 ? `${minutes / 60} h` : `${minutes} min`);
+  const every = (minutes) =>
+    minutes < 120 ? `${minutes} min` : `${Math.floor(minutes / 60)} h${minutes % 60 ? ` ${minutes % 60} min` : ''}`;
+  const plan = data.updates;
   $('update-facts').replaceChildren(
     ...[
       fact('On its own', `Every ${every(data.collectEveryMinutes)}`),
@@ -133,7 +135,10 @@ export function renderAccountPanel() {
       z?.dayLimit != null &&
         fact(
           'Zerion',
-          `${z.dayRemaining ?? '?'} of ${z.dayLimit} requests left today${z.dayResetsAt ? `, renews in ${inMinutes(z.dayResetsAt)}` : ''}. Balances are read every ${every(z.balancesEveryMinutes)} at most, DeFi positions every ${every(z.defiEveryMinutes)}.`,
+          `${z.dayRemaining ?? '?'} of ${z.dayLimit} requests left today${z.dayResetsAt ? `, renews in ${inMinutes(z.dayResetsAt)}` : ''}.`,
+          plan?.runsPerDay
+            ? ` That fits ${plan.runsPerDay} updates a day, one every ${every(plan.gapMinutes)} at most, with DeFi positions read every ${every(plan.defiEveryMinutes)}.`
+            : '',
         ),
     ].filter(Boolean),
   );
