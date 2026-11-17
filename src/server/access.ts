@@ -38,16 +38,9 @@ export function setSessionCookie(
 
 export function registerAccess(app: FastifyInstance, ctx: Context, files: StaticFile[]): void {
   const openTo = (access: Access): string[] => files.filter((f) => f.access.includes(access)).map((f) => f.path);
-  const signin = new Set([
-    ...openTo('signin'),
-    '/healthz',
-    '/icons.svg',
-    '/api/login',
-    '/api/join/start',
-    '/api/join/finish',
-  ]);
-  const setup = new Set([...openTo('setup'), '/healthz', '/icons.svg', '/api/setup/start', '/api/setup/finish']);
-  const open = new Set([...openTo('public'), '/icons.svg']);
+  const signin = new Set([...openTo('signin'), '/healthz', '/api/login', '/api/join/start', '/api/join/finish']);
+  const setup = new Set([...openTo('setup'), '/healthz', '/api/setup/start', '/api/setup/finish']);
+  const open = new Set(openTo('public'));
   const isPublic = (path: string): boolean => open.has(path) || PUBLIC_ROUTES.some((route) => route.test(path));
 
   app.decorateRequest('userId', 0);

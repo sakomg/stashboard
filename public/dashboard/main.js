@@ -54,15 +54,7 @@ function setPhase(redraw = true) {
   const failed = data.sources.filter((s) => s.status === 'error').length;
   $('overview-empty').replaceChildren(
     ...(firstRead()
-      ? [
-          skeleton('sk-strip'),
-          h(
-            'p',
-            { class: 'reading-note' },
-            h('b', {}, 'Reading your accounts.'),
-            ' Balances appear here as soon as the first update finishes, usually within a minute.',
-          ),
-        ]
+      ? [skeleton('sk-strip'), h('p', { class: 'reading-note' }, h('b', {}, 'Reading your accounts…'))]
       : [
           h(
             'p',

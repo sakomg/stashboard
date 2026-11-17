@@ -37,19 +37,9 @@ export async function submitDialog(form, errorId, request) {
 }
 
 const NETWORKS = [
-  [
-    'evm',
-    /^0x[0-9a-fA-F]{40}$/,
-    'EVM address.',
-    'Ethereum, Base, Arbitrum, BNB Chain and the other EVM chains are read at once.',
-  ],
-  [
-    'ton',
-    /^(?:[A-Za-z0-9_-]{48}|-?\d+:[0-9a-fA-F]{64})$/,
-    'TON address.',
-    'GRAM, the coin once called TON, and whitelisted jettons are read. Other jettons are mostly spam.',
-  ],
-  ['solana', /^[1-9A-HJ-NP-Za-km-z]{32,44}$/, 'Solana address.', 'Tokens and staking are read.'],
+  ['evm', /^0x[0-9a-fA-F]{40}$/, 'EVM', 'all chains at once'],
+  ['ton', /^(?:[A-Za-z0-9_-]{48}|-?\d+:[0-9a-fA-F]{64})$/, 'TON', 'GRAM and verified jettons'],
+  ['solana', /^[1-9A-HJ-NP-Za-km-z]{32,44}$/, 'Solana', null],
 ];
 
 const addForm = $('add-form');
@@ -101,7 +91,7 @@ function setExchange(kind) {
     help.lead,
     h('b', {}, help.mark),
     help.rest,
-    ' The key is checked before it is saved, and the secret is stored encrypted on this server. ',
+    ' The secret is stored encrypted. ',
     h(
       'a',
       { href: help.source.href, target: '_blank', rel: 'noopener noreferrer' },
@@ -188,7 +178,7 @@ function showDetected() {
   $('detected').replaceChildren(
     ...[
       found[0] === 'evm' && chainStack(Object.keys(EVM_CHAINS)),
-      h('span', {}, h('b', {}, found[2]), ` ${found[3]}`),
+      h('span', {}, h('b', {}, found[2]), found[3] && `: ${found[3]}`),
     ].filter(Boolean),
   );
 }
@@ -266,9 +256,10 @@ export function openRemove(account) {
   $('remove-submit').textContent = exchange ? 'Remove exchange' : 'Remove wallet';
   $('remove-text').replaceChildren(
     h('b', {}, account.label),
+    ` (${account.address}). `,
     exchange
-      ? ` (${account.address}) leaves the dashboard together with its recorded history and its stored API key. Nothing changes on the exchange. You can also delete the key there.`
-      : ` (${account.address}) leaves the dashboard together with its recorded history. Nothing changes on chain, and you can add the wallet again later.`,
+      ? 'Its history and API key are deleted. Nothing changes on the exchange.'
+      : 'Its history is deleted. Nothing changes on chain.',
   );
   $('remove-dialog').showModal();
 }

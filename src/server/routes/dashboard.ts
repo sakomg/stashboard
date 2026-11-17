@@ -28,7 +28,6 @@ export function registerDashboardRoutes(
       categories: ctx.categories,
       progress: progressOf(request.userId),
       zerion: zerionQuota(),
-      updates: collection.plan(),
       fearGreed: await fearGreed(),
       collecting: collection.running,
       update: collection.gate(),

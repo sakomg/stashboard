@@ -286,6 +286,10 @@ main > .welcome {
   margin-left: 6px;
 }
 
+.dust-toggle {
+  margin-top: 14px;
+}
+
 .section-head {
   display: flex;
   flex-wrap: wrap;
@@ -693,7 +697,13 @@ tr[aria-expanded='true'] .chevron {
 
   th,
   td {
-    padding: 11px 6px;
+    padding: 11px 4px;
+  }
+
+  .heat {
+    gap: 4px;
+    padding: 2px 7px 2px 6px;
+    font-size: 12.5px;
   }
 
   .wallets .address,
@@ -1299,41 +1309,6 @@ body[data-state='reading'] #content {
   display: none;
 }
 
-.next {
-  display: grid;
-  gap: 10px;
-  margin: 32px 0 0;
-  padding: 0;
-  list-style: none;
-  counter-reset: next;
-}
-
-.next li {
-  display: grid;
-  grid-template-columns: 26px minmax(0, 1fr);
-  gap: 12px;
-  align-items: baseline;
-  color: var(--slate);
-  counter-increment: next;
-}
-
-.next li::before {
-  content: counter(next);
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 1px var(--line);
-  font: 600 13px/1 var(--display);
-  color: var(--bone);
-}
-
-.next b {
-  color: var(--bone);
-  font-weight: 600;
-}
-
 .overview-empty {
   display: grid;
   gap: 16px;
@@ -1377,6 +1352,10 @@ body[data-state='reading'] #content {
 }
 
 @media (max-width: 360px) {
+  .heat::before {
+    display: none;
+  }
+
   .tabs button {
     gap: 4px;
     padding-inline: 3px;

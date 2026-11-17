@@ -18,7 +18,7 @@
       >
       <div class="top-actions">
         <button class="button" id="open-account" type="button">
-          <svg class="icon" aria-hidden="true"><use href="/icons.svg#settings"></use></svg>Settings
+          <svg class="icon" aria-hidden="true"><use href="#settings"></use></svg>Settings
         </button>
       </div>
     </header>
@@ -38,13 +38,13 @@
               aria-label="Hide amounts"
               title="Hide amounts"
             >
-              <svg class="icon" aria-hidden="true"><use href="/icons.svg#eye"></use></svg>
+              <svg class="icon" aria-hidden="true"><use href="#eye"></use></svg>
             </button>
           </div>
           <p class="worth-value" id="net-worth"><span class="skeleton sk-worth" aria-hidden="true"></span></p>
           <p class="worth-meta">
             <button class="icon-button" id="collect" type="button" aria-label="Update now" title="Update now">
-              <svg class="icon" aria-hidden="true"><use href="/icons.svg#refresh-cw"></use></svg>
+              <svg class="icon" aria-hidden="true"><use href="#refresh-cw"></use></svg>
             </button>
             <span id="updated"><span class="skeleton sk-line" aria-hidden="true"></span></span>
           </p>
@@ -77,41 +77,26 @@
       <ul class="notices" id="notices"></ul>
 
       <section class="onboarding" id="welcome" aria-labelledby="welcome-title">
-        <h2 id="welcome-title">Put your whole stash on one board</h2>
-        <p class="lead">
-          Add the wallets and exchanges you hold crypto in. Stashboard reads their balances, merges them into one
-          portfolio and keeps its history. It only reads: a wallet needs its public address, an exchange a read-only API
-          key.
-        </p>
+        <h2 id="welcome-title">Add your first account</h2>
+        <p class="lead">Stashboard only reads. A wallet needs its public address, an exchange a read-only API key.</p>
         <div class="paths">
           <button class="path" type="button" data-open-add="wallet">
             <span class="path-icon"
-              ><svg class="icon" aria-hidden="true"><use href="/icons.svg#wallet"></use></svg
+              ><svg class="icon" aria-hidden="true"><use href="#wallet"></use></svg
             ></span>
             <b>Add a wallet</b>
-            <span>EVM, Solana or TON. The public address is all it needs.</span>
+            <span>EVM, Solana, TON</span>
             <span class="path-logos" data-logos="wallet"></span>
           </button>
           <button class="path" type="button" data-open-add="exchange">
             <span class="path-icon"
-              ><svg class="icon" aria-hidden="true"><use href="/icons.svg#landmark"></use></svg
+              ><svg class="icon" aria-hidden="true"><use href="#landmark"></use></svg
             ></span>
             <b>Add an exchange</b>
-            <span>Binance, Bybit, OKX or Gate, with an API key that can only read.</span>
+            <span>Binance, Bybit, OKX, Gate</span>
             <span class="path-logos" data-logos="exchange"></span>
           </button>
         </div>
-        <ol class="next">
-          <li>
-            <span><b>Balances</b> are read as soon as an account is added, usually within a minute.</span>
-          </li>
-          <li>
-            <span><b>History</b> begins with the next scheduled update.</span>
-          </li>
-          <li>
-            <span><b>Changes</b> over 24 hours, 7 and 30 days fill in as the history grows.</span>
-          </li>
-        </ol>
       </section>
 
       <div id="content">
@@ -145,7 +130,7 @@
                 <div class="head-actions">
                   <div class="segmented" id="dimension" role="group" aria-label="Group allocation by"></div>
                   <button class="button" id="open-share" type="button">
-                    <svg class="icon" aria-hidden="true"><use href="/icons.svg#share-2"></use></svg>Share
+                    <svg class="icon" aria-hidden="true"><use href="#share-2"></use></svg>Share
                   </button>
                 </div>
               </div>
@@ -179,11 +164,7 @@
         </div>
 
         <div class="view" id="view-positions" role="tabpanel" aria-labelledby="tab-positions" tabindex="0" hidden>
-          <div class="section-head">
-            <h2 class="sr-only">Positions</h2>
-            <p class="lead" id="positions-lead"></p>
-            <button class="link" id="dust-toggle" type="button" hidden></button>
-          </div>
+          <h2 class="sr-only">Positions</h2>
           <div class="table-wrap">
             <table class="positions" id="positions-table">
               <thead></thead>
@@ -209,6 +190,7 @@
               </tbody>
             </table>
           </div>
+          <button class="link dust-toggle" id="dust-toggle" type="button" hidden></button>
         </div>
 
         <div class="view" id="view-signals" role="tabpanel" aria-labelledby="tab-signals" tabindex="0" hidden>
@@ -228,13 +210,7 @@
         </div>
 
         <div class="view" id="view-accounts" role="tabpanel" aria-labelledby="tab-accounts" tabindex="0" hidden>
-          <div class="section-head">
-            <h2 class="sr-only">Accounts</h2>
-            <p class="lead">Every account is read on its own. One that fails keeps its last balances.</p>
-            <button class="button" type="button" data-open-add>
-              <svg class="icon" aria-hidden="true"><use href="/icons.svg#plus"></use></svg>Add wallet or exchange
-            </button>
-          </div>
+          <h2 class="sr-only">Accounts</h2>
           <ul class="wallets" id="wallets">
             <li class="sk-row"><span class="skeleton sk-line wide" aria-hidden="true"></span></li>
             <li class="sk-row"><span class="skeleton sk-line wide" aria-hidden="true"></span></li>
@@ -249,7 +225,7 @@
         <header>
           <h2 id="add-title">Add wallet or exchange</h2>
           <button class="icon-button" type="button" data-close aria-label="Close" title="Close">
-            <svg class="icon" aria-hidden="true"><use href="/icons.svg#x"></use></svg>
+            <svg class="icon" aria-hidden="true"><use href="#x"></use></svg>
           </button>
         </header>
         <div id="add-kind"></div>
@@ -300,7 +276,7 @@
         <header>
           <h2 id="remove-title">Remove account</h2>
           <button class="icon-button" type="button" data-close aria-label="Close" title="Close">
-            <svg class="icon" aria-hidden="true"><use href="/icons.svg#x"></use></svg>
+            <svg class="icon" aria-hidden="true"><use href="#x"></use></svg>
           </button>
         </header>
         <p class="dialog-text" id="remove-text"></p>
@@ -317,7 +293,7 @@
         <header>
           <h2 id="remove-person-title">Remove person</h2>
           <button class="icon-button" type="button" data-close aria-label="Close" title="Close">
-            <svg class="icon" aria-hidden="true"><use href="/icons.svg#x"></use></svg>
+            <svg class="icon" aria-hidden="true"><use href="#x"></use></svg>
           </button>
         </header>
         <p class="dialog-text" id="remove-person-text"></p>
@@ -334,7 +310,7 @@
         <header>
           <h2 id="category-title">Category</h2>
           <button class="icon-button" type="button" data-close aria-label="Close" title="Close">
-            <svg class="icon" aria-hidden="true"><use href="/icons.svg#x"></use></svg>
+            <svg class="icon" aria-hidden="true"><use href="#x"></use></svg>
           </button>
         </header>
         <p class="muted" id="category-text"></p>
@@ -352,7 +328,7 @@
         <header>
           <h2 id="account-title">Settings</h2>
           <button class="icon-button" type="button" data-close aria-label="Close" title="Close">
-            <svg class="icon" aria-hidden="true"><use href="/icons.svg#x"></use></svg>
+            <svg class="icon" aria-hidden="true"><use href="#x"></use></svg>
           </button>
         </header>
 
@@ -387,7 +363,7 @@
           <ul class="links compact" id="invite-list" aria-label="Invite links"></ul>
           <button class="link more" id="invite-list-more" type="button" aria-controls="invite-list" hidden></button>
           <button class="button" id="invite" type="button">
-            <svg class="icon" aria-hidden="true"><use href="/icons.svg#user-plus"></use></svg>Invite someone
+            <svg class="icon" aria-hidden="true"><use href="#user-plus"></use></svg>Invite someone
           </button>
           <p class="invite-status" id="invite-status" role="status" hidden></p>
           <p class="form-error" id="people-error" role="alert" hidden></p>
@@ -398,10 +374,10 @@
           <div class="session-row">
             <div class="me" id="me" hidden></div>
             <button class="button" id="sign-out" type="button" hidden>
-              <svg class="icon" aria-hidden="true"><use href="/icons.svg#log-out"></use></svg>Sign out
+              <svg class="icon" aria-hidden="true"><use href="#log-out"></use></svg>Sign out
             </button>
           </div>
-          <p class="muted" id="session-text"></p>
+          <p class="muted" id="session-text" hidden>Sign-in is off: this dashboard is open on this machine only.</p>
         </section>
       </div>
     </dialog>
@@ -411,7 +387,7 @@
         <header>
           <h2 id="share-title">Share allocation</h2>
           <button class="icon-button" type="button" data-close aria-label="Close" title="Close">
-            <svg class="icon" aria-hidden="true"><use href="/icons.svg#x"></use></svg>
+            <svg class="icon" aria-hidden="true"><use href="#x"></use></svg>
           </button>
         </header>
         <div class="share-preview"><canvas id="share-canvas" width="1200" height="675" role="img"></canvas></div>
@@ -419,7 +395,7 @@
           <div class="segmented" id="share-dimension" role="group" aria-label="Group by"></div>
           <label class="check"
             ><input type="checkbox" id="share-amounts" /><span class="box" aria-hidden="true"
-              ><svg class="icon" aria-hidden="true"><use href="/icons.svg#check"></use></svg></span
+              ><svg class="icon" aria-hidden="true"><use href="#check"></use></svg></span
             >Show amounts</label
           >
         </div>
@@ -427,18 +403,18 @@
         <p class="form-error" id="share-error" role="alert" hidden></p>
         <footer>
           <button class="button" type="button" id="share-copy">
-            <svg class="icon" aria-hidden="true"><use href="/icons.svg#copy"></use></svg>Copy image
+            <svg class="icon" aria-hidden="true"><use href="#copy"></use></svg>Copy image
           </button>
           <button class="button" type="button" id="share-download">
-            <svg class="icon" aria-hidden="true"><use href="/icons.svg#download"></use></svg>Download
+            <svg class="icon" aria-hidden="true"><use href="#download"></use></svg>Download
           </button>
           <button class="button" type="button" id="share-native" hidden>
-            <svg class="icon" aria-hidden="true"><use href="/icons.svg#share-2"></use></svg>Share…
+            <svg class="icon" aria-hidden="true"><use href="#share-2"></use></svg>Share…
           </button>
           <span class="spacer"></span>
           <div id="share-days"></div>
           <button class="button primary" type="submit">
-            <svg class="icon" aria-hidden="true"><use href="/icons.svg#link"></use></svg>Create link
+            <svg class="icon" aria-hidden="true"><use href="#link"></use></svg>Create link
           </button>
         </footer>
       </form>

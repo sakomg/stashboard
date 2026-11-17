@@ -108,11 +108,11 @@ the dialog shows your server's address with a copy button to bind the key to.
 **Binance.** Open **API Management**, create a **System generated** key, tick **Enable Reading** only, and
 leave IP access unrestricted.
 
-**Bybit.** Open **API**, create a **System-generated** key with **Read-Only** permissions, tick every box it
-offers (they only allow reading, and Funding and Earn are read only with them), and bind it to your server's
-public address, which the dialog shows. A key without an IP address expires after three months. A key from Bybit's regional sites
-(Turkey, Kazakhstan, Georgia, UAE, Indonesia) works too: the site that issued it is found when it is added.
-Bybit EU keys are not supported, since its API is open only to brokers.
+**Bybit.** Open **API**, create a **System-generated** key with **Read-Only** permissions, tick every box it offers
+(they only allow reading, and Funding and Earn are read only with them), and bind it to your server's public address,
+which the dialog shows. A key without an IP address expires after three months. A key from Bybit's regional sites
+(Turkey, Kazakhstan, Georgia, UAE, Indonesia) works too: the site that issued it is found when it is added. Bybit EU
+keys are not supported, since its API is open only to brokers.
 
 **OKX.** Open **API**, create a key with only the **Read** permission, leave its IP address empty,
 and keep the passphrase you set: the dashboard asks for it. Keys from my.okx.com (EEA) and app.okx.com (US) work
@@ -254,7 +254,7 @@ much of it is left today.
 
 **The update button is greyed out.** Updates are spaced so a whole day of them fits in Zerion's daily
 allowance, and none run while that allowance is used up. Hovering the button says which, and when it comes back.
-Settings shows how many updates a day the key allows.
+Settings shows the admin how many Zerion requests are left today.
 
 ## Uninstalling
 

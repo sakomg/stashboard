@@ -91,7 +91,7 @@ added one at a time show as steps in the chart.
 The tightest limit is Zerion's free key: three requests a second, 2,000 a day, and a quarter of the day's
 allowance for reads of DeFi positions. Stashboard reads the allowance from Zerion's answers and spaces updates
 so a whole day of them fits in it: the more EVM and Solana wallets, the longer the gap, never under 10 minutes. Settings
-shows how many updates a day the key allows and how often DeFi positions are read. Until the gap has passed,
+shows the admin how many requests are left today. Until the gap has passed,
 **Update now** is greyed out and says when it comes back. A wallet or exchange you add is read straight away on
 its own, without waiting and without reading everyone else's. When Zerion refuses, the last answer is used and
 the dashboard says how old it is.

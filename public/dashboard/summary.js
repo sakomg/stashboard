@@ -4,7 +4,7 @@ import { openAdd } from './dialogs.js';
 import { showBanner } from './feedback.js';
 import { MASK, ago, change, inTime, money, moneyRound, percent, usd } from './format.js';
 import { HELP, SOURCES, fearGreedTone } from './help.js';
-import { kindLogo } from './logos.js';
+import { kindLogo, kindLogoSpec } from './logos.js';
 import { groups } from './overview.js';
 import { renderSignals } from './signals.js';
 import { $, DUST_USD, actions, busy, firstRead, state } from './state.js';
@@ -76,7 +76,7 @@ export function renderSummary() {
   privacy.setAttribute('aria-pressed', String(state.hideAmounts));
   privacy.setAttribute('aria-label', label);
   privacy.title = label;
-  privacy.querySelector('use').setAttribute('href', `/icons.svg#${state.hideAmounts ? 'eye-off' : 'eye'}`);
+  privacy.querySelector('use').setAttribute('href', `#${state.hideAmounts ? 'eye-off' : 'eye'}`);
   $('views-worth').textContent = moneyRound(data.netWorth);
 
   $('facts').replaceChildren(
@@ -115,7 +115,7 @@ export function renderUpdating() {
   button.title = busy()
     ? 'Updating…'
     : gate.allowed
-      ? `Update now. Updates on its own every ${data.collectEveryMinutes} min.`
+      ? 'Update now'
       : `${gate.reason}${gate.availableAt ? `. Available again in ${inMinutes(gate.availableAt)}` : ''}.`;
   clearTimeout(gateTimer);
   if (!busy() && !gate.allowed && gate.availableAt && gate.availableAt - Date.now() < 15 * 60_000) {
@@ -147,63 +147,91 @@ function openAccounts() {
   window.scrollTo({ top: $('content').getBoundingClientRect().top + window.scrollY, behavior: 'instant' });
 }
 
+function keyed({ key, make }) {
+  const element = make();
+  element.dataset.key = key;
+  return element;
+}
+
+function fillKeyed(list, items) {
+  const current = [...list.children];
+  if (current.length !== items.length) return list.replaceChildren(...items.map(keyed));
+  items.forEach((item, i) => {
+    if (current[i].dataset.key !== item.key) current[i].replaceWith(keyed(item));
+  });
+}
+
+function sourceChip(s, step) {
+  const mark = step
+    ? {
+        waiting: ['waiting', null, 'Waiting to be read'],
+        reading: ['reading', 'refresh-cw', step.note ?? 'Reading now'],
+        done: ['done', 'check', 'Read'],
+        failed: ['problem', 'triangle-alert', step.note ?? 'Could not be read'],
+      }[step.state]
+    : s.status === null
+      ? ['problem', 'clock', 'Not read yet']
+      : s.stale
+        ? ['problem', 'triangle-alert', 'Out of date']
+        : isOld(s)
+          ? ['aged', 'clock', `Some balances are from ${ago(s.oldestRead)}`]
+          : null;
+  const value =
+    (!mark || mark[0] === 'aged' || mark[0] === 'done' || mark[0] === 'waiting') && s.status !== null
+      ? moneyRound(s.value)
+      : null;
+  const title = mark ? mark[2] : `${money(s.value)}, updated ${ago(s.collectedAt)}`;
+  const logo = kindLogoSpec(s.kind);
+  return {
+    key: JSON.stringify([s.id, s.kind, s.label, state.logos.get(`${logo.kind}/${logo.key}`), mark, value, title]),
+    make: () =>
+      h(
+        'li',
+        { class: mark?.[0] ?? '', title },
+        kindLogo(s.kind),
+        h('span', { class: 'chip-label' }, s.label),
+        value && h('span', { class: 'num muted' }, value),
+        mark?.[1] && icon(mark[1]),
+        mark && h('span', { class: 'sr-only' }, mark[2]),
+      ),
+  };
+}
+
 function renderSources() {
   const live = new Map((state.progress?.accounts ?? []).map((a) => [a.id, a]));
   const { sources } = state.data;
   const shown = sources.filter((s, i) => i < CHIP_LIMIT || s.status === null || s.stale);
   const more = sources.length - shown.length;
-  $('sources').replaceChildren(
-    ...shown.map((s) => {
-      const step = live.get(s.id);
-      const mark = step
-        ? {
-            waiting: ['waiting', null, 'Waiting to be read'],
-            reading: ['reading', 'refresh-cw', step.note ?? 'Reading now'],
-            done: ['done', 'check', 'Read'],
-            failed: ['problem', 'triangle-alert', step.note ?? 'Could not be read'],
-          }[step.state]
-        : s.status === null
-          ? ['problem', 'clock', 'Not read yet']
-          : s.stale
-            ? ['problem', 'triangle-alert', 'Out of date']
-            : isOld(s)
-              ? ['aged', 'clock', `Some balances are from ${ago(s.oldestRead)}`]
-              : null;
-      return h(
-        'li',
-        {
-          class: mark?.[0] ?? '',
-          title: mark ? mark[2] : `${money(s.value)}, updated ${ago(s.collectedAt)}`,
-        },
-        kindLogo(s.kind),
-        h('span', { class: 'chip-label' }, s.label),
-        (!mark || mark[0] === 'aged' || mark[0] === 'done' || mark[0] === 'waiting') &&
-          s.status !== null &&
-          h('span', { class: 'num muted' }, moneyRound(s.value)),
-        mark?.[1] && icon(mark[1]),
-        mark && h('span', { class: 'sr-only' }, mark[2]),
-      );
-    }),
+  fillKeyed($('sources'), [
+    ...shown.map((s) => sourceChip(s, live.get(s.id))),
     ...(more > 0
       ? [
-          h(
-            'li',
-            { class: 'more-chip' },
-            h(
-              'button',
-              { type: 'button', title: `All ${sources.length} accounts are in Accounts`, onclick: openAccounts },
-              `${more} more`,
-              icon('chevron-right'),
-            ),
-          ),
+          {
+            key: `more ${more} ${sources.length}`,
+            make: () =>
+              h(
+                'li',
+                { class: 'more-chip' },
+                h(
+                  'button',
+                  { type: 'button', title: `All ${sources.length} accounts are in Accounts`, onclick: openAccounts },
+                  `${more} more`,
+                  icon('chevron-right'),
+                ),
+              ),
+          },
         ]
       : []),
-    h(
-      'li',
-      { class: 'add-chip' },
-      h('button', { type: 'button', onclick: () => openAdd() }, icon('plus'), 'Add wallet or exchange'),
-    ),
-  );
+    {
+      key: 'add',
+      make: () =>
+        h(
+          'li',
+          { class: 'add-chip' },
+          h('button', { type: 'button', onclick: () => openAdd() }, icon('plus'), 'Add wallet or exchange'),
+        ),
+    },
+  ]);
 }
 
 const joinNames = (names) =>
@@ -268,11 +296,9 @@ function heatNotice() {
   const hot = newlyOverheated();
   if (hot.length === 0) return null;
   const share = hot.reduce((s, a) => s + Math.max(0, a.share), 0);
-  const [first] = hot;
+  const portion = share > 0 ? `, ${percent(share)} of the portfolio` : '';
   const text =
-    hot.length === 1
-      ? ` turned overheated ${ago(first.signal.overheatedSince)}, with heat ${first.signal.score.toFixed(0)}.${share > 0 ? ` It is ${percent(share)} of the portfolio.` : ''}`
-      : ` turned overheated.${share > 0 ? ` Together they are ${percent(share)} of the portfolio.` : ''}`;
+    hot.length === 1 ? ` is overheated (${hot[0].signal.score.toFixed(0)})${portion}.` : ` are overheated${portion}.`;
   return h(
     'li',
     { class: 'hot' },

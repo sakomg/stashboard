@@ -27,23 +27,14 @@ test("updates are spaced so a whole day of them fits in Zerion's allowance, DeFi
 });
 
 test('a small key spaces updates out, a large one is held to the floor of ten minutes', () => {
-  assert.deepEqual(planUpdates(300, 6, 2), {
-    dayLimit: 300,
-    assumed: false,
-    gapMinutes: 60,
-    defiEveryMinutes: 130,
-    runsPerDay: 24,
-  });
+  assert.deepEqual(planUpdates(300, 6, 2), { gapMinutes: 60, defiEveryMinutes: 130 });
   assert.equal(planUpdates(2000, 6, 2).gapMinutes, 10);
   assert.equal(planUpdates(2000, 6, 2).defiEveryMinutes, 55);
 });
 
 test('without wallets read by Zerion only the one-minute pause remains, and an unknown key is assumed small', () => {
   assert.equal(planUpdates(2000, 0, 0).gapMinutes, 1);
-  assert.equal(planUpdates(2000, 0, 0).runsPerDay, null);
-  const unknown = planUpdates(null, 6, 2);
-  assert.equal(unknown.assumed, true);
-  assert.equal(unknown.dayLimit, 500);
+  assert.deepEqual(planUpdates(null, 6, 2), planUpdates(500, 6, 2));
 });
 
 test('even far too many wallets for the key get one update a day', () => {

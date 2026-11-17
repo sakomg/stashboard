@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Icons no longer blink on an iPhone during an update. The icon sprite is part of every page now. As a file of
+  its own, Safari and every other iPhone browser asked the server for it again whenever the account chips were
+  redrawn, every second during an update. Chips are also redrawn only when their own state changes, so the
+  spinner of the account being read keeps turning.
+- Interface text is shorter. Explanations of how Stashboard works inside are gone (Accounts, Positions, DeFi,
+  history, the first read), the Signals sentence that repeated the heat scale is gone, the empty dashboard
+  just offers a wallet or an exchange, dialogs for removing an account or a person and the invite line say only
+  what happens, the heat notice is one line, and the Accounts view no longer repeats the add button of the
+  chips. Settings shows the Zerion requests left only to the admin, without the update arithmetic.
+- On a phone Positions leaves out the share column, so a row fits without scrolling sideways.
+
 - On a phone the tab bar stays where it is. It could scroll by a pixel, so a swipe on it dragged the tabs up,
   down and sideways, and an invisible copy of the net worth took the room of the last tab, cutting Accounts to
   "Acco". The five tabs now share the width, and the overheated and trouble counts are a dot there.

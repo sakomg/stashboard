@@ -26,8 +26,9 @@ To work against real data, copy `config.example.json` to `config.json`, add keys
 - **Free data sources only.** A source must work on a free tier.
 - **Read-only.** Nothing may ask for a seed phrase, a signature, or a key that can move funds.
 - **Few dependencies.** Ask in an issue before adding a runtime dependency.
-- **Interface text** is plain and specific: full sentences rather than clauses joined with semicolons. A
-  reading that is not obvious gets a help popover with a link to its source.
+- **Interface text** is plain and specific: full sentences rather than clauses joined with semicolons. It names
+  actions and states, not how Stashboard works inside, and says a thing once per screen. A reading that is not
+  obvious gets a help popover with a link to its source.
 - **Controls** come from the core components in [`public/common/ui.js`](public/common/ui.js).
 - **Layers**: code goes in the layer it belongs to (see [Project layout](docs/ARCHITECTURE.md#project-layout)).
   Dependencies point down, and a test fails when they do not. On the page, one module per part of the

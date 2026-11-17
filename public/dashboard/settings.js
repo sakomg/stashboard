@@ -121,7 +121,6 @@ export function renderAccountPanel() {
   const fact = (term, ...description) => h('div', {}, h('dt', {}, term), h('dd', {}, ...description));
   const every = (minutes) =>
     minutes < 120 ? `${minutes} min` : `${Math.floor(minutes / 60)} h${minutes % 60 ? ` ${minutes % 60} min` : ''}`;
-  const plan = data.updates;
   $('update-facts').replaceChildren(
     ...[
       fact('On its own', `Every ${every(data.collectEveryMinutes)}`),
@@ -132,19 +131,12 @@ export function renderAccountPanel() {
           ? 'Available'
           : `${gate.reason}${gate.availableAt ? `. Available again in ${inMinutes(gate.availableAt)}` : ''}`,
       ),
-      z?.dayLimit != null &&
-        fact(
-          'Zerion',
-          `${z.dayRemaining ?? '?'} of ${z.dayLimit} requests left today${z.dayResetsAt ? `, renews in ${inMinutes(z.dayResetsAt)}` : ''}.`,
-          plan?.runsPerDay
-            ? ` That fits ${plan.runsPerDay} updates a day, one every ${every(plan.gapMinutes)} at most, with DeFi positions read every ${every(plan.defiEveryMinutes)}.`
-            : '',
-        ),
+      data.me?.admin &&
+        z?.dayLimit != null &&
+        fact('Zerion', `${z.dayRemaining ?? '?'} of ${z.dayLimit} requests left today`),
     ].filter(Boolean),
   );
-  $('session-text').textContent = data.loginEnabled
-    ? 'Signed in on this device. A session lasts 30 days.'
-    : 'Sign-in is off: this dashboard is open on this machine only.';
+  $('session-text').hidden = data.loginEnabled;
   $('sign-out').hidden = !data.loginEnabled;
 }
 

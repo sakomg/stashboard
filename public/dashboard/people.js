@@ -15,7 +15,7 @@ function openRemovePerson(person) {
   $('remove-person-title').textContent = `Remove ${person.name}`;
   $('remove-person-text').replaceChildren(
     h('b', {}, person.name),
-    ' can no longer sign in, and their accounts, history, categories and shared links are deleted. Nothing changes on their wallets or exchanges. A copy of the database is saved in the backups folder on the server first.',
+    ' can no longer sign in. Their accounts, history and links are deleted. A backup is saved first.',
   );
   $('remove-person-dialog').showModal();
 }
@@ -31,7 +31,7 @@ async function showInvite(token, expiresAt) {
   $('invite-status').replaceChildren(
     copied ? 'Link copied: ' : 'Link: ',
     h('a', { href: url, target: '_blank', rel: 'noopener' }, url),
-    `. It works once, for ${timeLeft(expiresAt)}. Send it to one person privately: whoever opens it first can join.`,
+    `. It works once, for ${timeLeft(expiresAt)}.`,
   );
   $('invite-status').hidden = false;
 }
