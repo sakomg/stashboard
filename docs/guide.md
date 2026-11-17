@@ -22,8 +22,9 @@ Below, five views:
 
 **Settings** (top right) has privacy, shared links, update status, people for the admin, and the session.
 
-Balances update on their own every hour. The button next to the update time asks for one now; it rests for a
-minute after an update.
+Balances update on their own, as often as Zerion's free allowance lets them (see
+[Free-tier limits](#free-tier-limits)). The button next to the update time asks for one now. While it is greyed
+out, hovering it says why and when it comes back.
 
 ## Heat score
 

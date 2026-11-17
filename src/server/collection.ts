@@ -9,7 +9,7 @@ import { fetchChains, seedZerionDayLimit, zerionDayUsedUp, zerionQuota } from '.
 import { currentState, getSetting, latestSignals, listSnapshots, listWallets, setSetting } from '../storage/index.ts';
 import type { Context } from './context.ts';
 
-export interface Progress {
+interface Progress {
   phase: 'accounts' | 'signals';
   accounts: { id: number; state: 'waiting' | 'reading' | 'done' | 'failed'; note: string | null }[];
 }

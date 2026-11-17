@@ -6,20 +6,19 @@ import { DIMENSIONS, groups, segmented, totals } from './overview.js';
 import { shareUrl } from './settings.js';
 import { $, state } from './state.js';
 
-export const SHARE_WIDTH = 1200;
-export const SHARE_HEIGHT = 675;
-export const SHARE_SCALE = 2;
-export let shareTicket = 0;
-export let shareBlob = null;
+const SHARE_WIDTH = 1200;
+const SHARE_HEIGHT = 675;
+const SHARE_SCALE = 2;
+let shareTicket = 0;
+let shareBlob = null;
 
-export const shareTitle = (dimension) =>
-  `Allocation by ${DIMENSIONS.find(([id]) => id === dimension)[1].toLowerCase()}`;
-export const shareFileName = () => `stashboard-${state.shareDimension}-${new Date().toISOString().slice(0, 10)}.png`;
-export const longDate = (date) => date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-export const hasDebt = (borrowed) => borrowed >= 0.005;
-export const breakdown = ({ held, borrowed }) => `Held ${usd(held)}, borrowed ${usd(borrowed)}`;
+const shareTitle = (dimension) => `Allocation by ${DIMENSIONS.find(([id]) => id === dimension)[1].toLowerCase()}`;
+const shareFileName = () => `stashboard-${state.shareDimension}-${new Date().toISOString().slice(0, 10)}.png`;
+const longDate = (date) => date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+const hasDebt = (borrowed) => borrowed >= 0.005;
+const breakdown = ({ held, borrowed }) => `Held ${usd(held)}, borrowed ${usd(borrowed)}`;
 
-export function loadImage(src) {
+function loadImage(src) {
   return new Promise((resolve) => {
     if (!src) return resolve(null);
     const img = new Image();
@@ -29,19 +28,19 @@ export function loadImage(src) {
   });
 }
 
-export function logoSource(spec) {
+function logoSource(spec) {
   const version = spec && state.logos.get(`${spec.kind}/${spec.key}`);
   return version ? `/logo/${spec.kind}/${encodeURIComponent(spec.key)}?v=${version}` : null;
 }
 
-export function fitText(ctx, text, width) {
+function fitText(ctx, text, width) {
   if (ctx.measureText(text).width <= width) return text;
   let cut = text;
   while (cut.length > 1 && ctx.measureText(`${cut}…`).width > width) cut = cut.slice(0, -1);
   return `${cut}…`;
 }
 
-export async function drawShareCard({ title, rows, sums, withAmounts }) {
+async function drawShareCard({ title, rows, sums, withAmounts }) {
   const ticket = ++shareTicket;
   const css = getComputedStyle(document.documentElement);
   const token = (name) => css.getPropertyValue(name).trim();
@@ -186,7 +185,7 @@ export async function drawShareCard({ title, rows, sums, withAmounts }) {
   );
 }
 
-export const shareDays = select({
+const shareDays = select({
   label: 'Link lasts',
   options: [
     { value: '1', label: '1 day' },
@@ -197,11 +196,11 @@ export const shareDays = select({
 });
 $('share-days').replaceWith(shareDays);
 
-export function shareStatus(...content) {
+function shareStatus(...content) {
   $('share-status').replaceChildren(...content);
 }
 
-export function renderShare() {
+function renderShare() {
   segmented('share-dimension', DIMENSIONS, state.shareDimension, (id) => {
     state.shareDimension = id;
     renderShare();
@@ -216,7 +215,7 @@ export function renderShare() {
   });
 }
 
-export function canShareFiles() {
+function canShareFiles() {
   try {
     return Boolean(navigator.canShare?.({ files: [new File([''], 'x.png', { type: 'image/png' })] }));
   } catch {

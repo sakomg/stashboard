@@ -3,7 +3,7 @@ import { ago, money, units } from './format.js';
 import { TYPES, chainLogo, chainName, isExchange, logo } from './logos.js';
 import { $, DUST_USD, firstRead, state } from './state.js';
 
-export function readNote(items) {
+function readNote(items) {
   const oldest = items.reduce((min, x) => (x.readAt && (!min || x.readAt < min) ? x.readAt : min), null);
   if (!oldest || Date.now() - Date.parse(oldest) < 30 * 60_000) return null;
   return h(

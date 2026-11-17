@@ -1,16 +1,10 @@
 import { createHmac } from 'node:crypto';
+import { errorText } from '../lib/errors.ts';
 import { getJson, HttpError } from '../lib/http.ts';
-import {
-  failure,
-  readWallets,
-  toHoldings,
-  type Balance,
-  type ExchangeKeys,
-  type KeyCheck,
-} from '../domain/exchange.ts';
+import { readWallets, toHoldings, type Balance, type ExchangeKeys, type KeyCheck } from '../domain/exchange.ts';
 import type { CollectResult, HoldingType } from '../domain/types.ts';
 
-export const BYBIT_HOSTS = [
+const BYBIT_HOSTS = [
   'api.bybit.com',
   'api.bybit.tr',
   'api.bybit.kz',
@@ -30,7 +24,7 @@ const REFUSED: Record<number, string> = {
   [-2015]: 'Bybit refused the key: it has expired.',
 };
 
-export class BybitError extends Error {
+class BybitError extends Error {
   readonly code: number;
 
   constructor(host: string, code: number, message: string) {
@@ -53,7 +47,7 @@ async function bybitPublic<T>(host: string, path: string): Promise<T> {
   return reply.result;
 }
 
-export async function bybitSigned<T>(
+async function bybitSigned<T>(
   keys: ExchangeKeys,
   path: string,
   params: Record<string, string> = {},
@@ -123,7 +117,7 @@ export async function checkBybitKey(keys: ExchangeKeys): Promise<KeyCheck> {
   const known = errors.find((err) => err instanceof BybitError && REFUSED[err.code]);
   if (known instanceof BybitError) throw new Error(REFUSED[known.code]);
   const other = errors.find((err) => !unknownKey(err));
-  if (other) throw other instanceof Error ? other : new Error(failure(other));
+  if (other) throw other instanceof Error ? other : new Error(errorText(other));
   throw new Error(
     "Bybit refused the key. Check the API key and the secret, and that the key allows this server's IP address.",
   );
@@ -198,7 +192,7 @@ export async function collectBybit(keys: ExchangeKeys): Promise<CollectResult> {
       const overview = await bybitSigned<{ totalEquity: string }>(keys, '/v5/asset/asset-overview');
       reportedTotal = Number(overview.totalEquity);
     } catch (err) {
-      warnings.push(`total valuation could not be read: ${failure(err)}`);
+      warnings.push(`total valuation could not be read: ${errorText(err)}`);
     }
   }
 

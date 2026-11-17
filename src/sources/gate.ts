@@ -1,16 +1,10 @@
 import { createHash, createHmac } from 'node:crypto';
+import { errorText } from '../lib/errors.ts';
 import { getJson, HttpError } from '../lib/http.ts';
-import {
-  failure,
-  readWallets,
-  toHoldings,
-  type Balance,
-  type ExchangeKeys,
-  type KeyCheck,
-} from '../domain/exchange.ts';
+import { readWallets, toHoldings, type Balance, type ExchangeKeys, type KeyCheck } from '../domain/exchange.ts';
 import type { CollectResult } from '../domain/types.ts';
 
-export const GATE_HOST = 'api.gateio.ws';
+const GATE_HOST = 'api.gateio.ws';
 
 const PREFIX = '/api/v4';
 const EMPTY_BODY = createHash('sha512').update('').digest('hex');
@@ -29,7 +23,7 @@ const UNKNOWN_KEY = new Set(['INVALID_KEY', 'INVALID_CREDENTIALS']);
 const UNCHECKED =
   "Gate did not list this key's permissions, so it cannot be checked to be read-only. Create the key on the main account and set Account to Read Only.";
 
-export class GateError extends Error {
+class GateError extends Error {
   readonly label: string;
 
   constructor(label: string, message: string) {
@@ -59,11 +53,7 @@ async function request<T>(path: string, query: string, headers: Record<string, s
   }
 }
 
-export function gateSigned<T>(
-  keys: ExchangeKeys,
-  path: string,
-  params: Record<string, string | number> = {},
-): Promise<T> {
+function gateSigned<T>(keys: ExchangeKeys, path: string, params: Record<string, string | number> = {}): Promise<T> {
   const query = queryOf(params);
   const timestamp = String(Math.floor(Date.now() / 1000));
   const sign = createHmac('sha512', keys.apiSecret)
@@ -259,7 +249,7 @@ export async function collectGate(keys: ExchangeKeys): Promise<CollectResult> {
     });
     if (valuation.total) reportedTotal = Number(valuation.total.amount);
   } catch (err) {
-    warnings.push(`total valuation could not be read: ${failure(err)}`);
+    warnings.push(`total valuation could not be read: ${errorText(err)}`);
   }
 
   return { holdings: priced.holdings, warnings, reportedTotal };

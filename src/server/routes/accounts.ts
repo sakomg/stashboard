@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { errorText } from '../../lib/errors.ts';
 import { setManualCategory } from '../../services/categories.ts';
 import { addExchange, CLIENTS, isExchange, type ExchangeKeys } from '../../services/exchanges.ts';
 import { addWallet, removeAccount, renameAccount } from '../../storage/index.ts';
@@ -23,7 +24,7 @@ export function registerAccountRoutes(app: FastifyInstance, ctx: Context, collec
       void collection.readAccount(wallet.id);
       return { id: wallet.id, kind: wallet.kind, label: wallet.label };
     } catch (err) {
-      return reply.code(400).send({ error: err instanceof Error ? err.message : String(err) });
+      return reply.code(400).send({ error: errorText(err) });
     }
   });
 
@@ -70,7 +71,7 @@ export function registerAccountRoutes(app: FastifyInstance, ctx: Context, collec
           : "The key is not restricted to trusted IP addresses. Restricting it to this server's address is safer.",
       };
     } catch (err) {
-      return reply.code(400).send({ error: err instanceof Error ? err.message : String(err) });
+      return reply.code(400).send({ error: errorText(err) });
     }
   });
 

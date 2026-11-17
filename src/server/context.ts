@@ -4,7 +4,6 @@ import { base32Encode } from '../auth/index.ts';
 import { createResolver, loadAssetRules, type Asset, type Learned } from '../domain/assets.ts';
 import { loadConfig, type Config } from '../lib/config.ts';
 import { categoryNames, loadLearned, manualCategories } from '../services/categories.ts';
-import { importConfigExchange } from '../services/exchanges.ts';
 import { adminClaimed, openDb } from '../storage/index.ts';
 
 export interface Context {
@@ -22,7 +21,7 @@ export interface Context {
   auth: { claimed: boolean; setupCode: string | null };
 }
 
-export interface ContextOptions {
+interface ContextOptions {
   config?: Config;
   db?: DatabaseSync;
   env?: NodeJS.ProcessEnv;
@@ -34,15 +33,13 @@ export function createContext({
   env = process.env,
 }: ContextOptions = {}): Context {
   const host = env.HOST ?? '127.0.0.1';
-  const demo = env.DEMO === '1';
-  if (!demo) importConfigExchange(db, config.binance);
   const rules = loadAssetRules();
   const learned = loadLearned(db);
   const claimed = adminClaimed(db);
   return {
     config,
     db,
-    demo,
+    demo: env.DEMO === '1',
     host,
     port: Number(env.PORT ?? 8787),
     local: ['127.0.0.1', 'localhost', '::1'].includes(host) && env.REQUIRE_LOGIN !== '1',

@@ -76,7 +76,7 @@ that name, the same password and the same authenticator, then change the name un
 Use **Add wallet or exchange** on the dashboard.
 
 - **Wallets**: paste a public address. The network (EVM, Solana or TON) is recognised from the address. One
-  EVM address covers every EVM chain and DeFi protocol Zerion knows, and Lighter.
+  EVM address covers every EVM chain and DeFi protocol Zerion knows, and the Lighter and Aster exchanges.
 - **Exchanges**: Binance, Bybit, OKX or Gate, with an API key that can only read. See
   [Exchange keys](#exchange-keys).
 
@@ -138,9 +138,6 @@ sub-account cannot be checked and is refused.
 
 [`assets.json`](../assets.json) decides how holdings are merged and grouped; see
 [the guide](guide.md#assets-and-categories).
-
-A `binance` block with `apiKey` and `apiSecret`, from setups that predate adding exchanges on the page, is
-imported once on start and can then be deleted.
 
 ## Updating
 
@@ -216,14 +213,13 @@ your computer; later deploys keep the server's copy.
 On the server, prefix the commands with `docker compose run --rm stashboard`, for example
 `docker compose run --rm stashboard src/cli/check.ts`. Locally, use npm:
 
-| Command                        | What it does                                                                                                       |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| `npm run check`                | Calls every source once and reports which keys and accounts work                                                   |
-| `npm run collect`              | Reads every account, stores a snapshot and prints the portfolio                                                    |
-| `npm run collect -- --show`    | Prints the stored portfolio without calling any API                                                                |
-| `npm run collect -- --signals` | Recomputes and prints the heat signals                                                                             |
-| `npm run wallets`              | Lists the admin's wallets; `-- add <address> [label]` and `-- rm <id>` change them, `--user <name>` someone else's |
-| `npm run auth:reset`           | Removes the admin's sign-in so it can be set up again                                                              |
+| Command                        | What it does                                                     |
+| ------------------------------ | ---------------------------------------------------------------- |
+| `npm run check`                | Calls every source once and reports which keys and accounts work |
+| `npm run collect`              | Reads every account, stores a snapshot and prints the portfolio  |
+| `npm run collect -- --show`    | Prints the stored portfolio without calling any API              |
+| `npm run collect -- --signals` | Recomputes and prints the heat signals                           |
+| `npm run auth:reset`           | Removes the admin's sign-in so it can be set up again            |
 
 ## Troubleshooting
 
@@ -252,8 +248,9 @@ the US.
 good balances are shown meanwhile. Zerion's free allowance is the usual cause. The settings panel shows how
 much of it is left today.
 
-**The update button is greyed out.** It rests for a minute after an update, and while Zerion's daily allowance
-is used up. Hovering it says which.
+**The update button is greyed out.** Updates are spaced so a whole day of them fits in Zerion's daily
+allowance, and none run while that allowance is used up. Hovering the button says which, and when it comes back.
+Settings shows how many updates a day the key allows.
 
 ## Uninstalling
 

@@ -4,7 +4,7 @@ import { listAccounts, type Owner } from './accounts.ts';
 
 export type { AccountState } from '../domain/types.ts';
 
-export type AccountOutcome =
+type AccountOutcome =
   | { status: 'ok'; holdings: Holding[]; warnings: string[]; reportedTotal?: number }
   | { status: 'error'; error: string };
 
@@ -94,7 +94,7 @@ export function currentState(db: DatabaseSync, owner: Owner, upToSnapshot = Numb
   });
 }
 
-export interface SnapshotInfo {
+interface SnapshotInfo {
   id: number;
   startedAt: string;
 }
@@ -113,7 +113,7 @@ export function snapshotAt(db: DatabaseSync, time: Date): SnapshotInfo | undefin
     .get(time.toISOString()) as unknown as SnapshotInfo | undefined;
 }
 
-export interface SnapshotValue {
+interface SnapshotValue {
   snapshotId: number;
   accountId: number;
   status: 'ok' | 'error';

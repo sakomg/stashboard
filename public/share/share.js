@@ -48,17 +48,13 @@ async function main() {
   $('share-title').textContent = data.title;
   $('share-meta').textContent =
     `A snapshot from ${longDate(data.createdAt)}. The link works until ${longDate(data.expiresAt)}.`;
-  const netWorth = data.netWorth ?? null;
-  if (netWorth !== null) {
-    $('share-total').textContent = `Net worth ${usd(netWorth)}`;
+  if (data.netWorth !== null) {
+    $('share-total').textContent = `Net worth ${usd(data.netWorth)}`;
     $('share-total').hidden = false;
-    if (data.total !== null && data.borrowed >= 0.005) {
+    if (data.borrowed >= 0.005) {
       $('share-breakdown').textContent = `Held ${usd(data.total)}, borrowed ${usd(data.borrowed)}`;
       $('share-breakdown').hidden = false;
     }
-  } else if (data.total !== null) {
-    $('share-total').textContent = `Total held ${usd(data.total)}`;
-    $('share-total').hidden = false;
   }
   $('strip').replaceChildren(
     ...data.rows

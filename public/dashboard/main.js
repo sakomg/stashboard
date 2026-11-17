@@ -16,9 +16,9 @@ import { $, actions, firstRead, hasBalances, state } from './state.js';
 import { renderSummary, renderUpdating } from './summary.js';
 import { renderCounts } from './views.js';
 
-export let progressTimer;
+let progressTimer;
 
-export function watchProgress() {
+function watchProgress() {
   if (progressTimer) return;
   const tick = async () => {
     try {
@@ -41,7 +41,7 @@ export function watchProgress() {
   progressTimer = setTimeout(tick, 300);
 }
 
-export function setPhase(redraw = true) {
+function setPhase(redraw = true) {
   const { data } = state;
   const phase = data.sources.length === 0 ? 'empty' : firstRead() ? 'reading' : 'ready';
   const changed = document.body.dataset.state !== phase;
@@ -77,7 +77,7 @@ export function setPhase(redraw = true) {
   );
 }
 
-export async function renderAll() {
+async function renderAll() {
   setPhase();
   renderAddLogos();
   renderSummary();
@@ -92,7 +92,7 @@ export async function renderAll() {
   }
 }
 
-export async function load() {
+async function load() {
   try {
     const data = await api('/api/portfolio');
     state.build ??= data.build;
@@ -119,7 +119,7 @@ export async function load() {
   }
 }
 
-export async function update() {
+async function update() {
   if (state.updating) return;
   state.updating = true;
   if (state.data) renderUpdating();

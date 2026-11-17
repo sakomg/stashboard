@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
-import { ADMIN_ID, getSetting, setSetting, type Account } from '../storage/index.ts';
+import type { Account } from '../storage/index.ts';
 import { checkBinanceKey, collectBinance, pingBinance } from '../sources/binance.ts';
 import { checkBybitKey, collectBybit, pingBybit } from '../sources/bybit.ts';
 import { checkOkxKey, collectOkx, pingOkx } from '../sources/okx.ts';
@@ -12,7 +12,7 @@ import type { CollectResult } from '../domain/types.ts';
 export { EXCHANGE_KINDS, EXCHANGES, isExchange } from '../domain/exchange.ts';
 export type { ExchangeKeys, ExchangeKind, KeyCheck } from '../domain/exchange.ts';
 
-export interface ExchangeClient {
+interface ExchangeClient {
   check: (keys: ExchangeKeys) => Promise<KeyCheck>;
   collect: (keys: ExchangeKeys) => Promise<CollectResult>;
   ping: () => Promise<string>;
@@ -51,9 +51,9 @@ export const CLIENTS: Record<ExchangeKind, ExchangeClient> = {
   },
 };
 
-export const fingerprint = (apiKey: string): string => createHash('sha256').update(apiKey).digest('hex').slice(0, 24);
+const fingerprint = (apiKey: string): string => createHash('sha256').update(apiKey).digest('hex').slice(0, 24);
 
-export const keyHint = (apiKey: string): string => `…${apiKey.slice(-4)}`;
+const keyHint = (apiKey: string): string => `…${apiKey.slice(-4)}`;
 
 export function exchangeKeys(db: DatabaseSync, accountId: number): ExchangeKeys | null {
   const row = db.prepare('SELECT sealed FROM exchange_keys WHERE account_id = ?').get(accountId) as
@@ -100,27 +100,4 @@ function storeKeys(db: DatabaseSync, accountId: number, keys: ExchangeKeys): voi
     keyHint(keys.apiKey),
     seal(vaultKey(), keys),
   );
-}
-
-export function importConfigExchange(db: DatabaseSync, keys: ExchangeKeys): Account | null {
-  if (!keys.apiKey || !keys.apiSecret) return null;
-  const print = fingerprint(keys.apiKey);
-  if (getSetting(db, 'binance_config_imported') === print) return null;
-  const legacy = db
-    .prepare("SELECT id, label FROM accounts WHERE user_id = ? AND kind = 'binance' AND address_key = 'binance'")
-    .get(ADMIN_ID) as { id: number; label: string } | undefined;
-  let account: Account | null = null;
-  if (legacy) {
-    db.prepare('UPDATE accounts SET address_key = ? WHERE id = ?').run(print, legacy.id);
-    storeKeys(db, legacy.id, keys);
-    account = { id: legacy.id, kind: 'binance', label: legacy.label, address: '' };
-  } else if (
-    !db
-      .prepare("SELECT 1 FROM accounts WHERE user_id = ? AND kind = 'binance' AND address_key = ?")
-      .get(ADMIN_ID, print)
-  ) {
-    account = addExchange(db, ADMIN_ID, 'binance', keys);
-  }
-  setSetting(db, 'binance_config_imported', print);
-  return account;
 }

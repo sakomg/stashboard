@@ -15,7 +15,7 @@ const ALLOWED: Record<string, string[]> = {
   services: ['domain', 'lib', 'sources', 'storage'],
   server: ['auth', 'domain', 'lib', 'services', 'sources', 'storage'],
   cli: ['auth', 'domain', 'lib', 'main', 'server', 'services', 'sources', 'storage'],
-  main: ['server', 'sources', 'storage'],
+  main: ['lib', 'server', 'sources', 'storage'],
 };
 
 const layerOf = (file: string): string => file.split('/')[0]!.replace(/\.ts$/, '');
@@ -40,4 +40,34 @@ test('every folder in src has a place in the layering', () => {
     layers.filter((l) => !(l in ALLOWED)),
     [],
   );
+});
+
+test('every name a module exports is imported somewhere', () => {
+  const root = fileURLToPath(new URL('../', import.meta.url));
+  const files = ['src', 'test'].flatMap((dir) =>
+    (readdirSync(join(root, dir), { recursive: true }) as string[])
+      .filter((f) => f.endsWith('.ts'))
+      .map((f) => join(dir, f)),
+  );
+  const importers = new Map<string, Set<string>>();
+  for (const file of files) {
+    const text = readFileSync(join(root, file), 'utf8');
+    for (const [, list] of text.matchAll(/(?:import|export)\s+(?:type\s+)?\{([^}]*)\}\s*from\s*'[^']+'/g)) {
+      for (const entry of list!.split(',')) {
+        const name = entry
+          .trim()
+          .replace(/^type\s+/, '')
+          .split(/\s+as\s+/)[0]!;
+        if (name) importers.set(name, (importers.get(name) ?? new Set()).add(file));
+      }
+    }
+  }
+  const unused: string[] = [];
+  for (const file of files.filter((f) => f.startsWith('src'))) {
+    const text = readFileSync(join(root, file), 'utf8');
+    for (const [, name] of text.matchAll(/^export (?:async )?(?:function|const|let|class|interface|type) ([\w$]+)/gm)) {
+      if (![...(importers.get(name!) ?? [])].some((f) => f !== file)) unused.push(`${file}: ${name}`);
+    }
+  }
+  assert.deepEqual(unused, []);
 });

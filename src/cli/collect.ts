@@ -1,8 +1,8 @@
+import { errorText } from '../lib/errors.ts';
 import { createResolver, loadAssetRules } from '../domain/assets.ts';
 import { loadLearned } from '../services/categories.ts';
 import { runCollection } from '../services/collector.ts';
-import { importConfigExchange } from '../services/exchanges.ts';
-import { loadConfig } from '../lib/config.ts';
+import { loadConfig, type Config } from '../lib/config.ts';
 import { currentState, openDb, type AccountState } from '../storage/index.ts';
 import { buildPortfolio } from '../domain/portfolio.ts';
 import { runSignals } from '../services/signals.ts';
@@ -90,8 +90,8 @@ const READING_LABELS = {
   oiGrowth: 'OI 7d %',
 } as const;
 
-async function printSignals(db: ReturnType<typeof openDb>): Promise<void> {
-  const rows = await runSignals(db, loadConfig(), createResolver(loadAssetRules(), loadLearned(db)));
+async function printSignals(db: ReturnType<typeof openDb>, config: Config): Promise<void> {
+  const rows = await runSignals(db, config, createResolver(loadAssetRules(), loadLearned(db)));
   const names = Object.keys(READING_LABELS) as (keyof typeof READING_LABELS)[];
   console.log('Signals');
   table(
@@ -112,28 +112,25 @@ async function printSignals(db: ReturnType<typeof openDb>): Promise<void> {
   );
 }
 
-const db = openDb();
-importConfigExchange(db, loadConfig().binance);
-if (process.argv.includes('--signals')) {
-  await printSignals(db);
-  process.exit(0);
-}
-if (!process.argv.includes('--show')) {
-  let config;
+function configOrExit(): Config {
   try {
-    config = loadConfig();
+    return loadConfig();
   } catch (err) {
-    console.error(err instanceof Error ? err.message : String(err));
+    console.error(errorText(err));
     process.exit(1);
   }
-  await runCollection(db, config);
 }
+
+const db = openDb();
+if (process.argv.includes('--signals')) {
+  await printSignals(db, configOrExit());
+  process.exit(0);
+}
+if (!process.argv.includes('--show')) await runCollection(db, configOrExit());
 
 const states = currentState(db, 'all');
 if (states.length === 0) {
-  console.log(
-    'Nothing to collect: set the Binance key in config.json or add a wallet with npm run wallets -- add <address>',
-  );
+  console.log('Nothing to collect yet. Add a wallet or an exchange on the dashboard.');
   process.exit(1);
 }
 printSources(states);

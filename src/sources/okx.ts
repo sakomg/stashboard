@@ -1,16 +1,10 @@
 import { createHmac } from 'node:crypto';
+import { errorText } from '../lib/errors.ts';
 import { getJson, HttpError } from '../lib/http.ts';
-import {
-  failure,
-  readWallets,
-  toHoldings,
-  type Balance,
-  type ExchangeKeys,
-  type KeyCheck,
-} from '../domain/exchange.ts';
+import { readWallets, toHoldings, type Balance, type ExchangeKeys, type KeyCheck } from '../domain/exchange.ts';
 import type { CollectResult } from '../domain/types.ts';
 
-export const OKX_HOSTS = ['openapi.okx.com', 'eea.okx.com', 'us.okx.com'];
+const OKX_HOSTS = ['openapi.okx.com', 'eea.okx.com', 'us.okx.com'];
 
 const UNKNOWN_KEY = new Set(['50111', '50119']);
 
@@ -21,7 +15,7 @@ const REFUSED: Record<string, string> = {
   '50113': 'OKX refused the key: the secret does not match it.',
 };
 
-export class OkxError extends Error {
+class OkxError extends Error {
   readonly code: string;
 
   constructor(host: string, code: string, message: string) {
@@ -57,7 +51,7 @@ async function request<T>(host: string, path: string, headers: Record<string, st
   return reply.data;
 }
 
-export function okxSigned<T>(keys: ExchangeKeys, path: string, host = hostOf(keys)): Promise<T> {
+function okxSigned<T>(keys: ExchangeKeys, path: string, host = hostOf(keys)): Promise<T> {
   const timestamp = new Date().toISOString();
   const sign = createHmac('sha256', keys.apiSecret)
     .update(timestamp + 'GET' + path)
@@ -93,7 +87,7 @@ export async function checkOkxKey(keys: ExchangeKeys): Promise<KeyCheck> {
   const known = errors.find((err) => err instanceof OkxError && REFUSED[err.code]);
   if (known instanceof OkxError) throw new Error(REFUSED[known.code]);
   const other = errors.find((err) => !unknownKey(err));
-  if (other) throw other instanceof Error ? other : new Error(failure(other));
+  if (other) throw other instanceof Error ? other : new Error(errorText(other));
   throw new Error(
     "OKX refused the key. Check the API key, the secret and the passphrase, and that the key allows this server's IP address.",
   );
@@ -166,7 +160,7 @@ export async function collectOkx(keys: ExchangeKeys): Promise<CollectResult> {
     const [valuation] = await okxSigned<{ totalBal: string }[]>(keys, '/api/v5/asset/asset-valuation?ccy=USD');
     if (valuation) reportedTotal = Number(valuation.totalBal);
   } catch (err) {
-    warnings.push(`total valuation could not be read: ${failure(err)}`);
+    warnings.push(`total valuation could not be read: ${errorText(err)}`);
   }
 
   return { holdings: priced.holdings, warnings, reportedTotal };

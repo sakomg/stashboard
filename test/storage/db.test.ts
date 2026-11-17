@@ -12,7 +12,7 @@ import {
   listWallets,
   migrate,
   openDb,
-  removeWallet,
+  removeAccount,
   saveOutcome,
   startSnapshot,
 } from '../../src/storage/index.ts';
@@ -62,7 +62,7 @@ test('removing a wallet removes its history', () => {
   const wallet = addWallet(db, ADMIN_ID, EVM);
   const snapshot = startSnapshot(db);
   saveOutcome(db, snapshot, wallet.id, { status: 'ok', holdings: [eth], warnings: [] });
-  assert.equal(removeWallet(db, ADMIN_ID, wallet.id), true);
+  assert.equal(removeAccount(db, ADMIN_ID, wallet.id), true);
   assert.equal((db.prepare('SELECT COUNT(*) AS n FROM holdings').get() as { n: number }).n, 0);
   assert.equal(currentState(db, ADMIN_ID).length, 0);
 });

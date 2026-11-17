@@ -4,7 +4,7 @@ import { seal, unseal } from './vault.ts';
 
 export const ADMIN_ID = 1;
 
-export interface User {
+interface User {
   id: number;
   name: string;
   admin: boolean;
@@ -12,13 +12,13 @@ export interface User {
   createdAt: string;
 }
 
-export interface Credentials {
+interface Credentials {
   passwordHash: string;
   totpSecret: string;
   totpStep: number;
 }
 
-export interface NewUser extends Credentials {
+interface NewUser extends Credentials {
   name: string;
 }
 
@@ -35,7 +35,7 @@ interface UserRow {
 
 const NAME = /^[\p{L}\p{N}][\p{L}\p{N} ._-]{0,31}$/u;
 
-export const nameKey = (name: string): string => name.trim().toLowerCase();
+const nameKey = (name: string): string => name.trim().toLowerCase();
 
 export function checkName(name: unknown): string | null {
   return typeof name === 'string' && NAME.test(name.trim()) ? name.trim() : null;
@@ -138,7 +138,7 @@ export function setHideAmounts(db: DatabaseSync, id: number, hide: boolean): voi
 
 const tokenHash = (token: string): string => createHash('sha256').update(token).digest('hex');
 
-export interface Invite {
+interface Invite {
   id: number;
   createdAt: string;
   expiresAt: string;

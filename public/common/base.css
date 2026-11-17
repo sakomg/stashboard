@@ -319,11 +319,6 @@ input[aria-invalid='true'] {
   }
 }
 
-.account-button .icon {
-  width: 22px;
-  height: 22px;
-}
-
 .drawer section > .muted {
   font-size: 13.5px;
   margin-bottom: 12px;

@@ -17,7 +17,7 @@ src/
   services/        processes that combine them: collection, signals, categories, logos, exchanges, shares, views
   auth/            password hashing, TOTP, attempt limiting, the setup QR code
   server/          HTTP: context, access control, static files, the collection schedule, routes by area
-  cli/             console commands: check, collect, wallets, auth-reset, demo
+  cli/             console commands: check, collect, auth-reset, demo
 public/
   common/          served to every page: core components (ui.js) and base, component and sign-in styles
   dashboard/       the dashboard: index.html, main.js and one module per part of the page, its styles
@@ -30,7 +30,9 @@ assets/            the logo and the README screenshots
 
 Dependencies point down: `lib` ← `domain` ← `storage`, `sources` ← `services` ← `server`, `cli` ← `main`. `domain`
 does no I/O and imports only `lib`, so it is tested without a database or a network. `test/architecture.test.ts`
-fails when a module imports a layer it should not, and when a new folder in `src` has no place in the layering.
+fails when a module imports a layer it should not, when a new folder in `src` has no place in the layering, and
+when a module exports a name that no other module or test imports. The compiler refuses unused variables,
+imports and parameters, so code that nothing reaches does not stay.
 
 The server is assembled by `createApp` from a `Context` (config, database, resolvers, whether sign-in is set up)
 that `createContext` builds from the environment or that a test passes in. Routes live in `server/routes` by area
@@ -43,7 +45,8 @@ exports its render function. Modules that need to reload or re-render call `acti
 `actions.renderAll` from `state.js`, which `main.js` fills in, so no module imports `main.js` and the import
 graph has no cycles. `main.js` imports the modules that only register event handlers (dialogs, settings,
 sharing, views) by name, since nothing else would load them. `test/web/modules.test.ts` checks that every module
-is reached from `main.js`, that every imported name is exported, and that there are no cycles.
+is reached from `main.js`, that every imported name is exported and every exported name imported, and that
+there are no cycles.
 
 ## Collection
 
@@ -164,11 +167,6 @@ the collected sum.
 
 The key's permissions come from `/sapi/v1/account/apiRestrictions`.
 
-`binance` in `config.json` still works as a seed: on start, a key found there is imported once, onto the
-existing Binance account if there is one, so its history stays. The import is remembered by a fingerprint of
-the key, so an exchange removed on the page does not come back from the file; a different key in the file is
-imported as a new account.
-
 The key must be read-only; the deploy check fails if it can trade or withdraw. Public endpoints in the check also
 reveal whether Binance blocks the server's region. The check pings Binance even without a key, since the heat
 signals read its public market data.
@@ -270,11 +268,10 @@ To stay inside it:
 - Nothing is sent while the day is down to its last 5 requests, so a manual update late in the day still has
   room once it renews.
 - When Zerion refuses, the last answer is used and the account carries a warning saying how old it is. If
-  nothing was kept yet, positions in protocols fall back to those stored by the last good collection, without
-  Lighter, which is read separately. An old position is better than a missing one.
-- `npm run check`, which every deploy runs, checks every stored exchange key (or the Binance one in `config.json`
-  before it is imported) and reads its balances, and spends one request on the chain list instead of reading wallets,
-  and prints the allowance left. The chain list for logos and names is fetched once a week.
+  nothing was kept yet, positions in protocols are left out with a warning, and plain tokens fail the account.
+- `npm run check`, which every deploy runs, checks every stored exchange key and reads its balances, and spends one
+  request on the chain list instead of reading wallets, and prints the allowance left. The chain list for logos and
+  names is fetched once a week.
 
 Zerion reports only plain tokens and staking for Solana, so Solana wallets make one request.
 
@@ -362,7 +359,7 @@ value divided by quantity.
 
 ## Signals and heat
 
-The thresholds and weights are in the README. In addition:
+The thresholds and weights are in the [user guide](guide.md#heat-score). In addition:
 
 - RSI is Wilder's, the value TradingView shows.
 - Tokenized stocks trade on Binance spot with a `B` suffix (NVDAB) and are scored on price action alone,
@@ -420,7 +417,7 @@ browser can share files.
 
 With amounts, the card and the link lead with the net worth, the figure the dashboard shows, and the groups
 add up to it (see Allocation under The page). When something is borrowed, a line under the net worth gives
-what is held and what is borrowed. A link made before the net worth was sent shows the total held instead.
+what is held and what is borrowed.
 
 A link is a snapshot, frozen when it is made. The page sends the groups; the server checks and caps them
 (a title of 80 characters, at most 12 rows, shares as finite numbers, colours as `#rrggbb`, logos only of a
@@ -430,8 +427,8 @@ panel and can turn it off. It lasts 1, 7 or 30 days, and expired links are delet
 read.
 
 Without a session, only this is served: the page at `/s/<token>`, its data at `/api/shared/<token>`, logos
-at `/s/<token>/logo/<kind>/<key>` for logos that link's rows name, and the files that page needs (`share.js`,
-`app.css`, the logo, the font and the icon sprite). A dead link answers 404 with a plain message.
+at `/s/<token>/logo/<kind>/<key>` for logos that link's rows name, and the files that page needs (its own script and
+stylesheet, the common ones, the logo, the font and the icon sprite). A dead link answers 404 with a plain message.
 
 ## Security
 
@@ -510,11 +507,12 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
     estimated from prices, the history chart says when the next update
     is due, and the overview says why there are no balances when accounts exist but none could be priced.
 - **Core components.** `public/common/ui.js` is the one place controls are built, for the dashboard and the shared
-  page alike: `h` (elements, never `innerHTML`), `icon` and `iconButton`, `button` in four variants
-  (primary for the one main action of a view or dialog, secondary, ghost for quiet actions, danger for removal), `select` (a listbox that replaces the native select: arrow keys, Home, End,
-  Enter, Space and Escape, `aria-activedescendant`, closes on Tab), `help` (a question-mark button opening a
-  short explanation with a link to its source), `checkbox` and `segmented`. An option of `select` or `segmented`
-  can carry a logo next to its label. Popovers use the browser's
+  page alike: `h` (elements, never `innerHTML`), `icon` and `iconButton`, `select` (a listbox that replaces the
+  native select: arrow keys, Home, End, Enter, Space and Escape, `aria-activedescendant`, closes on Tab), `help` (a
+  question-mark button opening a short explanation with a link to its source) and `segmented`. An option of
+  `select` or `segmented` can carry a logo next to its label. Buttons and checkboxes are plain HTML styled by
+  `components.css`: `button` for most actions, `button primary` for the one main action of a view or dialog,
+  `button danger` for removal, and a `check` label around a checkbox. Popovers use the browser's
   Popover API, are placed under their trigger (or above it when there is no room) by script, and close on
   scroll, resize and when the view changes.
 - **Explanations and sources.** Every reading that is not obvious carries a help button: Fear & Greed
@@ -529,21 +527,18 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
 - **Fear & Greed** is coloured by its band, following alternative.me's: under 25 extreme fear (teal), under 45
   fear, under 56 neutral, under 76 greed (amber), above extreme greed (orange), so it reads like the heat scale.
 - **Where an asset is held** lists places worth at least half a cent; the rest are counted in one line.
-- **Views** are held by the page and never written to the address or the browser history. Switching the view
-  is plain DOM work, and the open view is kept in `sessionStorage`, so it survives a reload of the tab (and the
-  reload after a deploy) without touching the URL. A view in the hash is still read when the page opens, for
-  links and old bookmarks, but only when the tab has no remembered view. The page used to mirror the view into
-  the hash with `history.replaceState`. That is a same-document navigation, and Chromium takes a picture of the
-  page as it was just before it. Arc then showed that picture whenever the page sat still: a second or two
-  after a click the previous view came back, with the clicked tab still lit by the pointer, while the address
-  showed the new one, until moving the pointer over the tabs repainted the page. A test in
-  `test/web/modules.test.ts` fails if a page script writes history again. A link to a view (_How heat is
-  scored_) is handled by script for the same reason. Old tabs may still hold entries with a view in the hash.
-  Going back or forward through them changes only the address, and the view stays. The page also sets
-  `overscroll-behavior-x: none`, so a sideways scroll does not start a back swipe by accident. No element id
-  equals a view name, so a hash never scrolls to an anchor. Switching from deep in a view scrolls to where the
-  tab bar sits in the page, computed rather than with `scrollIntoView`, which treats a stuck sticky element
-  differently from one browser to another.
+- **Views** are held by the page and never written to the address or the browser history. Switching the view is plain
+  DOM work, and the open view is kept in `sessionStorage`, so it survives a reload of the tab (and the reload after a
+  deploy) without touching the URL. A hash in the address is ignored. The page used to mirror the view into the hash
+  with `history.replaceState`. That is a same-document navigation, and Chromium takes a picture of the page as it was
+  just before it. Arc then showed that picture whenever the page sat still: a second or two after a click the previous
+  view came back, with the clicked tab still lit by the pointer, while the address showed the new one, until moving
+  the pointer over the tabs repainted the page. A test in `test/web/modules.test.ts` fails if a page script writes
+  history again. A link to a view (_How heat is scored_) is handled by script for the same reason. The page also sets
+  `overscroll-behavior-x: none`, so a sideways scroll does not start a back swipe by accident. No element id equals a
+  view name, so a hash never scrolls to an anchor. Switching from deep in a view scrolls to where the tab bar sits in
+  the page, computed rather than with `scrollIntoView`, which treats a stuck sticky element differently from one
+  browser to another.
 - **Text** joins clauses with full stops, not semicolons, and lists reasons as separate tags.
 
 - **Forms** are checked by the page, never by the browser: every form has `novalidate`, and no field has
@@ -642,7 +637,7 @@ and `PRAGMA user_version` records how many have run.
 | `price_changes`     | Each asset's latest price change over 7 and 30 days, from the signals run                                      |
 | `heat_seen`         | Per person and asset, the start of the overheated episode they dismissed                                       |
 | `sessions`          | Hashes of session tokens, whose they are, and their expiry                                                     |
-| `settings`          | The imported config key and when the Zerion chain list was fetched                                             |
+| `settings`          | When the last update started, Zerion's daily allowance, and when its chain list was fetched                    |
 | `logos`             | Where each logo comes from, its stored file, and when it was last tried                                        |
 | `asset_categories`  | Categories looked up, with the coin's tags                                                                     |
 | `user_categories`   | Categories each person chose by hand                                                                           |

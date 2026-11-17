@@ -9,7 +9,7 @@ export const usd = (n) =>
   `${n < 0 ? '−' : ''}$${Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 export const usdRound = (n) =>
   `${n < 0 ? '−' : ''}$${Math.abs(n).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
-export const quantity = (n) => n.toLocaleString('en-US', { maximumSignificantDigits: 6 });
+const quantity = (n) => n.toLocaleString('en-US', { maximumSignificantDigits: 6 });
 export const price = (n) => (n == null ? '—' : `$${n.toLocaleString('en-US', { maximumSignificantDigits: 5 })}`);
 export const fixed = (n, digits) =>
   (Number(n.toFixed(digits)) === 0 ? (0).toFixed(digits) : n.toFixed(digits)).replace('-', '−');

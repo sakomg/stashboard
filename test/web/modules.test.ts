@@ -61,6 +61,29 @@ test('every name a page module imports is exported where it points', () => {
   }
 });
 
+test('every name a page module exports is imported by another module', () => {
+  const folders = ['common', 'dashboard', 'share', 'login', 'setup', 'join'];
+  const graphs = new Map(folders.map((folder) => [folder, moduleGraph(folder)]));
+  const used = new Set<string>();
+  for (const [folder, graph] of graphs) {
+    for (const { imports } of graph.values()) {
+      for (const { from, names } of imports) {
+        const target = from.startsWith('/common/')
+          ? `common/${from.slice('/common/'.length)}`
+          : `${folder}/${resolveLocal(from)}`;
+        for (const name of names) used.add(`${target} ${name}`);
+      }
+    }
+  }
+  const unused: string[] = [];
+  for (const [folder, graph] of graphs) {
+    for (const [file, { exports }] of graph) {
+      for (const name of exports) if (!used.has(`${folder}/${file} ${name}`)) unused.push(`${folder}/${file} ${name}`);
+    }
+  }
+  assert.deepEqual(unused, []);
+});
+
 test('dashboard modules do not import each other in a cycle', () => {
   const graph = moduleGraph('dashboard');
   const cycles: string[] = [];

@@ -22,5 +22,4 @@ test('rejects malformed addresses', () => {
   assert.throws(() => parseAddress('0x1234'));
   assert.throws(() => parseAddress('not an address'));
   assert.throws(() => parseAddress('EQCD39VS5jcptHL8vMjEXrzGaRcCVYto7HUn4bpAOg8xqB2M'));
-  assert.throws(() => parseAddress('So11111111111111111111111111111111111111112', 'evm'));
 });

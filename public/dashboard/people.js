@@ -46,7 +46,7 @@ async function turnOffInvite(invite) {
   renderPeople();
 }
 
-export async function renderPeople() {
+async function renderPeople() {
   const { me, loginEnabled } = state.data ?? {};
   $('people').hidden = !(me?.admin && loginEnabled);
   if ($('people').hidden) return;
@@ -134,7 +134,7 @@ $('remove-person-form').addEventListener('submit', async (event) => {
 
 let editingName = false;
 
-export function renderMe() {
+function renderMe() {
   const { me, loginEnabled } = state.data ?? {};
   const box = $('me');
   box.hidden = !(loginEnabled && me);

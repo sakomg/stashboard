@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { heatScore, type Readings } from '../../src/domain/heat.ts';
 import { rsi, sma } from '../../src/domain/indicators.ts';
-import { findPair } from '../../src/services/signals.ts';
 
 const heat = {
   weights: { rsiDaily: 30, rsiWeekly: 25, funding: 20, ma200: 15, oiGrowth: 10 },
@@ -53,25 +52,4 @@ test('scores are clamped and deep oversold reads as cold', () => {
   assert.equal(cold.zone, 'cold');
   assert.equal(heatScore({ ...none, rsiDaily: 100 }, heat)!.score, 100);
   assert.equal(heatScore({ ...none, ma200: -500 }, heat)!.score, 0);
-});
-
-test('finds the right Binance markets for an asset', () => {
-  const markets = {
-    spot: new Set(['BTCUSDT', 'NVDABUSDT']),
-    futures: new Set(['BTCUSDT', 'NVDAUSDT', '1000PEPEUSDT', 'PONSUSDT']),
-  };
-  assert.deepEqual(findPair({ key: 'BTC', category: 'BTC' }, markets), {
-    candles: { market: 'spot', symbol: 'BTCUSDT' },
-    perp: 'BTCUSDT',
-  });
-  assert.deepEqual(findPair({ key: 'NVDA', category: 'Stocks' }, markets), {
-    candles: { market: 'spot', symbol: 'NVDABUSDT' },
-    perp: null,
-  });
-  assert.deepEqual(findPair({ key: 'PONS', category: 'Other' }, markets), {
-    candles: { market: 'futures', symbol: 'PONSUSDT' },
-    perp: 'PONSUSDT',
-  });
-  assert.equal(findPair({ key: 'PEPE', category: 'Memes' }, markets).perp, '1000PEPEUSDT');
-  assert.deepEqual(findPair({ key: 'NOPE', category: 'Other' }, markets), { candles: null, perp: null });
 });

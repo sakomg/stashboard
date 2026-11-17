@@ -18,8 +18,8 @@ export function listWallets(db: DatabaseSync, owner: Owner, kind?: WalletKind): 
   return listAccounts(db, owner).filter((a): a is Wallet => kinds.includes(a.kind));
 }
 
-export function addWallet(db: DatabaseSync, userId: number, input: string, label?: string, kind?: WalletKind): Wallet {
-  const parsed = parseAddress(input, kind);
+export function addWallet(db: DatabaseSync, userId: number, input: string, label?: string): Wallet {
+  const parsed = parseAddress(input);
   const existing = db
     .prepare('SELECT id, label FROM accounts WHERE user_id = ? AND kind = ? AND address_key = ?')
     .get(userId, parsed.kind, parsed.key) as { id: number; label: string } | undefined;
@@ -35,15 +35,6 @@ export function addWallet(db: DatabaseSync, userId: number, input: string, label
     .prepare('INSERT INTO accounts (user_id, kind, label, address, address_key) VALUES (?, ?, ?, ?, ?)')
     .run(userId, parsed.kind, finalLabel, parsed.address, parsed.key);
   return { id: Number(lastInsertRowid), kind: parsed.kind, label: finalLabel, address: parsed.address };
-}
-
-export function removeWallet(db: DatabaseSync, userId: number, id: number): boolean {
-  const placeholders = WALLET_KINDS.map(() => '?').join(', ');
-  return (
-    db
-      .prepare(`DELETE FROM accounts WHERE id = ? AND user_id = ? AND kind IN (${placeholders})`)
-      .run(id, userId, ...WALLET_KINDS).changes > 0
-  );
 }
 
 export function removeAccount(db: DatabaseSync, userId: number, id: number): boolean {

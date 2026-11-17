@@ -1,7 +1,7 @@
 import { getJson, sendJson } from '../lib/http.ts';
 import type { CollectResult, Holding, HoldingType } from '../domain/types.ts';
 
-export const ASTER_PROTOCOL = 'Aster';
+const ASTER_PROTOCOL = 'Aster';
 const CHAIN = 'aster';
 const RPC = 'https://tapi.asterdex.com/info';
 const SPOT_PRICES = 'https://sapi.asterdex.com/api/v1/ticker/price';
@@ -13,7 +13,7 @@ const QUOTES = [BASE_QUOTE, 'USD1', 'USDF', 'USDC'];
 
 type Amount = number | string | null | undefined;
 
-export interface AsterBalance {
+interface AsterBalance {
   accountPrivacy?: string;
   perpAssets?: { asset: string; walletBalance: Amount }[];
   spotAssets?: { asset: string; walletBalance: Amount }[];
@@ -21,7 +21,7 @@ export interface AsterBalance {
   staking?: { totalStakedAmount?: Amount; totalPendingStakeAmount?: Amount; totalPendingUnstakeAmount?: Amount } | null;
 }
 
-export interface Ticker {
+interface Ticker {
   symbol: string;
   price: string;
 }

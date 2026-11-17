@@ -28,11 +28,7 @@ export function icon(name) {
 export const iconButton = (name, label, onclick, cls = '') =>
   h('button', { class: `icon-button ${cls}`, type: 'button', 'aria-label': label, title: label, onclick }, icon(name));
 
-export function button({ label, icon: iconName = null, variant = 'secondary', onclick = null, type = 'button' }) {
-  return h('button', { class: `button ${variant}`, type, onclick }, iconName && icon(iconName), label);
-}
-
-export function placePopover(popover, anchor, align = 'start') {
+function placePopover(popover, anchor, align = 'start') {
   const box = anchor.getBoundingClientRect();
   const margin = 8;
   const gap = 6;
@@ -208,18 +204,6 @@ export function select({ label, options, value, onChange = null }) {
   Object.defineProperty(root, 'selectedLabel', { get: () => options.find((o) => o.value === current)?.label ?? '' });
   sync();
   return root;
-}
-
-export function checkbox({ label, checked = false, onChange = null }) {
-  const input = h('input', { type: 'checkbox', checked });
-  if (onChange) input.addEventListener('change', () => onChange(input.checked));
-  return h(
-    'label',
-    { class: 'check' },
-    input,
-    h('span', { class: 'box', 'aria-hidden': 'true' }, icon('check')),
-    label,
-  );
 }
 
 export function segmented({ label, options, value, onChange }) {

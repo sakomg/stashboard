@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
+import { errorText } from '../lib/errors.ts';
 import type { Config } from '../lib/config.ts';
 import { getJson } from '../lib/http.ts';
 import type { ExchangeKind } from '../domain/exchange.ts';
@@ -127,14 +128,14 @@ export async function fetchMissingLogos(
       ...new Set(needLookup.flatMap((w) => w.lookup ?? [w.key])),
     ]);
   } catch (err) {
-    console.warn(`logos: CoinGecko lookup failed: ${err instanceof Error ? err.message : String(err)}`);
+    console.warn(`logos: CoinGecko lookup failed: ${errorText(err)}`);
   }
   let exchanges = new Map<string, string>();
   if (due.some((w) => w.kind === 'exchange' && !rowOf(w.kind, w.key)?.source_url)) {
     try {
       exchanges = await coingeckoExchangeLogos(config.coingecko.apiKey);
     } catch (err) {
-      console.warn(`logos: CoinGecko exchange lookup failed: ${err instanceof Error ? err.message : String(err)}`);
+      console.warn(`logos: CoinGecko exchange lookup failed: ${errorText(err)}`);
     }
   }
 

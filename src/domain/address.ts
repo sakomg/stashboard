@@ -1,7 +1,7 @@
 export const WALLET_KINDS = ['evm', 'solana', 'ton'] as const;
 export type WalletKind = (typeof WALLET_KINDS)[number];
 
-export interface ParsedAddress {
+interface ParsedAddress {
   kind: WalletKind;
   address: string;
   key: string;
@@ -57,13 +57,11 @@ function parseAs(kind: WalletKind, address: string): ParsedAddress | null {
   return raw ? { kind, address, key: raw } : null;
 }
 
-export function parseAddress(input: string, kind?: WalletKind): ParsedAddress {
+export function parseAddress(input: string): ParsedAddress {
   const address = input.trim();
-  for (const k of kind ? [kind] : WALLET_KINDS) {
+  for (const k of WALLET_KINDS) {
     const parsed = parseAs(k, address);
     if (parsed) return parsed;
   }
-  throw new Error(
-    kind ? `Not a valid ${kind} address: ${address}` : `Cannot detect the network of address: ${address}`,
-  );
+  throw new Error(`Cannot detect the network of address: ${address}`);
 }

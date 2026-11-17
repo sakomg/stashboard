@@ -2,10 +2,10 @@ import { defiGroups } from './defi.js';
 import { chart } from './overview.js';
 import { $, DUST_USD, busy, state } from './state.js';
 
-export const VIEWS = ['overview', 'positions', 'signals', 'defi', 'accounts'];
-export const tabs = () => [...document.querySelectorAll('[role="tab"]')];
+const VIEWS = ['overview', 'positions', 'signals', 'defi', 'accounts'];
+const tabs = () => [...document.querySelectorAll('[role="tab"]')];
 
-export function showView(id, focus = false) {
+function showView(id, focus = false) {
   for (const open of document.querySelectorAll('.popover:popover-open')) open.hidePopover();
   state.view = VIEWS.includes(id) ? id : 'overview';
   for (const tab of tabs()) {
@@ -73,7 +73,7 @@ document.addEventListener(
   },
   true,
 );
-showView(rememberedView() ?? location.hash.slice(1));
+showView(rememberedView());
 
 new IntersectionObserver(([entry]) => $('views').classList.toggle('stuck', !entry.isIntersecting), {
   rootMargin: '-60px 0px 0px 0px',

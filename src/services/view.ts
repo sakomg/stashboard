@@ -109,7 +109,7 @@ export function portfolioView(db: DatabaseSync, userId: number, resolve: (symbol
   };
 }
 
-export interface HistoryPoint {
+interface HistoryPoint {
   time: string;
   total: number;
   categories: Record<string, number>;
@@ -167,8 +167,8 @@ export function historyView(
   return thinned;
 }
 
-export const NATIVE_TOKENS = ['BNB', 'OKB', 'GT', 'ETH', 'SOL', 'TON'];
-export const NETWORK_CHAINS = ['ethereum', 'base', 'arbitrum', 'binance-smart-chain', 'optimism', 'polygon', 'solana'];
+const NATIVE_TOKENS = ['BNB', 'OKB', 'GT', 'ETH', 'SOL', 'TON'];
+const NETWORK_CHAINS = ['ethereum', 'base', 'arbitrum', 'binance-smart-chain', 'optimism', 'polygon', 'solana'];
 
 export function wantedLogos(states: AccountState[], resolve: (symbol: string) => Asset): Wanted[] {
   const tokens = new Map<string, { category: string; symbols: Set<string> }>();

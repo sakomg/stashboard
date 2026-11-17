@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import type { LogoKind } from '../domain/types.ts';
 
-export interface ShareRow {
+interface ShareRow {
   name: string;
   share: number;
   value: number | null;
@@ -10,7 +10,7 @@ export interface ShareRow {
   logo: { kind: LogoKind; key: string } | null;
 }
 
-export interface SharePayload {
+interface SharePayload {
   title: string;
   rows: ShareRow[];
   total: number | null;
@@ -19,14 +19,14 @@ export interface SharePayload {
   createdAt: string;
 }
 
-export interface Share {
+interface Share {
   token: string;
   createdAt: string;
   expiresAt: string;
   payload: SharePayload;
 }
 
-export const SHARE_DAYS = [1, 7, 30];
+const SHARE_DAYS = [1, 7, 30];
 const MAX_ROWS = 12;
 const LOGO_KINDS: LogoKind[] = ['token', 'chain', 'protocol', 'exchange'];
 
