@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { errorText } from '../../lib/errors.ts';
 import {
   backupNow,
   checkName,
@@ -13,7 +14,7 @@ import {
 } from '../../storage/index.ts';
 import type { Context } from '../context.ts';
 
-export const INVITE_DAYS = 7;
+const INVITE_DAYS = 7;
 
 export function registerUserRoutes(app: FastifyInstance, ctx: Context): void {
   const adminOnly = async (request: FastifyRequest, reply: FastifyReply) => {
@@ -32,7 +33,7 @@ export function registerUserRoutes(app: FastifyInstance, ctx: Context): void {
     try {
       renameUser(ctx.db, request.userId, name);
     } catch (err) {
-      return reply.code(400).send({ error: err instanceof Error ? err.message : String(err) });
+      return reply.code(400).send({ error: errorText(err) });
     }
     return { name };
   });

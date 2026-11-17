@@ -69,13 +69,6 @@
   font-size: 13.5px;
 }
 
-.footnote {
-  margin-top: 20px;
-  max-width: 78ch;
-  font-size: 13px;
-  color: var(--slate);
-}
-
 .segmented {
   display: flex;
   max-width: 100%;
@@ -560,18 +553,6 @@ select {
   }
 }
 
-.button.ghost {
-  background: none;
-  border-color: transparent;
-  color: var(--slate);
-}
-
-.button.ghost:hover {
-  color: var(--bone);
-  background: var(--raised);
-  border-color: var(--line);
-}
-
 .popover {
   position: fixed;
   inset: auto;
@@ -768,16 +749,6 @@ th .help-wrap {
 
 #add-kind .segmented button {
   flex: 1;
-}
-
-@media (max-width: 760px) {
-  .top-actions .button.ghost {
-    padding: 7px 8px;
-  }
-
-  .top-actions .button.ghost .label {
-    display: none;
-  }
 }
 
 .onboarding .lead {

@@ -1,16 +1,22 @@
 import { createHmac } from 'node:crypto';
+import { errorText } from '../lib/errors.ts';
 import { getJson, HttpError, postJson } from '../lib/http.ts';
-import { priceFrom, toHoldings, type Balance, type ExchangeKeys, type KeyCheck } from '../domain/exchange.ts';
+import {
+  priceFrom,
+  readWallets,
+  toHoldings,
+  type Balance,
+  type ExchangeKeys,
+  type KeyCheck,
+} from '../domain/exchange.ts';
 import type { CollectResult } from '../domain/types.ts';
-
-type Keys = ExchangeKeys;
 
 const SPOT = 'https://api.binance.com';
 const USD_M = 'https://fapi.binance.com';
 const COIN_M = 'https://dapi.binance.com';
 
-export async function binanceSigned<T>(
-  keys: Keys,
+async function binanceSigned<T>(
+  keys: ExchangeKeys,
   path: string,
   options: { base?: string; method?: 'GET' | 'POST'; params?: Record<string, string | number> } = {},
 ): Promise<T> {
@@ -22,7 +28,7 @@ export async function binanceSigned<T>(
   return options.method === 'POST' ? postJson<T>(url, headers) : getJson<T>(url, headers);
 }
 
-async function pages<T>(keys: Keys, path: string): Promise<T[]> {
+async function pages<T>(keys: ExchangeKeys, path: string): Promise<T[]> {
   const rows: T[] = [];
   for (let current = 1; ; current++) {
     const page = await binanceSigned<{ rows: T[]; total: number }>(keys, path, { params: { current, size: 100 } });
@@ -33,19 +39,11 @@ async function pages<T>(keys: Keys, path: string): Promise<T[]> {
 
 const num = (...parts: (string | undefined)[]): number => parts.reduce((s, p) => s + Number(p ?? 0), 0);
 
-export async function collectBinance(keys: Keys): Promise<CollectResult> {
+export async function collectBinance(keys: ExchangeKeys): Promise<CollectResult> {
   const warnings: string[] = [];
-  const balances: Balance[] = [];
+  let flexibleEarnRead = false;
 
-  const optional = async (wallet: string, read: () => Promise<Balance[]>): Promise<void> => {
-    try {
-      balances.push(...(await read()));
-    } catch (err) {
-      warnings.push(`${wallet} could not be read: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  };
-
-  await optional('Funding', async () => {
+  const funding = async (): Promise<Balance[]> => {
     const rows = await binanceSigned<
       { asset: string; free: string; locked: string; freeze: string; withdrawing: string }[]
     >(keys, '/sapi/v1/asset/get-funding-asset', { method: 'POST' });
@@ -55,20 +53,51 @@ export async function collectBinance(keys: Keys): Promise<CollectResult> {
       asset: r.asset,
       quantity: num(r.free, r.locked, r.freeze, r.withdrawing),
     }));
-  });
-
-  let flexibleEarnRead = false;
-  await optional('Earn (flexible)', async () => {
+  };
+  const flexibleEarn = async (): Promise<Balance[]> => {
     const rows = await pages<{ asset: string; totalAmount: string }>(keys, '/sapi/v1/simple-earn/flexible/position');
     flexibleEarnRead = true;
     return rows.map((r) => ({ wallet: 'Earn', type: 'earn', asset: r.asset, quantity: num(r.totalAmount) }));
-  });
-  const flexibleEarnAssets = new Set(balances.filter((b) => b.type === 'earn').map((b) => b.asset));
-
-  await optional('Earn (locked)', async () => {
+  };
+  const lockedEarn = async (): Promise<Balance[]> => {
     const rows = await pages<{ asset: string; amount: string }>(keys, '/sapi/v1/simple-earn/locked/position');
     return rows.map((r) => ({ wallet: 'Earn', type: 'locked', asset: r.asset, quantity: num(r.amount) }));
-  });
+  };
+  const margin = async (): Promise<Balance[]> => {
+    const acc = await binanceSigned<{ userAssets: { asset: string; netAsset: string }[] }>(
+      keys,
+      '/sapi/v1/margin/account',
+    );
+    return acc.userAssets.map((a) => ({
+      wallet: 'Cross Margin',
+      type: 'margin',
+      asset: a.asset,
+      quantity: num(a.netAsset),
+    }));
+  };
+  const futures = (wallet: string, base: string, path: string) => async (): Promise<Balance[]> => {
+    const acc = await binanceSigned<{ assets: { asset: string; walletBalance: string; unrealizedProfit: string }[] }>(
+      keys,
+      path,
+      { base },
+    );
+    return acc.assets.map((a) => ({
+      wallet,
+      type: 'futures',
+      asset: a.asset,
+      quantity: num(a.walletBalance, a.unrealizedProfit),
+    }));
+  };
+
+  const balances = await readWallets(
+    [
+      ['Funding', funding],
+      ['Earn (flexible)', flexibleEarn],
+      ['Earn (locked)', lockedEarn],
+    ],
+    warnings,
+  );
+  const flexibleEarnAssets = new Set(balances.filter((b) => b.type === 'earn').map((b) => b.asset));
 
   const tickerRows = await getJson<{ symbol: string; price: string }[]>(`${SPOT}/api/v3/ticker/price`);
   const tickers = new Map(tickerRows.map((t) => [t.symbol, Number(t.price)]));
@@ -89,39 +118,16 @@ export async function collectBinance(keys: Keys): Promise<CollectResult> {
     balances.push({ wallet: 'Spot', type: 'wallet', asset: b.asset, quantity });
   }
 
-  await optional('Cross Margin', async () => {
-    const acc = await binanceSigned<{ userAssets: { asset: string; netAsset: string }[] }>(
-      keys,
-      '/sapi/v1/margin/account',
-    );
-    return acc.userAssets.map((a) => ({
-      wallet: 'Cross Margin',
-      type: 'margin',
-      asset: a.asset,
-      quantity: num(a.netAsset),
-    }));
-  });
-
-  for (const [wallet, base, path] of [
-    ['USDⓈ-M Futures', USD_M, '/fapi/v3/account'],
-    ['COIN-M Futures', COIN_M, '/dapi/v1/account'],
-  ] as const) {
-    await optional(wallet, async () => {
-      const acc = await binanceSigned<{ assets: { asset: string; walletBalance: string; unrealizedProfit: string }[] }>(
-        keys,
-        path,
-        {
-          base,
-        },
-      );
-      return acc.assets.map((a) => ({
-        wallet,
-        type: 'futures',
-        asset: a.asset,
-        quantity: num(a.walletBalance, a.unrealizedProfit),
-      }));
-    });
-  }
+  balances.push(
+    ...(await readWallets(
+      [
+        ['Cross Margin', margin],
+        ['USDⓈ-M Futures', futures('USDⓈ-M Futures', USD_M, '/fapi/v3/account')],
+        ['COIN-M Futures', futures('COIN-M Futures', COIN_M, '/dapi/v1/account')],
+      ],
+      warnings,
+    )),
+  );
 
   const priced = toHoldings('binance', balances, tickers);
   warnings.push(...priced.warnings);
@@ -133,7 +139,7 @@ export async function collectBinance(keys: Keys): Promise<CollectResult> {
     });
     reportedTotal = wallets.reduce((s, w) => s + Number(w.balance), 0);
   } catch (err) {
-    warnings.push(`total valuation could not be read: ${err instanceof Error ? err.message : String(err)}`);
+    warnings.push(`total valuation could not be read: ${errorText(err)}`);
   }
 
   return { holdings: priced.holdings, warnings, reportedTotal };
@@ -152,7 +158,7 @@ const PERMISSIONS: Record<string, string> = {
   enablePortfolioMarginTrading: 'portfolio margin trading',
 };
 
-export async function checkBinanceKey(keys: Keys): Promise<KeyCheck> {
+export async function checkBinanceKey(keys: ExchangeKeys): Promise<KeyCheck> {
   let restrictions: Record<string, unknown>;
   try {
     restrictions = await binanceSigned<Record<string, unknown>>(keys, '/sapi/v1/account/apiRestrictions');

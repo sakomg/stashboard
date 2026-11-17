@@ -8,8 +8,7 @@ const dir = mkdtempSync(join(tmpdir(), 'stashboard-test-'));
 process.env.DATA_DIR = dir;
 
 const { ADMIN_ID, listAccounts, openDb, removeAccount } = await import('../../src/storage/index.ts');
-const { addExchange, exchangeHints, exchangeKeys, importConfigExchange } =
-  await import('../../src/services/exchanges.ts');
+const { addExchange, exchangeHints, exchangeKeys } = await import('../../src/services/exchanges.ts');
 const { seal, unseal, vaultKey } = await import('../../src/storage/vault.ts');
 
 const keys = { apiKey: 'A'.repeat(60) + 'wxyz', apiSecret: 'S'.repeat(64) };
@@ -29,22 +28,16 @@ test('secrets are sealed with a key file only the owner can read', () => {
   assert.throws(() => unseal(Buffer.alloc(32, 7), sealed));
 });
 
-test('the key from config.json is imported once, onto the existing exchange account', () => {
+test('an exchange key is kept sealed, shown by its last characters, and removed with its account', () => {
   const db = openDb(mkdtempSync(join(tmpdir(), 'stashboard-test-')));
-  db.prepare(
-    "INSERT INTO accounts (user_id, kind, label, address, address_key) VALUES (1, 'binance', 'Binance', '', 'binance')",
-  ).run();
-  const legacy = listAccounts(db, 'all')[0]!;
+  const account = addExchange(db, ADMIN_ID, 'binance', keys);
+  assert.deepEqual(exchangeKeys(db, account.id), keys);
+  assert.equal(exchangeHints(db).get(account.id), '…wxyz');
+  const stored = db.prepare('SELECT sealed FROM exchange_keys').get() as { sealed: string };
+  assert.ok(!stored.sealed.includes(keys.apiSecret));
 
-  const imported = importConfigExchange(db, keys);
-  assert.equal(imported?.id, legacy.id, 'history stays with the same account');
-  assert.deepEqual(exchangeKeys(db, legacy.id), keys);
-  assert.equal(exchangeHints(db).get(legacy.id), '…wxyz');
-
-  assert.ok(removeAccount(db, ADMIN_ID, legacy.id));
-  assert.equal(exchangeKeys(db, legacy.id), null, 'the key goes with the account');
-  assert.equal(importConfigExchange(db, keys), null, 'a removed exchange does not come back from config.json');
-  assert.equal(listAccounts(db, 'all').length, 0);
+  assert.ok(removeAccount(db, ADMIN_ID, account.id));
+  assert.equal(exchangeKeys(db, account.id), null);
 });
 
 test('the same API key cannot be added twice', () => {

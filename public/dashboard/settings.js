@@ -5,7 +5,7 @@ import { ago } from './format.js';
 import { $, actions, state } from './state.js';
 import { inMinutes } from './summary.js';
 
-export async function setHideAmounts(hide) {
+async function setHideAmounts(hide) {
   state.hideAmounts = hide;
   $('hide-amounts').checked = hide;
   await actions.renderAll();
@@ -45,7 +45,7 @@ export function timeLeft(iso) {
   return hours < 48 ? `${hours} h` : `${Math.round(hours / 24)} days`;
 }
 
-export async function renderShareLinks() {
+async function renderShareLinks() {
   const list = $('share-links');
   let links;
   try {

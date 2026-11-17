@@ -1,4 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite';
+import { errorText } from '../lib/errors.ts';
 import { STABLECOINS_CATEGORY, STOCKS_CATEGORY, type Asset } from '../domain/assets.ts';
 import type { Config } from '../lib/config.ts';
 import { currentState, savePriceChanges, saveSignals, type PriceChange, type SignalRow } from '../storage/index.ts';
@@ -10,7 +11,7 @@ import { closes, funding8hPct, listMarkets, openInterestChange7dPct, type Market
 const MIN_VALUE_USD = 1;
 const NO_SIGNALS = new Set([STABLECOINS_CATEGORY]);
 
-export interface Pair {
+interface Pair {
   candles: { market: 'spot' | 'futures'; symbol: string } | null;
   perp: string | null;
 }
@@ -69,7 +70,7 @@ export async function runSignals(
       const heat = heatScore(await readings(pair, daily), config.heat);
       if (heat) rows.push({ asset: asset.key, time, pair: pair.candles.symbol, ...heat });
     } catch (err) {
-      console.warn(`signals: ${asset.key} skipped: ${err instanceof Error ? err.message : String(err)}`);
+      console.warn(`signals: ${asset.key} skipped: ${errorText(err)}`);
     }
   }
   saveSignals(db, rows);

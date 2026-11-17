@@ -15,7 +15,6 @@
     "check": "node --disable-warning=ExperimentalWarning src/cli/check.ts",
     "collect": "node --disable-warning=ExperimentalWarning src/cli/collect.ts",
     "test": "node --disable-warning=ExperimentalWarning --test",
-    "wallets": "node --disable-warning=ExperimentalWarning src/cli/wallets.ts",
     "typecheck": "tsc",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

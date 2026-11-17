@@ -1,3 +1,4 @@
+import { errorText } from '../lib/errors.ts';
 import type { Holding, HoldingType } from './types.ts';
 
 export const EXCHANGES = { binance: 'Binance', bybit: 'Bybit', okx: 'OKX', gate: 'Gate' } as const;
@@ -69,8 +70,6 @@ export function toHoldings(
   return { holdings, warnings };
 }
 
-export const failure = (err: unknown): string => (err instanceof Error ? err.message : String(err));
-
 export async function readWallets(
   readers: [string, () => Promise<Balance[]>][],
   warnings: string[],
@@ -80,7 +79,7 @@ export async function readWallets(
     try {
       balances.push(...(await read()));
     } catch (err) {
-      warnings.push(`${wallet} could not be read: ${failure(err)}`);
+      warnings.push(`${wallet} could not be read: ${errorText(err)}`);
     }
   }
   return balances;

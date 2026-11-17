@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
+import { errorText } from './errors.ts';
 
 export interface Config {
-  binance: { apiKey: string; apiSecret: string };
   zerion: { apiKey: string };
   tonapi: { apiKey: string };
   coingecko: { apiKey: string };
@@ -53,13 +53,12 @@ export function loadConfig(path = process.env.CONFIG_PATH ?? 'config.json'): Con
   try {
     raw = obj(JSON.parse(readFileSync(path, 'utf8')));
   } catch (err) {
-    const reason = err instanceof Error ? err.message : String(err);
+    const reason = errorText(err);
     throw new Error(`Cannot read ${path}: ${reason}\nCreate it with: cp config.example.json config.json`);
   }
 
   const heat = obj(raw.heat);
   return {
-    binance: { apiKey: str(obj(raw.binance).apiKey), apiSecret: str(obj(raw.binance).apiSecret) },
     zerion: { apiKey: str(obj(raw.zerion).apiKey) },
     tonapi: { apiKey: str(obj(raw.tonapi).apiKey) },
     coingecko: { apiKey: str(obj(raw.coingecko).apiKey) },

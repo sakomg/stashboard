@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- `npm run wallets` is gone. Wallets are added, renamed and removed on the dashboard, which also reads a new one
+  straight away.
+- A `binance` block in `config.json` is no longer imported. Installs from before exchanges were added on the
+  page imported it on their first start, so the block can be deleted.
+- When Zerion has never answered for a wallet's DeFi positions and refuses, they are left out with a warning.
+  They used to be taken from the last stored update, which could count Aster a second time.
+- `npm run check` reads TON wallets the way an update does.
+- Code nothing used is gone, and a test fails when a module exports a name nothing imports.
+
 - A notice under the accounts says when a holding turns overheated: which assets, with their heat and share of
   the portfolio, and a link to Signals showing only them. Dismissing it holds on every device until the asset
   cools to neutral or cold and overheats again.

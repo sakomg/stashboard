@@ -1,32 +1,32 @@
 import { h, help } from '/common/ui.js';
 import { ago, dash, fixed, percent, signedPercent } from './format.js';
-import { ZONES, heatBadge, reading } from './heat.js';
+import { ZONES, heatBadge } from './heat.js';
 import { HELP } from './help.js';
 import { logo } from './logos.js';
 import { $, DUST_USD, state } from './state.js';
 
-export const READING_HELP = {
+const READING_HELP = {
   rsiDaily: HELP.rsi,
   rsiWeekly: HELP.rsiWeekly,
   funding: HELP.funding,
   ma200: HELP.ma200,
   oiGrowth: HELP.openInterest,
 };
-export const READING_NAMES = {
+const READING_NAMES = {
   rsiDaily: 'Daily RSI',
   rsiWeekly: 'Weekly RSI',
   funding: 'Funding',
   ma200: 'Price against 200-day average',
   oiGrowth: 'Open interest',
 };
-export const SIGNAL_COLUMNS = [
+const SIGNAL_COLUMNS = [
   ['rsiDaily', 'Daily RSI', (v) => v.toFixed(0), ''],
   ['rsiWeekly', 'Weekly RSI', (v) => v.toFixed(0), 'optional'],
   ['funding', 'Funding', (v) => `${fixed(v, 3)}%`, 'optional'],
   ['ma200', 'vs 200-day', signedPercent, 'optional'],
   ['oiGrowth', 'Open interest 7 d', signedPercent, 'optional'],
 ];
-export const ZONE_ORDER = ['cold', 'neutral', 'warm', 'overheated'];
+const ZONE_ORDER = ['cold', 'neutral', 'warm', 'overheated'];
 
 export function renderSignals() {
   const { assets, heat } = state.data;

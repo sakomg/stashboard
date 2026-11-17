@@ -1,4 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite';
+import { errorText } from '../lib/errors.ts';
 import type { Config } from '../lib/config.ts';
 import {
   currentState,
@@ -25,7 +26,7 @@ export type ProgressEvent =
 
 type Notify = (event: ProgressEvent) => void;
 
-export interface RunOptions {
+interface RunOptions {
   only?: number[];
   defiEveryMs?: number;
 }
@@ -111,7 +112,7 @@ export async function runCollection(
       results.push({ account, result });
       notify({ type: 'done', accountId: account.id, ok: true });
     } catch (err) {
-      const error = err instanceof Error ? err.message : String(err);
+      const error = errorText(err);
       results.push({ account, error });
       notify({ type: 'done', accountId: account.id, ok: false, note: error });
     }

@@ -34,9 +34,9 @@ interface ApiPage {
   }[];
 }
 
-export class ZerionLimitError extends Error {}
+class ZerionLimitError extends Error {}
 
-export interface ZerionQuota {
+interface ZerionQuota {
   tier: string | null;
   dayLimit: number | null;
   dayRemaining: number | null;
@@ -89,7 +89,7 @@ let slowUntil = 0;
 export const zerionPaceMs = (now = Date.now()): number =>
   now < slowUntil ? zerionTiming.slowIntervalMs : zerionTiming.minIntervalMs;
 
-export interface ZerionCall {
+interface ZerionCall {
   defi?: boolean;
   onWait?: (note: string) => void;
 }
@@ -133,9 +133,9 @@ async function zerionGet<T>(url: string, apiKey: string, call: ZerionCall = {}):
   }
 }
 
-export type PositionFilter = 'only_simple' | 'only_complex';
+type PositionFilter = 'only_simple' | 'only_complex';
 
-export async function fetchPositions(
+async function fetchPositions(
   apiKey: string,
   address: string,
   filter: PositionFilter,
@@ -189,8 +189,8 @@ export function withoutDepositReceipts(positions: ZerionPosition[]): ZerionPosit
 
 const readSeparately = (p: ZerionPosition): boolean => p.protocol?.toLowerCase() === LIGHTER_PROTOCOL.toLowerCase();
 
-export const BALANCES_REUSE_MS = MIN_GAP_MINUTES * 60_000;
-export const DEFI_REUSE_MS = MIN_DEFI_MINUTES * 60_000;
+const BALANCES_REUSE_MS = MIN_GAP_MINUTES * 60_000;
+const DEFI_REUSE_MS = MIN_DEFI_MINUTES * 60_000;
 
 const reuseMs = (part: PositionFilter, defiEveryMs: number): number =>
   part === 'only_simple' ? BALANCES_REUSE_MS : defiEveryMs;
@@ -218,47 +218,10 @@ function writeCache(db: DatabaseSync, address: string, part: PositionFilter, at:
   );
 }
 
-export function lastStoredDefi(db: DatabaseSync, address: string): Cached | null {
-  const last = db
-    .prepare(
-      `SELECT sa.snapshot_id, sa.account_id, s.started_at
-         FROM snapshot_accounts sa
-         JOIN snapshots s ON s.id = sa.snapshot_id
-         JOIN accounts a ON a.id = sa.account_id
-        WHERE lower(a.address) = ? AND sa.status = 'ok'
-        ORDER BY sa.snapshot_id DESC LIMIT 1`,
-    )
-    .get(address.toLowerCase()) as { snapshot_id: number; account_id: number; started_at: string } | undefined;
-  if (!last) return null;
-  const rows = db
-    .prepare(
-      `SELECT chain, protocol, symbol, type, quantity, price, value_usd AS value, read_at AS readAt
-         FROM holdings
-        WHERE snapshot_id = ? AND account_id = ? AND protocol IS NOT NULL`,
-    )
-    .all(last.snapshot_id, last.account_id) as unknown as (Holding & { readAt: string | null })[];
-  if (rows.length === 0) return null;
-  const at = Math.min(...rows.map((r) => Date.parse(r.readAt ?? last.started_at)));
-  return {
-    at,
-    positions: rows.map((r) => ({
-      chain: r.chain,
-      type: r.type === 'borrow' ? 'loan' : r.type,
-      protocol: r.protocol,
-      symbol: r.symbol,
-      quantity: r.quantity,
-      price: r.price,
-      value: Math.abs(r.value),
-      icon: null,
-      protocolIcon: null,
-    })),
-  };
-}
-
 const ago = (ms: number): string =>
   ms < 90 * 60_000 ? `${Math.max(1, Math.round(ms / 60_000))} min` : `${Math.round(ms / 3_600_000)} h`;
 
-export interface ZerionOptions {
+interface ZerionOptions {
   now?: number;
   onWait?: (note: string) => void;
   defiEveryMs?: number;
@@ -287,10 +250,9 @@ export async function collectZerion(
       read.push({ positions, readAt: null });
     } catch (err) {
       if (!(err instanceof ZerionLimitError)) throw err;
-      const earlier = cached ?? (part === 'only_complex' ? lastStoredDefi(db, address) : null);
-      if (earlier) {
-        warnings.push(`${PART_NAMES[part]} are from ${ago(now - earlier.at)} ago. ${err.message}.`);
-        read.push({ positions: earlier.positions, readAt: new Date(earlier.at).toISOString() });
+      if (cached) {
+        warnings.push(`${PART_NAMES[part]} are from ${ago(now - cached.at)} ago. ${err.message}.`);
+        read.push({ positions: cached.positions, readAt: new Date(cached.at).toISOString() });
       } else if (part === 'only_complex') {
         warnings.push(`DeFi positions could not be read yet and are left out. ${err.message}.`);
       } else {

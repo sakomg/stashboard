@@ -13,7 +13,7 @@ export const DIMENSIONS = [
   ['venue', 'Account', (x) => x.account, (x) => kindLogoSpec(x.kind)],
   ['place', 'Kind', (x) => (isExchange(x.kind) ? 'Exchange' : x.protocol ? 'DeFi' : 'Wallet'), null],
 ];
-export const PERIODS = [
+const PERIODS = [
   ['7', '7 d'],
   ['30', '30 d'],
   ['90', '90 d'],
@@ -60,7 +60,7 @@ export function groups(dimension) {
   }));
 }
 
-export const swatchStyle = (r) =>
+const swatchStyle = (r) =>
   r.value < 0 ? { background: 'none', boxShadow: `inset 0 0 0 2px ${r.color}` } : { background: r.color };
 
 export function totals() {

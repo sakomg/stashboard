@@ -7,7 +7,7 @@ import { HELP } from './help.js';
 import { TYPES, chainLogo, chainName, isExchange, kindLogo, logo } from './logos.js';
 import { $, DUST_USD, firstRead, hasBalances, state } from './state.js';
 
-export const COLUMNS = [
+const COLUMNS = [
   ['key', 'Asset', '', (a) => a.key],
   ['quantity', 'Quantity', 'optional', (a) => a.quantity],
   ['price', 'Price', 'optional', (a) => a.price],
@@ -163,9 +163,9 @@ export function renderPositions() {
   }
 }
 
-export const CENT = 0.005;
+const CENT = 0.005;
 
-export function placesRow(asset) {
+function placesRow(asset) {
   const all = state.data.holdings.filter((x) => x.asset === asset).sort((a, b) => b.value - a.value);
   const places = all.filter((x) => Math.abs(x.value) >= CENT);
   const tiny = all.length - places.length;

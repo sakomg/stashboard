@@ -1,3 +1,4 @@
+import { errorText } from './lib/errors.ts';
 import { createApp } from './server/app.ts';
 import { createContext, formatSetupCode, type Context } from './server/context.ts';
 import { fearGreed } from './sources/feargreed.ts';
@@ -7,7 +8,7 @@ let ctx: Context;
 try {
   ctx = createContext();
 } catch (err) {
-  console.error(err instanceof Error ? err.message : String(err));
+  console.error(errorText(err));
   process.exit(1);
 }
 const { app, collection } = createApp(ctx);

@@ -10,20 +10,20 @@ import { renderSignals } from './signals.js';
 import { $, DUST_USD, actions, busy, firstRead, state } from './state.js';
 import { switchView } from './views.js';
 
-export const CHIP_LIMIT = 10;
+const CHIP_LIMIT = 10;
 
-export function historyDue(days) {
+function historyDue(days) {
   const since = state.data.historySince;
   if (!since) return 'after the first update';
   const due = Date.parse(since) + days * 86_400_000 - Date.now();
   return due > 0 ? `in ${inTime(due)}` : 'soon';
 }
 
-export const pendingChange = (days) => h('span', { class: 'pending' }, historyDue(days));
+const pendingChange = (days) => h('span', { class: 'pending' }, historyDue(days));
 
-export const changeOrPending = (value, days) => (value == null ? pendingChange(days) : change(value));
+const changeOrPending = (value, days) => (value == null ? pendingChange(days) : change(value));
 
-export function periodFact(label, days, key) {
+function periodFact(label, days, key) {
   const value = state.data.changes[key];
   const estimate = state.data.estimates?.[key];
   if (value != null || !estimate) return h('div', {}, h('dt', {}, label), h('dd', {}, changeOrPending(value, days)));
@@ -88,13 +88,13 @@ export function renderSummary() {
   renderNotices();
 }
 
-export let gateTimer;
+let gateTimer;
 
 export const inMinutes = (at) => {
   const minutes = Math.max(1, Math.ceil((at - Date.now()) / 60_000));
   return minutes < 90 ? `${minutes} min` : `${Math.ceil(minutes / 60)} h`;
 };
-export const labelOf = (id) => state.data?.sources.find((s) => s.id === id)?.label ?? 'an account';
+const labelOf = (id) => state.data?.sources.find((s) => s.id === id)?.label ?? 'an account';
 
 export function renderUpdating() {
   const { data, progress } = state;
@@ -132,12 +132,12 @@ export function renderUpdating() {
 export const isOld = (s) =>
   s.oldestRead && Date.now() - Date.parse(s.oldestRead) > 2 * state.data.collectEveryMinutes * 60_000;
 
-export function openAccounts() {
+function openAccounts() {
   switchView('accounts');
   window.scrollTo({ top: $('content').getBoundingClientRect().top + window.scrollY, behavior: 'instant' });
 }
 
-export function renderSources() {
+function renderSources() {
   const live = new Map((state.progress?.accounts ?? []).map((a) => [a.id, a]));
   const { sources } = state.data;
   const shown = sources.filter((s, i) => i < CHIP_LIMIT || s.status === null || s.stale);
@@ -196,10 +196,10 @@ export function renderSources() {
   );
 }
 
-export const joinNames = (names) =>
+const joinNames = (names) =>
   names.length <= 2 ? names.join(' and ') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
 
-export function renderNotices() {
+function renderNotices() {
   const groups = new Map();
   const add = (key, source, text) => {
     if (!groups.has(key)) groups.set(key, { text, sources: [] });
@@ -239,7 +239,7 @@ export function renderNotices() {
   );
 }
 
-export const newlyOverheated = () =>
+const newlyOverheated = () =>
   state.data.assets
     .filter((a) => a.signal?.zone === 'overheated' && !a.signal.dismissed && Math.abs(a.value) >= DUST_USD)
     .sort((a, b) => b.share - a.share);

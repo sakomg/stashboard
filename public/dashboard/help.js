@@ -76,7 +76,7 @@ export const HELP = {
   },
 };
 
-export const FEAR_GREED_TONE = [
+const FEAR_GREED_TONE = [
   [25, 'cold'],
   [45, 'cool'],
   [56, 'neutral'],

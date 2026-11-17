@@ -1,7 +1,7 @@
 import { h } from '/common/ui.js';
 import { state } from './state.js';
 
-export function monogram(label) {
+function monogram(label) {
   return h(
     'span',
     { class: 'logo mono', 'aria-hidden': 'true' },
@@ -29,10 +29,10 @@ export function logo(kind, key, label = key) {
 
 export const EXCHANGES = { binance: 'Binance', bybit: 'Bybit', okx: 'OKX', gate: 'Gate' };
 export const isExchange = (kind) => Object.hasOwn(EXCHANGES, kind);
-export const KIND_TOKEN = { binance: 'BNB', okx: 'OKB', gate: 'GT', evm: 'ETH', solana: 'SOL', ton: 'TON' };
-export const CHAIN_TOKEN = { binance: 'BNB', okx: 'OKB', gate: 'GT', ton: 'TON' };
+const KIND_TOKEN = { binance: 'BNB', okx: 'OKB', gate: 'GT', evm: 'ETH', solana: 'SOL', ton: 'TON' };
+const CHAIN_TOKEN = { binance: 'BNB', okx: 'OKB', gate: 'GT', ton: 'TON' };
 const CHAIN_FALLBACK = { ethereum: 'ETH', 'binance-smart-chain': 'BNB', solana: 'SOL' };
-export const hasLogo = (spec) => Boolean(spec?.key) && state.logos.has(`${spec.kind}/${spec.key}`);
+const hasLogo = (spec) => Boolean(spec?.key) && state.logos.has(`${spec.kind}/${spec.key}`);
 
 const exchangeFirst = (id, token) => {
   const exchange = { kind: 'exchange', key: id };
@@ -63,7 +63,7 @@ export const EVM_CHAINS = {
   polygon: 'Polygon',
 };
 
-export function logoStack(logos) {
+function logoStack(logos) {
   const shown = logos.filter(Boolean);
   return shown.length > 0 ? h('span', { class: 'logo-stack', 'aria-hidden': 'true' }, shown) : null;
 }
@@ -85,7 +85,7 @@ export const TYPES = {
   locked: 'Locked',
   reward: 'Reward',
 };
-export const CHAINS = { ...EXCHANGES, ton: 'TON' };
+const CHAINS = { ...EXCHANGES, ton: 'TON' };
 export const chainName = (id) =>
   CHAINS[id] ??
   state.chainNames[id] ??

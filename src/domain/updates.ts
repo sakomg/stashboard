@@ -6,12 +6,12 @@ export interface UpdatePlan {
   runsPerDay: number | null;
 }
 
-export const ASSUMED_DAY_LIMIT = 500;
+const ASSUMED_DAY_LIMIT = 500;
 export const DAY_SHARE = 0.9;
 export const DEFI_SHARE = 0.25;
 export const MIN_GAP_MINUTES = 10;
 export const MIN_DEFI_MINUTES = 55;
-export const COOLDOWN_MINUTES = 1;
+const COOLDOWN_MINUTES = 1;
 const DAY_MINUTES = 24 * 60;
 const STEP_MINUTES = 5;
 

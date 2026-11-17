@@ -1,14 +1,14 @@
 import type { Asset } from './assets.ts';
 import type { AccountState } from './types.ts';
 
-export interface AssetRow extends Asset {
+interface AssetRow extends Asset {
   quantity: number;
   price: number | null;
   value: number;
   share: number;
 }
 
-export interface Portfolio {
+interface Portfolio {
   netWorth: number;
   assets: AssetRow[];
 }
@@ -35,12 +35,12 @@ export function buildPortfolio(states: AccountState[], resolve: (symbol: string)
   return { netWorth, assets };
 }
 
-export interface Estimate {
+interface Estimate {
   change: number;
   coverage: number;
 }
 
-export const MIN_ESTIMATE_COVERAGE = 0.5;
+const MIN_ESTIMATE_COVERAGE = 0.5;
 
 export function estimateChange(
   assets: Pick<AssetRow, 'key' | 'category' | 'value'>[],

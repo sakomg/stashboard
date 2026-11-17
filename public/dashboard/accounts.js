@@ -7,7 +7,7 @@ import { KINDS, isExchange, kindLogo } from './logos.js';
 import { $, actions, state } from './state.js';
 import { isOld } from './summary.js';
 
-export function accountStatus(s) {
+function accountStatus(s) {
   if (s.status === null) return ['muted', 'Not read yet'];
   if (s.stale) return ['warn', `Out of date, from ${ago(s.collectedAt)}. ${s.error ?? ''}`];
   if (isOld(s)) return ['muted', `Updated ${ago(s.collectedAt)}. Some balances are from ${ago(s.oldestRead)}`];

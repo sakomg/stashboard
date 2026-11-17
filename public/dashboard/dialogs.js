@@ -36,7 +36,7 @@ export async function submitDialog(form, errorId, request) {
   }
 }
 
-export const NETWORKS = [
+const NETWORKS = [
   [
     'evm',
     /^0x[0-9a-fA-F]{40}$/,
@@ -52,9 +52,9 @@ export const NETWORKS = [
   ['solana', /^[1-9A-HJ-NP-Za-km-z]{32,44}$/, 'Solana address.', 'Tokens and staking are read.'],
 ];
 
-export const addForm = $('add-form');
-export let addKind = 'wallet';
-export const KEY_HELP = {
+const addForm = $('add-form');
+let addKind = 'wallet';
+const KEY_HELP = {
   binance: {
     lead: 'Create a key with only ',
     mark: 'Enable Reading',
@@ -80,11 +80,11 @@ export const KEY_HELP = {
     source: SOURCES.gateKeys,
   },
 };
-export const NEEDS_PASSPHRASE = new Set(['okx']);
+const NEEDS_PASSPHRASE = new Set(['okx']);
 
-export let exchangeChoice = null;
+let exchangeChoice = null;
 
-export function buildExchangeChoice(value = 'binance') {
+function buildExchangeChoice(value = 'binance') {
   exchangeChoice = select({
     label: 'Exchange',
     options: Object.entries(EXCHANGES).map(([kind, label]) => ({ value: kind, label, media: () => kindLogo(kind) })),
@@ -95,7 +95,7 @@ export function buildExchangeChoice(value = 'binance') {
 }
 buildExchangeChoice();
 
-export function setExchange(kind) {
+function setExchange(kind) {
   const help = KEY_HELP[kind];
   $('exchange-hint').replaceChildren(
     help.lead,
@@ -114,7 +114,7 @@ export function setExchange(kind) {
 }
 setExchange(exchangeChoice.value);
 
-export function setAddKind(kind) {
+function setAddKind(kind) {
   addKind = kind;
   $('add-kind').replaceChildren(
     segmentedControl({
@@ -138,7 +138,7 @@ export function setAddKind(kind) {
   (kind === 'wallet' ? addForm.address : addForm.apiKey).focus();
 }
 
-export function showDetected() {
+function showDetected() {
   const address = addForm.address.value.trim();
   const found = NETWORKS.find(([, pattern]) => pattern.test(address));
   $('address-logo').replaceChildren(found ? kindLogo(found[0]) : icon('wallet'));
@@ -221,7 +221,7 @@ addForm.addEventListener('submit', async (event) => {
   if (warning) showInfo(warning);
 });
 
-export let removing = null;
+let removing = null;
 
 export function openRemove(account) {
   removing = account;
@@ -246,9 +246,9 @@ $('remove-form').addEventListener('submit', async (event) => {
   if (removed) await actions.load();
 });
 
-export let categorising = null;
+let categorising = null;
 
-export const CATEGORY_SOURCE = {
+const CATEGORY_SOURCE = {
   manual: 'You chose this category.',
   auto: 'This category was looked up on CoinGecko.',
 };
@@ -277,7 +277,7 @@ export function openCategory(asset) {
   $('category-dialog').showModal();
 }
 
-export async function saveCategory(category) {
+async function saveCategory(category) {
   const saved = await submitDialog($('category-form'), 'category-error', () =>
     api(`/api/assets/${encodeURIComponent(categorising.key)}/category`, {
       method: 'PUT',

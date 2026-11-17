@@ -1,7 +1,7 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import { getJson } from '../lib/http.ts';
 
-export interface FearGreed {
+interface FearGreed {
   value: number;
   label: string;
 }

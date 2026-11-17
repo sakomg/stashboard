@@ -1,5 +1,6 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { errorText } from '../../lib/errors.ts';
 import {
   AttemptLimiter,
   hashPassword,
@@ -137,7 +138,7 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: Context): void {
       claimAdmin(ctx.db, { name, passwordHash, totpSecret, totpStep: step });
     } catch (err) {
       pendingSetup = null;
-      return reply.code(400).send({ error: err instanceof Error ? err.message : String(err) });
+      return reply.code(400).send({ error: errorText(err) });
     }
     ctx.auth.claimed = true;
     pendingSetup = null;
@@ -186,7 +187,7 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: Context): void {
     try {
       userId = joinWithInvite(ctx.db, token, { name, passwordHash, totpSecret, totpStep: step }).id;
     } catch (err) {
-      return reply.code(400).send({ error: err instanceof Error ? err.message : String(err) });
+      return reply.code(400).send({ error: errorText(err) });
     }
     signIn(request, reply, userId);
     return { ok: true };

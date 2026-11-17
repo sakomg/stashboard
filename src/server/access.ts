@@ -3,7 +3,7 @@ import { ADMIN_ID, sessionUser } from '../storage/index.ts';
 import type { Context } from './context.ts';
 import type { Access, StaticFile } from './static.ts';
 
-export const COOKIE = 'stashboard_session';
+const COOKIE = 'stashboard_session';
 export const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
 
 const CONTENT_POLICY =

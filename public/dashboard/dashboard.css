@@ -589,21 +589,6 @@ tr[aria-expanded='true'] .chevron {
   grid-template-columns: minmax(0, 1fr) 72px;
 }
 
-.add-wallet {
-  display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 1.2fr) auto;
-  align-items: end;
-  gap: 12px;
-  margin-top: 20px;
-}
-
-.add-wallet label span {
-  display: block;
-  font-size: 13px;
-  color: var(--slate);
-  margin-bottom: 5px;
-}
-
 @media (max-width: 760px) {
   main > section {
     margin-top: 44px;

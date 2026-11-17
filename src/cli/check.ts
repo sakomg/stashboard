@@ -1,3 +1,4 @@
+import { errorText } from '../lib/errors.ts';
 import { loadConfig, type Config } from '../lib/config.ts';
 import { listAccounts, listWallets, openDb, type Wallet } from '../storage/index.ts';
 import {
@@ -9,6 +10,7 @@ import {
   type ExchangeKind,
 } from '../services/exchanges.ts';
 import { getJson } from '../lib/http.ts';
+import { collectTon } from '../sources/ton.ts';
 import { fetchChains, zerionQuota } from '../sources/zerion.ts';
 
 type Status = 'ok' | 'warn' | 'fail' | 'skip';
@@ -22,13 +24,12 @@ function report(status: Status, source: string, message: string): void {
 
 const usd = (n: number): string => `$${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 const short = (a: string): string => (a.length > 12 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a);
-const errText = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
 async function step(source: string, fn: () => Promise<void>): Promise<void> {
   try {
     await fn();
   } catch (err) {
-    report('fail', source, errText(err));
+    report('fail', source, errorText(err));
   }
 }
 
@@ -74,17 +75,11 @@ async function checkZerion(cfg: Config['zerion'], wallets: Wallet[]): Promise<vo
 async function checkTon(cfg: Config['tonapi'], ton: Wallet[]): Promise<void> {
   if (ton.length === 0) return report('skip', 'TonAPI', 'no TON wallets');
   if (!cfg.apiKey) report('warn', 'TonAPI', 'key is not set, requests go without it');
-  const headers: Record<string, string> = cfg.apiKey ? { authorization: `Bearer ${cfg.apiKey}` } : {};
 
   for (const w of ton) {
     await step('TonAPI', async () => {
-      const acc = await getJson<{ balance: number }>(`https://tonapi.io/v2/accounts/${w.address}`, headers);
-      const jettons = await getJson<{ balances: { balance: string }[] }>(
-        `https://tonapi.io/v2/accounts/${w.address}/jettons?currencies=usd`,
-        headers,
-      );
-      const held = jettons.balances.filter((j) => j.balance !== '0').length;
-      report('ok', 'TonAPI', `${w.label} ${short(w.address)}: ${(acc.balance / 1e9).toFixed(2)} TON, jettons: ${held}`);
+      const { holdings } = await collectTon(cfg.apiKey, w.address);
+      report('ok', 'TonAPI', `${w.label} ${short(w.address)}: balances are readable, ${holdings.length} read`);
     });
   }
 }
@@ -115,7 +110,7 @@ let config: Config;
 try {
   config = loadConfig();
 } catch (err) {
-  console.error(errText(err));
+  console.error(errorText(err));
   process.exit(1);
 }
 
@@ -127,9 +122,7 @@ for (const kind of EXCHANGE_KINDS) {
       const keys = exchangeKeys(db, a.id);
       return keys ? [{ label: a.label, keys }] : [];
     });
-  const seed = config.binance;
-  const fromConfig = kind === 'binance' && stored.length === 0 && seed.apiKey && seed.apiSecret;
-  await checkExchange(kind, fromConfig ? [{ label: 'config.json', keys: seed }] : stored);
+  await checkExchange(kind, stored);
 }
 await checkZerion(config.zerion, [...listWallets(db, 'all', 'evm'), ...listWallets(db, 'all', 'solana')]);
 await checkTon(config.tonapi, listWallets(db, 'all', 'ton'));

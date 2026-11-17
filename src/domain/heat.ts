@@ -1,11 +1,11 @@
 import type { Config } from '../lib/config.ts';
 
-export type ComponentName = 'rsiDaily' | 'rsiWeekly' | 'funding' | 'ma200' | 'oiGrowth';
+type ComponentName = 'rsiDaily' | 'rsiWeekly' | 'funding' | 'ma200' | 'oiGrowth';
 export type Zone = 'cold' | 'neutral' | 'warm' | 'overheated';
 
 export type Readings = Record<ComponentName, number | null>;
 
-export interface Component {
+interface Component {
   name: ComponentName;
   value: number;
   score: number;
@@ -28,8 +28,7 @@ const THRESHOLD: Record<ComponentName, keyof Config['heat']['overheated']> = {
   oiGrowth: 'oiGrowth7dPct',
 };
 
-export const HOT_SCORE = 80;
-export const COLD_SCORE = 30;
+const HOT_SCORE = 80;
 
 function componentScore(name: ComponentName, value: number, heat: Config['heat']): number {
   const neutral = NEUTRAL[name];
@@ -38,7 +37,7 @@ function componentScore(name: ComponentName, value: number, heat: Config['heat']
   return Math.min(100, Math.max(0, 50 + ((value - neutral) / span) * (HOT_SCORE - 50)));
 }
 
-export function zoneOf(score: number, zones: Config['heat']['zones']): Zone {
+function zoneOf(score: number, zones: Config['heat']['zones']): Zone {
   if (score >= zones.overheated) return 'overheated';
   if (score >= zones.warm) return 'warm';
   if (score >= zones.neutral) return 'neutral';
