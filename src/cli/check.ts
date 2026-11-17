@@ -45,8 +45,9 @@ async function checkExchange(kind: ExchangeKind, accounts: { label: string; keys
     await step(name, async () => {
       const { extra, ipRestricted } = await client.check(keys);
       if (extra.length > 0) report('fail', name, `${label}: key can do more than read: ${extra.join(', ')}`);
-      else if (!ipRestricted) report('warn', name, `${label}: key is read-only but not restricted to trusted IPs`);
-      else report('ok', name, `${label}: key is read-only and IP-restricted`);
+      else if (!ipRestricted && client.ipRequired)
+        report('warn', name, `${label}: key is read-only. ${client.ipRequired}`);
+      else report('ok', name, `${label}: key is read-only${ipRestricted ? ' and IP-restricted' : ''}`);
 
       const { holdings, warnings } = await client.collect(keys);
       const notes = warnings.length > 0 ? `, ${warnings.length} notes, see npm run collect` : '';

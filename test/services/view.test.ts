@@ -93,7 +93,7 @@ test('portfolio view merges accounts, flags the stale one and hides full address
   assert.deepEqual(view.changes, { d1: null, d7: null, d30: null });
 });
 
-test('7 and 30 days are estimated from prices only until history reaches that far', () => {
+test('24 hours, 7 and 30 days are estimated from prices only until history reaches that far', () => {
   const db = openDb(mkdtempSync(join(tmpdir(), 'stashboard-test-')));
   const wallet = addWallet(db, ADMIN_ID, '0x52908400098527886E0F7030069857D2E4169EE7');
   const snapshot = startSnapshot(db);
@@ -104,13 +104,19 @@ test('7 and 30 days are estimated from prices only until history reaches that fa
   });
   finishSnapshot(db, snapshot);
   const now = new Date();
-  savePriceChanges(db, [{ asset: 'ETH', time: now.toISOString(), d7: 0.1, d30: null }]);
+  savePriceChanges(db, [{ asset: 'ETH', time: now.toISOString(), d1: 0.1, d7: 0.1, d30: null }]);
 
   const view = portfolioView(db, ADMIN_ID, resolve, now);
+  assert.equal(view.changes.d1, null);
+  assert.ok(Math.abs(view.estimates.d1!.change - (2000 / 1900 - 1)) < 1e-12);
   assert.equal(view.changes.d7, null);
   assert.ok(view.estimates.d7);
   assert.ok(Math.abs(view.estimates.d7.change - (2000 / 1900 - 1)) < 1e-12);
   assert.equal(view.estimates.d30, null);
+
+  const halfDay = portfolioView(db, ADMIN_ID, resolve, new Date(now.getTime() + 13 * 60 * 60 * 1000));
+  assert.equal(halfDay.estimates.d1, null, 'a 24-hour change goes stale within half a day');
+  assert.ok(halfDay.estimates.d7);
 
   const later = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
   assert.equal(portfolioView(db, ADMIN_ID, resolve, later).estimates.d7, null);

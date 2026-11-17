@@ -5,6 +5,7 @@ import { createResolver, loadAssetRules, type Asset, type Learned } from '../dom
 import { loadConfig, type Config } from '../lib/config.ts';
 import { categoryNames, loadLearned, manualCategories } from '../services/categories.ts';
 import { adminClaimed, openDb } from '../storage/index.ts';
+import { publicAddress } from './address.ts';
 
 export interface Context {
   config: Config;
@@ -13,6 +14,7 @@ export interface Context {
   host: string;
   port: number;
   local: boolean;
+  address: () => Promise<string | null>;
   root: URL;
   categories: string[];
   learned: Learned;
@@ -33,6 +35,7 @@ export function createContext({
   env = process.env,
 }: ContextOptions = {}): Context {
   const host = env.HOST ?? '127.0.0.1';
+  const loopback = ['127.0.0.1', 'localhost', '::1'].includes(host);
   const rules = loadAssetRules();
   const learned = loadLearned(db);
   const claimed = adminClaimed(db);
@@ -42,7 +45,8 @@ export function createContext({
     demo: env.DEMO === '1',
     host,
     port: Number(env.PORT ?? 8787),
-    local: ['127.0.0.1', 'localhost', '::1'].includes(host) && env.REQUIRE_LOGIN !== '1',
+    local: loopback && env.REQUIRE_LOGIN !== '1',
+    address: publicAddress(loopback ? '' : config.domain),
     root: new URL('../../', import.meta.url),
     categories: categoryNames(rules),
     learned,

@@ -6,7 +6,7 @@ import { fetchMissingLogos, noteLogos } from '../services/logos.ts';
 import { runSignals } from '../services/signals.ts';
 import { wantedLogos } from '../services/view.ts';
 import { fetchChains, seedZerionDayLimit, zerionDayUsedUp, zerionQuota } from '../sources/zerion.ts';
-import { currentState, getSetting, latestSignals, listSnapshots, listWallets, setSetting } from '../storage/index.ts';
+import { currentState, getSetting, listSnapshots, listWallets, setSetting } from '../storage/index.ts';
 import type { Context } from './context.ts';
 
 interface Progress {
@@ -27,6 +27,7 @@ export interface Collection {
 
 const LAST_FULL_RUN = 'collected_all_at';
 const ZERION_DAY_LIMIT = 'zerion_day_limit';
+const SIGNALS_AT = 'signals_at';
 
 export function createCollection(ctx: Context, log: FastifyBaseLogger): Collection {
   const { db, config } = ctx;
@@ -61,9 +62,14 @@ export function createCollection(ctx: Context, log: FastifyBaseLogger): Collecti
   };
 
   const refreshSignals = async (): Promise<void> => {
-    const newest = latestSignals(db).reduce((max, s) => (s.time > max ? s.time : max), '');
-    if (newest && Date.now() - Date.parse(newest) < config.schedule.signalsMinutes * 60_000) return;
+    if (Date.now() - Number(getSetting(db, SIGNALS_AT) ?? 0) < config.schedule.signalsMinutes * 60_000) return;
     await runSignals(db, config, ctx.resolve);
+    setSetting(db, SIGNALS_AT, String(Date.now()));
+  };
+
+  const signalsFor = async (accountId: number): Promise<void> => {
+    const state = currentState(db, 'all').find((s) => s.account.id === accountId);
+    await runSignals(db, config, ctx.resolve, new Set(state?.holdings.map((h) => ctx.resolve(h.symbol).key)));
   };
 
   const refreshCategories = async (): Promise<void> => {
@@ -134,6 +140,8 @@ export function createCollection(ctx: Context, log: FastifyBaseLogger): Collecti
     enqueue(async () => {
       await runCollection(db, config, track, { only: [accountId], defiEveryMs: plan().defiEveryMinutes * 60_000 });
       rememberLimit();
+      if (progress) progress.phase = 'signals';
+      await signalsFor(accountId);
       void refreshLogos();
       void refreshCategories();
     });

@@ -3,7 +3,7 @@ import { chart } from './overview.js';
 import { $, DUST_USD, busy, state } from './state.js';
 
 const VIEWS = ['overview', 'positions', 'signals', 'defi', 'accounts'];
-const tabs = () => [...document.querySelectorAll('[role="tab"]')];
+const tabs = () => [...document.querySelectorAll('[role="tab"]')].filter((tab) => !tab.hidden);
 
 function showView(id, focus = false) {
   for (const open of document.querySelectorAll('.popover:popover-open')) open.hidePopover();
@@ -28,7 +28,10 @@ export function renderCounts() {
   set('positions', String(data.assets.filter((a) => Math.abs(a.value) >= DUST_USD).length || ''));
   const hot = data.assets.filter((a) => a.signal?.zone === 'overheated' && Math.abs(a.value) >= DUST_USD).length;
   set('signals', hot ? `${hot} hot` : '', hot ? 'hot' : '');
-  set('defi', String(defiGroups(data.holdings).length || ''));
+  const defi = defiGroups(data.holdings).length;
+  set('defi', String(defi || ''));
+  document.querySelector('[data-view="defi"]').hidden = defi === 0;
+  if (defi === 0 && state.view === 'defi') showView('overview');
   const troubled = data.sources.filter((s) => s.stale || (s.status === null && !busy())).length;
   set('accounts', troubled ? `${troubled} !` : String(data.sources.length), troubled ? 'warn' : '');
 }

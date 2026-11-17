@@ -3,9 +3,10 @@
 ## The dashboard
 
 The top of the page is the net worth, the change over 24 hours, 7 and 30 days, the crypto Fear & Greed
-index, and the accounts as chips, largest first. Until the history reaches 7 or 30 days back, those two changes
-are estimates marked **≈**: today's holdings at the prices of that many days ago. Their help button says how
-much of the portfolio they cover. A chip spins while its account is being read and shows a
+index, and the accounts as chips, largest first. Until the history reaches that far back, those changes
+are estimates marked **≈**: today's holdings at the prices of 24 hours, 7 or 30 days ago. Their help button says
+how much of the portfolio they cover. Where there is nothing to estimate yet, a dash stands in, and hovering it
+says when the change appears. A chip spins while its account is being read and shows a
 warning when it is out of date. With more than ten accounts, the smaller ones fold into a **more** chip that
 opens the Accounts view, but an account that is not read yet or out of date always keeps its chip. **Add
 wallet or exchange** is at the end of the chips.
@@ -17,7 +18,7 @@ Below, five views:
 - **Positions**: every asset with its quantity, price, value, share, changes and heat. RSI and funding are in Signals. Select an
   asset to see every account, chain and protocol it is held in. Click its category to change it.
 - **Signals**: the heat of the portfolio and of each asset.
-- **DeFi**: positions in protocols, net of loans.
+- **DeFi**: positions in protocols, net of loans. The tab shows only when there are any.
 - **Accounts**: every wallet and exchange, with its status and warnings, to rename or remove.
 
 **Settings** (top right) has privacy, shared links, update status, people for the admin, and the session.
@@ -59,7 +60,7 @@ This describes market conditions. It is not advice to buy or sell.
 [`assets.json`](../assets.json) decides how holdings are merged and grouped: which wrappers count as the same
 asset (WETH and stETH as ETH), which category an asset belongs to, and which tickers are stocks. Tokenized
 stocks are matched by suffix, so `NVDAx`, `NVDAB` and `NVDAon` all count as NVDA. Aave deposit receipts count
-as the token that was lent: `aEthWETH` is ETH.
+as the token that was lent: `aEthWETH` is ETH. TON, the coin's name until its 2026 rename, counts as GRAM.
 
 An asset the file does not mention is looked up on CoinGecko by ticker, and the coin's tags decide its
 category. When the lookup is wrong or finds nothing, click the category next to the asset in Positions and

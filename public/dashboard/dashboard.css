@@ -132,7 +132,7 @@ main > .summary {
   margin: 0 -28px;
   padding: 0 28px;
   background: var(--ink);
-  border-bottom: 1px solid var(--line);
+  box-shadow: inset 0 -1px 0 var(--line);
 }
 
 .views-worth {
@@ -160,6 +160,8 @@ main > .summary {
   gap: 4px;
   min-width: 0;
   overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
   scrollbar-width: none;
 }
 
@@ -194,7 +196,7 @@ main > .summary {
   position: absolute;
   left: 12px;
   right: 12px;
-  bottom: -1px;
+  bottom: 0;
   height: 3px;
   border-radius: 3px 3px 0 0;
   background: var(--amber);
@@ -599,27 +601,47 @@ tr[aria-expanded='true'] .chevron {
     padding: 0 16px;
   }
 
-  .views.stuck .views-worth {
+  .views-worth {
     display: none;
   }
 
   .tabs {
+    flex: 1;
+    justify-content: space-between;
     gap: 0;
+    overflow: hidden;
   }
 
   .tabs .count:not(.hot):not(.warn) {
     display: none;
   }
 
+  .tabs .count.hot,
+  .tabs .count.warn {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    font-size: 0;
+  }
+
   .tabs button {
     gap: 5px;
-    padding: 14px 8px 13px;
+    padding: 14px 4px 13px;
     font-size: 14px;
   }
 
+  .tabs button:last-child {
+    padding-right: 0;
+  }
+
   .tabs button[aria-selected='true']::after {
-    left: 8px;
-    right: 8px;
+    left: 4px;
+    right: 4px;
+  }
+
+  .tabs button:last-child[aria-selected='true']::after {
+    right: 0;
   }
 
   .view section + section {
@@ -1209,11 +1231,6 @@ body[data-state='reading'] #content {
   }
 }
 
-.pending {
-  font: 400 13px/1.3 var(--body);
-  color: var(--dim);
-}
-
 .onboarding {
   max-width: 760px;
   margin-top: 40px;
@@ -1356,6 +1373,19 @@ body[data-state='reading'] #content {
 
   .onboarding {
     margin-top: 24px;
+  }
+}
+
+@media (max-width: 360px) {
+  .tabs button {
+    gap: 4px;
+    padding-inline: 3px;
+    font-size: 12.5px;
+  }
+
+  .tabs button[aria-selected='true']::after {
+    left: 3px;
+    right: 3px;
   }
 }
 

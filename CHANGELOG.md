@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- On a phone the tab bar stays where it is. It could scroll by a pixel, so a swipe on it dragged the tabs up,
+  down and sideways, and an invisible copy of the net worth took the room of the last tab, cutting Accounts to
+  "Acco". The five tabs now share the width, and the overheated and trouble counts are a dot there.
+- A new person sees changes at once. The 24-hour change is estimated from prices too, signals and price
+  changes are computed for a new account's assets right after it is read instead of up to four hours later, and
+  a change that cannot be shown yet is a dash instead of "in 7 days" under "7 days".
+- The DeFi tab shows only when there are DeFi positions.
+- The Dismiss link of a notice no longer breaks into letters on a narrow screen.
+- TON and GRAM are one asset. The coin was renamed GRAM in 2026, exchanges list it as GRAM, and TON wallets were
+  still read as TON, so the same coin showed twice. TON wallets are read as GRAM now, and TON counts as GRAM in
+  history too. Its heat comes from the GRAM market, since the TON one stopped.
+- Exchange keys need not be bound to an IP address. The dialog asks for none on Binance and OKX. On Bybit and Gate,
+  which turn off an unbound key after three months and 90 days, it shows this server's address with a Copy
+  button, and adding an unbound key there warns that it will stop. Other keys no longer warn about IP addresses,
+  and neither does `npm run check`.
 - `npm run wallets` is gone. Wallets are added, renamed and removed on the dashboard, which also reads a new one
   straight away.
 - A `binance` block in `config.json` is no longer imported. Installs from before exchanges were added on the

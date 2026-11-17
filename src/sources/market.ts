@@ -28,6 +28,13 @@ export async function closes(
   return rows.map((r) => Number(r[4]));
 }
 
+export async function change24h(market: 'spot' | 'futures', symbol: string): Promise<number | null> {
+  const base = market === 'spot' ? `${SPOT}/api/v3/ticker/24hr` : `${FUTURES}/fapi/v1/ticker/24hr`;
+  const { priceChangePercent } = await getJson<{ priceChangePercent?: string }>(`${base}?symbol=${symbol}`);
+  const percent = Number(priceChangePercent);
+  return priceChangePercent !== undefined && Number.isFinite(percent) ? percent / 100 : null;
+}
+
 export async function funding8hPct(symbol: string, now = Date.now()): Promise<number | null> {
   const rows = await getJson<{ fundingRate: string }[]>(
     `${FUTURES}/fapi/v1/fundingRate?symbol=${symbol}&startTime=${now - 3 * DAY_MS}&limit=1000`,

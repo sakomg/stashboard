@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { EXCHANGES } from '../../services/exchanges.ts';
+import { CLIENTS, EXCHANGE_KINDS } from '../../services/exchanges.ts';
 import { historyView, portfolioView } from '../../services/view.ts';
 import { fearGreed } from '../../sources/feargreed.ts';
 import { zerionQuota } from '../../sources/zerion.ts';
@@ -34,7 +34,8 @@ export function registerDashboardRoutes(
       update: collection.gate(),
       demo: ctx.demo,
       heat: { weights: ctx.config.heat.weights, zones: ctx.config.heat.zones },
-      exchanges: EXCHANGES,
+      serverAddress: await ctx.address(),
+      ipRequired: Object.fromEntries(EXCHANGE_KINDS.map((kind) => [kind, CLIENTS[kind].ipRequired])),
       preferences: { hideAmounts: me?.hideAmounts ?? false },
       collectEveryMinutes: collection.everyMinutes,
       loginEnabled: ctx.auth.claimed,

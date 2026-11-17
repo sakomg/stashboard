@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { errorText } from '../../lib/errors.ts';
 import { setManualCategory } from '../../services/categories.ts';
-import { addExchange, CLIENTS, isExchange, type ExchangeKeys } from '../../services/exchanges.ts';
+import { addExchange, bindingAdvice, CLIENTS, isExchange, type ExchangeKeys } from '../../services/exchanges.ts';
 import { addWallet, removeAccount, renameAccount } from '../../storage/index.ts';
 import type { Collection } from '../collection.ts';
 import type { Context } from '../context.ts';
@@ -66,9 +66,7 @@ export function registerAccountRoutes(app: FastifyInstance, ctx: Context, collec
       return {
         id: account.id,
         label: account.label,
-        warning: ipRestricted
-          ? null
-          : "The key is not restricted to trusted IP addresses. Restricting it to this server's address is safer.",
+        warning: bindingAdvice(exchange, ipRestricted, await ctx.address()),
       };
     } catch (err) {
       return reply.code(400).send({ error: errorText(err) });

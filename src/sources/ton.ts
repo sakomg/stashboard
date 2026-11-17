@@ -21,21 +21,21 @@ export async function collectTon(apiKey: string, address: string): Promise<Colle
     `${API}/rates?tokens=ton&currencies=usd`,
     headers,
   );
-  const tonPrice = rates.rates.TON?.prices?.USD;
-  const ton = account.balance / 1e9;
-  if (ton > 0) {
-    if (tonPrice) {
+  const gramPrice = rates.rates.TON?.prices?.USD;
+  const gram = account.balance / 1e9;
+  if (gram > 0) {
+    if (gramPrice) {
       holdings.push({
         chain: 'ton',
         protocol: null,
-        symbol: 'TON',
-        quantity: ton,
-        price: tonPrice,
-        value: ton * tonPrice,
+        symbol: 'GRAM',
+        quantity: gram,
+        price: gramPrice,
+        value: gram * gramPrice,
         type: 'wallet',
       });
     } else {
-      warnings.push(`no price for ${ton} TON`);
+      warnings.push(`no price for ${gram} GRAM`);
     }
   }
 

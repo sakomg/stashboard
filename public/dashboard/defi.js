@@ -1,7 +1,7 @@
-import { h, icon, skeleton } from '/common/ui.js';
+import { h, icon } from '/common/ui.js';
 import { ago, money, units } from './format.js';
 import { TYPES, chainLogo, chainName, isExchange, logo } from './logos.js';
-import { $, DUST_USD, firstRead, state } from './state.js';
+import { $, DUST_USD, state } from './state.js';
 
 function readNote(items) {
   const oldest = items.reduce((min, x) => (x.readAt && (!min || x.readAt < min) ? x.readAt : min), null);
@@ -68,15 +68,4 @@ export function renderDefi() {
       ),
     ),
   );
-  if (protocols.length === 0) {
-    $('defi-list').replaceChildren(
-      firstRead()
-        ? skeleton('sk-card')
-        : h(
-            'p',
-            { class: 'empty' },
-            'No DeFi positions found. Deposits, loans, staking and rewards in protocols appear here.',
-          ),
-    );
-  }
 }

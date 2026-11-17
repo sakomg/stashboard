@@ -222,6 +222,20 @@ test('on this machine alone, without sign-in, the dashboard is the admin’s and
   assert.equal(await status(app, '/join'), '302 /setup');
 });
 
+test('the page learns which exchanges turn off an unbound key, and no server address on this machine alone', async () => {
+  const db = openDb(mkdtempSync(join(tmpdir(), 'stashboard-test-')));
+  const config = { ...loadConfig('config.example.json'), domain: 'stash.example.com' };
+  const { app } = createApp(createContext({ config, db, env: { HOST: '127.0.0.1' } }));
+  const view = (await call(app, 'GET', '/api/portfolio')).json();
+  assert.equal(view.serverAddress, null);
+  assert.deepEqual(
+    Object.entries(view.ipRequired)
+      .filter(([, reason]) => reason)
+      .map(([kind]) => kind),
+    ['bybit', 'gate'],
+  );
+});
+
 test('dismissing an overheated asset takes a list of asset names', async () => {
   const { app, db } = server({}, true);
   const admin = sessionOf(db, ADMIN_ID);

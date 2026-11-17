@@ -19,14 +19,25 @@ function historyDue(days) {
   return due > 0 ? `in ${inTime(due)}` : 'soon';
 }
 
-const pendingChange = (days) => h('span', { class: 'pending' }, historyDue(days));
-
-const changeOrPending = (value, days) => (value == null ? pendingChange(days) : change(value));
-
 function periodFact(label, days, key) {
   const value = state.data.changes[key];
-  const estimate = state.data.estimates?.[key];
-  if (value != null || !estimate) return h('div', {}, h('dt', {}, label), h('dd', {}, changeOrPending(value, days)));
+  const estimate = state.data.estimates[key];
+  if (value != null) return h('div', {}, h('dt', {}, label), h('dd', {}, change(value)));
+  if (!estimate) {
+    const due = `Appears ${historyDue(days)}`;
+    return h(
+      'div',
+      {},
+      h('dt', {}, label),
+      h(
+        'dd',
+        { title: due },
+        h('span', { class: 'num muted', 'aria-hidden': 'true' }, '—'),
+        h('span', { class: 'sr-only' }, due),
+      ),
+    );
+  }
+  const span = days === 1 ? '24 hours' : `${days} days`;
   return h(
     'div',
     { class: 'estimated' },
@@ -35,9 +46,9 @@ function periodFact(label, days, key) {
       {},
       label,
       help({
-        title: `Estimated ${days}-day change`,
-        text: `History does not reach ${days} days back yet, so this is today's holdings priced ${days} days ago. It covers ${Math.round(estimate.coverage * 100)}% of the portfolio: assets with a Binance market, and stablecoins at $1. Deposits, withdrawals and trades in between are not in it. The change from history takes over ${historyDue(days)}.`,
-        source: SOURCES.dailyPrices,
+        title: `Estimated ${days === 1 ? '24-hour' : `${days}-day`} change`,
+        text: `History does not reach ${span} back yet, so this is today's holdings priced ${span} ago. It covers ${Math.round(estimate.coverage * 100)}% of the portfolio: assets with a Binance market, and stablecoins at $1. Deposits, withdrawals and trades in between are not in it. The change from history takes over ${historyDue(days)}.`,
+        source: days === 1 ? SOURCES.dayTicker : SOURCES.dailyPrices,
       }),
     ),
     h(
@@ -68,9 +79,8 @@ export function renderSummary() {
   privacy.querySelector('use').setAttribute('href', `/icons.svg#${state.hideAmounts ? 'eye-off' : 'eye'}`);
   $('views-worth').textContent = moneyRound(data.netWorth);
 
-  const fact = (label, ...value) => h('div', {}, h('dt', {}, label), h('dd', {}, ...value));
   $('facts').replaceChildren(
-    fact('24 hours', changeOrPending(data.changes.d1, 1)),
+    periodFact('24 hours', 1, 'd1'),
     periodFact('7 days', 7, 'd7'),
     periodFact('30 days', 30, 'd30'),
     ...(data.fearGreed

@@ -61,7 +61,7 @@ const TODAY: Record<string, number> = {
   ETH: 1_832,
   SOL: 72.6,
   BNB: 597,
-  TON: 1.05,
+  GRAM: 1.05,
   ARB: 0.136,
   LDO: 0.274,
   JUP: 0.41,
@@ -136,7 +136,7 @@ const POSITIONS: Position[] = [
     type: 'wallet',
     quantity: (step) => (step < 300 ? 25_000_000 : 48_000_000),
   },
-  { account: tonkeeper.id, chain: 'ton', protocol: null, symbol: 'TON', type: 'wallet', quantity: fixed(880) },
+  { account: tonkeeper.id, chain: 'ton', protocol: null, symbol: 'GRAM', type: 'wallet', quantity: fixed(880) },
   { account: tonkeeper.id, chain: 'ton', protocol: null, symbol: 'NOT', type: 'wallet', quantity: fixed(1_400_000) },
 ];
 
@@ -169,7 +169,7 @@ const READINGS: Record<string, Readings> = {
   ETH: { rsiDaily: 24, rsiWeekly: 31, funding: 0.002, ma200: -38, oiGrowth: -9 },
   SOL: { rsiDaily: 36, rsiWeekly: 41, funding: 0.006, ma200: -21, oiGrowth: 2 },
   BNB: { rsiDaily: 44, rsiWeekly: 47, funding: 0.008, ma200: -4, oiGrowth: 1 },
-  TON: { rsiDaily: 45, rsiWeekly: 47, funding: 0.01, ma200: 3, oiGrowth: 0 },
+  GRAM: { rsiDaily: 45, rsiWeekly: 47, funding: 0.01, ma200: 3, oiGrowth: 0 },
   ARB: { rsiDaily: 31, rsiWeekly: 38, funding: -0.004, ma200: -29, oiGrowth: -3 },
   LDO: { rsiDaily: 39, rsiWeekly: 40, funding: 0.005, ma200: -22, oiGrowth: 0 },
   JUP: { rsiDaily: 52, rsiWeekly: 49, funding: 0.011, ma200: 6, oiGrowth: 4 },

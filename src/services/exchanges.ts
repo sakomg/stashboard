@@ -18,6 +18,7 @@ interface ExchangeClient {
   ping: () => Promise<string>;
   passphrase: boolean;
   readOnly: string;
+  ipRequired: string | null;
 }
 
 export const CLIENTS: Record<ExchangeKind, ExchangeClient> = {
@@ -27,6 +28,7 @@ export const CLIENTS: Record<ExchangeKind, ExchangeClient> = {
     ping: pingBinance,
     passphrase: false,
     readOnly: 'Create a key with only Enable Reading ticked.',
+    ipRequired: null,
   },
   bybit: {
     check: checkBybitKey,
@@ -34,6 +36,7 @@ export const CLIENTS: Record<ExchangeKind, ExchangeClient> = {
     ping: pingBybit,
     passphrase: false,
     readOnly: 'Create a system-generated key with Read-Only permissions.',
+    ipRequired: 'Bybit turns off a key that is not bound to an IP address after three months.',
   },
   okx: {
     check: checkOkxKey,
@@ -41,6 +44,7 @@ export const CLIENTS: Record<ExchangeKind, ExchangeClient> = {
     ping: pingOkx,
     passphrase: true,
     readOnly: 'Create a key with only the Read permission.',
+    ipRequired: null,
   },
   gate: {
     check: checkGateKey,
@@ -48,8 +52,16 @@ export const CLIENTS: Record<ExchangeKind, ExchangeClient> = {
     ping: pingGate,
     passphrase: false,
     readOnly: 'Set every permission of the key to Read Only and leave Withdraw off.',
+    ipRequired: 'Gate turns off a key that is not bound to an IP address after 90 days.',
   },
 };
+
+export function bindingAdvice(kind: ExchangeKind, ipRestricted: boolean, address: string | null): string | null {
+  const reason = CLIENTS[kind].ipRequired;
+  if (ipRestricted || !reason) return null;
+  const where = address ? `this server's address, ${address},` : "this server's IP address";
+  return `${reason} Bind the key to ${where} to keep it working.`;
+}
 
 const fingerprint = (apiKey: string): string => createHash('sha256').update(apiKey).digest('hex').slice(0, 24);
 

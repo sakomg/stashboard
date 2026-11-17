@@ -8,7 +8,7 @@ const dir = mkdtempSync(join(tmpdir(), 'stashboard-test-'));
 process.env.DATA_DIR = dir;
 
 const { ADMIN_ID, listAccounts, openDb, removeAccount } = await import('../../src/storage/index.ts');
-const { addExchange, exchangeHints, exchangeKeys } = await import('../../src/services/exchanges.ts');
+const { addExchange, bindingAdvice, exchangeHints, exchangeKeys } = await import('../../src/services/exchanges.ts');
 const { seal, unseal, vaultKey } = await import('../../src/storage/vault.ts');
 
 const keys = { apiKey: 'A'.repeat(60) + 'wxyz', apiSecret: 'S'.repeat(64) };
@@ -38,6 +38,17 @@ test('an exchange key is kept sealed, shown by its last characters, and removed 
 
   assert.ok(removeAccount(db, ADMIN_ID, account.id));
   assert.equal(exchangeKeys(db, account.id), null);
+});
+
+test('a key need not be bound to an IP address, except where the exchange turns an unbound one off', () => {
+  assert.equal(bindingAdvice('binance', false, '203.0.113.7'), null);
+  assert.equal(bindingAdvice('okx', false, null), null);
+  assert.equal(bindingAdvice('bybit', true, '203.0.113.7'), null);
+  assert.equal(
+    bindingAdvice('bybit', false, '203.0.113.7'),
+    "Bybit turns off a key that is not bound to an IP address after three months. Bind the key to this server's address, 203.0.113.7, to keep it working.",
+  );
+  assert.match(bindingAdvice('gate', false, null) ?? '', /90 days\. Bind the key to this server's IP address to keep/);
 });
 
 test('the same API key cannot be added twice', () => {
