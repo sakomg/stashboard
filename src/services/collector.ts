@@ -52,7 +52,7 @@ function collectAccount(
       if (!config.zerion.apiKey) throw new Error('Zerion key is not set in config.json');
       return collectZerion(db, config.zerion.apiKey, account.address, 'solana', { onWait });
     case 'ton':
-      return collectTon(config.tonapi.apiKey, account.address);
+      return collectTon(config.tonapi.apiKey, account.address, onWait);
   }
 }
 

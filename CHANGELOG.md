@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- TON wallets no longer fail with "tonapi.io → HTTP 429" when there are many of them. Requests to TonAPI are
+  spaced under its free tier's one a second, the GRAM price is asked once per update instead of once per
+  wallet, and a refused request is tried again after a pause shown on the wallet's chip.
 - The line under _Add your first account_ is as wide as the cards below it, so on a computer it fits on one line.
 - The admin can reset a friend's sign-in. The key next to their name under People copies a reset link that
   works once, for 7 days. On it the friend chooses a new password and adds the authenticator again, and keeps
