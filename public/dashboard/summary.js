@@ -64,8 +64,9 @@ function periodFact(label, days, key) {
 export function renderSummary() {
   const { data } = state;
   if (viewing) {
-    const { rank, portfolios, you } = data.board;
-    $('viewing-place').textContent = rank ? `${rank} of ${portfolios}${you ? ', you' : ''}` : 'You, as others see you';
+    const { name, rank, portfolios, you } = data.board;
+    const place = [rank && `${rank} of ${portfolios}`, you && 'you'].filter(Boolean).join(', ');
+    $('viewing-place').replaceChildren(h('b', {}, name), place && ` ${place}`);
   }
   const [whole, cents] = usd(data.netWorth).split('.');
   $('net-worth').replaceChildren(

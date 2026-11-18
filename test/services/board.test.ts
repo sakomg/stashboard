@@ -70,10 +70,18 @@ test('the board ranks everyone by net worth, and each row is a key, not a person
   const keys = board.rows.map((r) => r.key);
   assert.equal(new Set(keys).size, 4);
   for (const key of keys) assert.match(key, /^[A-Za-z0-9_-]{8}$/);
+  const names = board.rows.map((r) => r.name);
+  assert.equal(new Set(names).size, 4);
+  for (const name of names) assert.match(name, /^\S(.*\S)?$/);
   assert.deepEqual(
-    boardView(db, ADMIN_ID, resolveFor).rows.map((r) => r.key),
-    keys,
-    'a key stays the same',
+    boardView(db, ids[2]!, resolveFor).rows.map((r) => [r.key, r.name]),
+    board.rows.map((r) => [r.key, r.name]),
+    'a key and a name stay the same',
+  );
+  assert.deepEqual(
+    boardView(db, ADMIN_ID, resolveFor).rows.map((r) => [r.key, r.name]),
+    board.rows.map((r, i) => [r.key, ['Friend 2', 'Friend 1', 'Friend 0', 'admin'][i]]),
+    'the admin sees who is who',
   );
   const text = JSON.stringify(board);
   for (const secret of ['Wallet of', 'Friend', '0x', '"id"', 'admin']) assert.ok(!text.includes(secret), secret);
@@ -83,7 +91,7 @@ test('a portfolio on the board opens as the dashboard, without account names or 
   const { db, ids } = seeded(4);
   const top = boardView(db, ids[1]!, resolveFor).rows[0]!;
   const view = boardPortfolio(db, ids[1]!, top.key, resolveFor)!;
-  assert.deepEqual(view.board, { rank: 1, portfolios: 4, you: false });
+  assert.deepEqual(view.board, { name: top.name, rank: 1, portfolios: 4, you: false });
   assert.equal(view.netWorth, 8100.5);
   assert.deepEqual(
     view.sources.map((s) => [s.id, s.label, s.address, s.error, s.warnings]),
@@ -118,6 +126,7 @@ test(`the board opens at ${BOARD_MINIMUM} portfolios, and people without account
   assert.equal(boardPortfolio(db, ids[0]!, other, resolveFor), null, 'nor anyone else’s portfolio');
   assert.equal(boardHistory(db, ids[0]!, other, resolveFor, null), null);
   assert.deepEqual(boardPortfolio(db, ids[0]!, mine.rows[0]!.key, resolveFor)?.board, {
+    name: mine.rows[0]!.name,
     rank: null,
     portfolios: BOARD_MINIMUM - 1,
     you: true,

@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
+import { pickName } from '../domain/board.ts';
 import { seal, unseal } from './vault.ts';
 
 export const ADMIN_ID = 1;
@@ -30,6 +31,7 @@ interface UserRow {
   hide_amounts: number;
   on_board: number;
   board_key: string | null;
+  board_name: string | null;
   created_at: string;
   password_hash: string | null;
   totp_secret: string | null;
@@ -147,19 +149,25 @@ export function setOnBoard(db: DatabaseSync, id: number, on: boolean): void {
 interface BoardMember {
   id: number;
   key: string;
+  name: string;
+  person: string;
+  admin: boolean;
   onBoard: boolean;
 }
 
-export function boardMembers(db: DatabaseSync): BoardMember[] {
+export function boardMembers(db: DatabaseSync, random: () => number = Math.random): BoardMember[] {
   const rows = db.prepare('SELECT * FROM users ORDER BY id').all() as unknown as UserRow[];
-  const assign = db.prepare('UPDATE users SET board_key = ? WHERE id = ?');
+  const names = new Set(rows.flatMap((r) => (r.board_name ? [r.board_name] : [])));
+  const assign = db.prepare('UPDATE users SET board_key = ?, board_name = ? WHERE id = ?');
   return rows.map((r) => {
     let key = r.board_key;
-    if (!key) {
-      key = randomBytes(6).toString('base64url');
-      assign.run(key, r.id);
+    let name = r.board_name;
+    if (!key || !name) {
+      key ??= randomBytes(6).toString('base64url');
+      if (!name) names.add((name = pickName(names, random)));
+      assign.run(key, name, r.id);
     }
-    return { id: r.id, key, onBoard: r.on_board === 1 };
+    return { id: r.id, key, name, person: r.name, admin: r.admin === 1, onBoard: r.on_board === 1 };
   });
 }
 

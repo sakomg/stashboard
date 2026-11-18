@@ -490,22 +490,30 @@ stylesheet, the common ones, the logo and the font). A dead link answers 404 wit
 
 ## Board
 
-The board is a list of the portfolios of everyone on the server, largest first, without names: the place, the
-net worth, how many wallets and how many exchanges. Everyone is on it until they leave (`on_board` in `users`,
+The board is a short table of the portfolios of everyone on the server, largest first: the place, a made-up
+name, the net worth and how many wallets and exchanges. Everyone is on it until they leave (`on_board` in `users`,
 the switch in Settings or _Join the board_ in the view). Leaving works both ways: whoever is not on the board
 does not see it, only their own row.
 
-Each row links to `/board/<key>`, the dashboard page itself, served with `data-viewing` on `<body>`. The page
+The name links to `/board/<key>`, the dashboard page itself, served with `data-viewing` on `<body>`. The page
 then reads `/api/board/<key>/portfolio` and `/api/board/<key>/history` instead of `/api/portfolio` and
-`/api/history` (`apiBase` in `state.js`), and shows a line with the way back and the place. The answer is the
+`/api/history` (`apiBase` in `state.js`), and shows a line with the way back, the name and the place. The answer is the
 owner's own view with every account renamed after its kind and numbered when there are several (`Binance`,
 `Solana wallet 2`), its id replaced by a negative number, and its address, errors and warnings left out.
 Settings, updating, adding accounts, sharing, notices, the Accounts tab and choosing categories are off. The
 open view is not remembered, so going back opens the list again.
 
-The key is 8 random characters kept in `users.board_key`, made the first time the board is built, so a link
-says nothing about who joined when. Ties in net worth are ordered by key. A key that is not on the board, or
-not visible to this person, answers 404 like a key that does not exist.
+The key is 8 random characters kept in `users.board_key`, and the name a Grand Theft Auto character
+(`domain/board.ts`, 57 of them, then with a number) drawn at random and kept in `users.board_name`. Both are
+made the first time the board is built, so neither says anything about who joined when. The admin sees
+everyone's real name instead, since they can read the database anyway. Ties in net worth are ordered by name. A
+key that is not on the board, or not visible to this person, answers 404 like a key that does not exist.
+
+Nothing on the board can change anyone's data. The board's own routes only read, and every route that changes
+something works on the signed-in person (`request.userId`), never on a key: renaming or removing an account,
+choosing a category, dismissing heat, preferences and links. An account id seen on the board is negative and
+matches nothing. `test/server/access.test.ts` tries each of these while looking through someone else's
+portfolio and checks that theirs stays as it was.
 
 The board opens at three portfolios. With two, each would know whose the other one is. Until then the answer
 holds only the person's own row, whose link shows how others see them. A person without accounts is not
@@ -729,7 +737,7 @@ and `PRAGMA user_version` records how many have run.
 
 | Table               | Holds                                                                                                          |
 | ------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `users`             | People: name, password hash, authenticator secret and last step, admin, hidden amounts, on board, board key    |
+| `users`             | People: name, password hash, TOTP secret and last step, admin, hidden amounts, on board, board key and name    |
 | `invites`           | Invite and reset tokens, hashed and sealed, who made them, whose sign-in a reset is for, and their expiry      |
 | `accounts`          | Each person's wallets and exchanges; an exchange is an account like any wallet                                 |
 | `snapshots`         | One row per collection run                                                                                     |

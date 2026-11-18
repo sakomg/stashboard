@@ -1,4 +1,4 @@
-import { h, icon } from '/common/ui.js';
+import { h } from '/common/ui.js';
 import { api } from './api.js';
 import { showBanner } from './feedback.js';
 import { money } from './format.js';
@@ -19,22 +19,38 @@ export async function setOnBoard(on) {
   await actions.load();
 }
 
-const list = (rows, ranked) =>
+const table = (rows, ranked) =>
   h(
-    'ol',
-    { class: 'board-list' },
-    ...rows.map((row, i) =>
+    'table',
+    { class: 'board-table' },
+    h(
+      'thead',
+      {},
       h(
-        'li',
-        { class: row.you ? 'you' : '' },
+        'tr',
+        {},
+        h('th', { scope: 'col' }, '#'),
+        h('th', { scope: 'col', class: 'left' }, 'Name'),
+        h('th', { scope: 'col' }, 'Net worth'),
+        h('th', { scope: 'col', class: 'left' }, 'Accounts'),
+      ),
+    ),
+    h(
+      'tbody',
+      {},
+      ...rows.map((row, i) =>
         h(
-          'a',
-          { href: `/board/${row.key}` },
-          h('span', { class: 'num muted' }, ranked ? String(i + 1) : '—'),
-          h('span', { class: 'num worth' }, money(row.netWorth)),
-          h('span', { class: 'muted' }, accountsText(row)),
-          h('span', { class: 'you-mark' }, row.you ? 'you' : ''),
-          icon('chevron-right'),
+          'tr',
+          {},
+          h('td', { class: 'num muted' }, ranked ? String(i + 1) : '—'),
+          h(
+            'td',
+            { class: 'left' },
+            h('a', { href: `/board/${row.key}` }, row.name),
+            row.you && h('span', { class: 'you-mark' }, 'you'),
+          ),
+          h('td', { class: 'num' }, money(row.netWorth)),
+          h('td', { class: 'left muted' }, accountsText(row)),
         ),
       ),
     ),
@@ -44,7 +60,7 @@ export function renderBoard() {
   const { board } = state;
   if (!board) return;
   if (board.open) {
-    $('board').replaceChildren(list(board.rows, true));
+    $('board').replaceChildren(table(board.rows, true));
     return;
   }
   const n = board.portfolios;
@@ -67,6 +83,6 @@ export function renderBoard() {
           ),
           h('button', { class: 'button primary', type: 'button', onclick: () => setOnBoard(true) }, 'Join the board'),
         ),
-    board.rows.length > 0 && list(board.rows, false),
+    board.rows.length > 0 && table(board.rows, false),
   );
 }
