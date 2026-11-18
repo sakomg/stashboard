@@ -1,7 +1,7 @@
 import { checkFilled, checkLength } from '/common/checks.js';
 import { h, iconButton } from '/common/ui.js';
 import { api } from './api.js';
-import { openRemove } from './dialogs.js';
+import { openRemove, openReplaceKey } from './dialogs.js';
 import { ago, money } from './format.js';
 import { KINDS, isExchange, kindLogo } from './logos.js';
 import { $, actions, state } from './state.js';
@@ -37,6 +37,7 @@ export function renderAccounts() {
           h(
             'span',
             { class: 'actions' },
+            exchange && iconButton('rotate-ccw-key', `New key for ${w.label}`, () => openReplaceKey(w)),
             iconButton('pencil', `Rename ${w.label}`, () => {
               state.renaming = w.id;
               renderAccounts();

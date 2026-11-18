@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- An exchange takes a new API key without losing its history. When a Bybit or Gate key expires, or you make a
+  new one, the key button of the exchange in Accounts opens the same dialog as adding one. The new key is checked
+  to only read, and the exchange is read again straight away. Before, the only way was to remove the exchange,
+  which deleted its history, and add it again.
 - A wallet or exchange you add no longer shows as growth. The 24-hour, 7-day and 30-day changes compare only
   the accounts that were already there, so adding a $20,000 exchange to a $2,000 wallet yesterday no longer
   reads as +1,000% today. While those accounts hold less than half of the portfolio, the change is the

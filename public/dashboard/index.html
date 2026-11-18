@@ -245,6 +245,7 @@
           </button>
         </header>
         <div id="add-kind"></div>
+        <p class="dialog-text" id="replace-text" hidden></p>
         <div class="fields" id="wallet-fields">
           <div class="field">
             <label for="add-address">Address</label>
@@ -256,7 +257,7 @@
           <p class="detected" id="detected" aria-live="polite"></p>
         </div>
         <div class="fields" id="exchange-fields" hidden>
-          <div class="field">
+          <div class="field" id="exchange-field">
             <span id="exchange-label">Exchange</span>
             <div id="exchange-select"></div>
           </div>
@@ -275,7 +276,7 @@
           <p class="hint" id="exchange-hint"></p>
           <div class="ip-note" id="exchange-ip" aria-live="polite" hidden></div>
         </div>
-        <label>
+        <label id="label-field">
           <span>Name</span>
           <input name="label" placeholder="Optional" />
         </label>

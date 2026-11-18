@@ -105,6 +105,9 @@ only ever shows the last four characters of the key.
 A key need not be bound to an IP address. Bybit and Gate turn off a key without one after a while, so for them
 the dialog shows your server's address with a copy button to bind the key to.
 
+When a key expires or you make a new one, give it to the exchange in the Accounts view with its key button. The
+exchange keeps its history, which removing it and adding it again would delete.
+
 **Binance.** Open **API Management**, create a **System generated** key, tick **Enable Reading** only, and
 leave IP access unrestricted.
 

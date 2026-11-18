@@ -1,13 +1,52 @@
 import type { FastifyInstance } from 'fastify';
 import { errorText } from '../../lib/errors.ts';
 import { setManualCategory } from '../../services/categories.ts';
-import { addExchange, bindingAdvice, CLIENTS, isExchange, type ExchangeKeys } from '../../services/exchanges.ts';
-import { addWallet, removeAccount, renameAccount } from '../../storage/index.ts';
+import {
+  addExchange,
+  bindingAdvice,
+  CLIENTS,
+  isExchange,
+  replaceExchangeKeys,
+  type ExchangeKeys,
+  type ExchangeKind,
+} from '../../services/exchanges.ts';
+import { addWallet, listAccounts, removeAccount, renameAccount } from '../../storage/index.ts';
 import type { Collection } from '../collection.ts';
 import type { Context } from '../context.ts';
 
 const API_KEY = /^[A-Za-z0-9-]{16,128}$/;
 const PASSPHRASE = /^[\x20-\x7e]{1,64}$/;
+
+interface KeyBody {
+  apiKey?: unknown;
+  apiSecret?: unknown;
+  passphrase?: unknown;
+}
+
+type Checked = { keys: ExchangeKeys; ipRestricted: boolean } | { error: string };
+
+async function checkedKeys(kind: ExchangeKind, body: KeyBody): Promise<Checked> {
+  const client = CLIENTS[kind];
+  const key = typeof body.apiKey === 'string' ? body.apiKey.trim() : '';
+  const secret = typeof body.apiSecret === 'string' ? body.apiSecret.trim() : '';
+  if (!API_KEY.test(key) || !API_KEY.test(secret)) {
+    return { error: 'Paste the API key and the secret key exactly as the exchange shows them' };
+  }
+  const keys: ExchangeKeys = { apiKey: key, apiSecret: secret };
+  if (client.passphrase) {
+    if (typeof body.passphrase !== 'string' || !PASSPHRASE.test(body.passphrase)) {
+      return { error: 'Enter the passphrase you set when you created the key' };
+    }
+    keys.passphrase = body.passphrase;
+  }
+  try {
+    const { extra, ipRestricted, host } = await client.check(keys);
+    if (extra.length > 0) return { error: `This key can do more than read: ${extra.join(', ')}. ${client.readOnly}` };
+    return { keys: host ? { ...keys, host } : keys, ipRestricted };
+  } catch (err) {
+    return { error: errorText(err) };
+  }
+}
 
 export function registerAccountRoutes(app: FastifyInstance, ctx: Context, collection: Collection): void {
   app.post<{ Body: { address?: unknown; label?: unknown } }>('/api/wallets', async (request, reply) => {
@@ -28,46 +67,44 @@ export function registerAccountRoutes(app: FastifyInstance, ctx: Context, collec
     }
   });
 
-  app.post<{
-    Body: { exchange?: unknown; apiKey?: unknown; apiSecret?: unknown; passphrase?: unknown; label?: unknown };
-  }>('/api/exchanges', async (request, reply) => {
-    const { exchange, apiKey, apiSecret, passphrase, label } = request.body ?? {};
+  app.post<{ Body: KeyBody & { exchange?: unknown; label?: unknown } }>('/api/exchanges', async (request, reply) => {
+    const { exchange, label } = request.body ?? {};
     if (typeof exchange !== 'string' || !isExchange(exchange)) {
       return reply.code(400).send({ error: 'Choose an exchange' });
     }
-    const client = CLIENTS[exchange];
-    const key = typeof apiKey === 'string' ? apiKey.trim() : '';
-    const secret = typeof apiSecret === 'string' ? apiSecret.trim() : '';
-    if (!API_KEY.test(key) || !API_KEY.test(secret)) {
-      return reply.code(400).send({ error: 'Paste the API key and the secret key exactly as the exchange shows them' });
-    }
-    const keys: ExchangeKeys = { apiKey: key, apiSecret: secret };
-    if (client.passphrase) {
-      if (typeof passphrase !== 'string' || !PASSPHRASE.test(passphrase)) {
-        return reply.code(400).send({ error: 'Enter the passphrase you set when you created the key' });
-      }
-      keys.passphrase = passphrase;
-    }
+    const checked = await checkedKeys(exchange, request.body ?? {});
+    if ('error' in checked) return reply.code(400).send({ error: checked.error });
     try {
-      const { extra, ipRestricted, host } = await client.check(keys);
-      if (extra.length > 0) {
-        return reply.code(400).send({
-          error: `This key can do more than read: ${extra.join(', ')}. ${client.readOnly}`,
-        });
-      }
       const account = addExchange(
         ctx.db,
         request.userId,
         exchange,
-        host ? { ...keys, host } : keys,
+        checked.keys,
         typeof label === 'string' ? label.slice(0, 40) : undefined,
       );
       void collection.readAccount(account.id);
       return {
         id: account.id,
         label: account.label,
-        warning: bindingAdvice(exchange, ipRestricted, await ctx.address()),
+        warning: bindingAdvice(exchange, checked.ipRestricted, await ctx.address()),
       };
+    } catch (err) {
+      return reply.code(400).send({ error: errorText(err) });
+    }
+  });
+
+  app.put<{ Params: { id: string }; Body: KeyBody }>('/api/accounts/:id/key', async (request, reply) => {
+    const id = Number(request.params.id);
+    const account = listAccounts(ctx.db, request.userId).find((a) => a.id === id);
+    if (!account || !isExchange(account.kind)) return reply.code(404).send({ error: 'No such exchange' });
+    const checked = await checkedKeys(account.kind, request.body ?? {});
+    if ('error' in checked) return reply.code(400).send({ error: checked.error });
+    try {
+      if (!replaceExchangeKeys(ctx.db, request.userId, id, checked.keys)) {
+        return reply.code(404).send({ error: 'No such exchange' });
+      }
+      void collection.readAccount(id);
+      return { warning: bindingAdvice(account.kind, checked.ipRestricted, await ctx.address()) };
     } catch (err) {
       return reply.code(400).send({ error: errorText(err) });
     }
