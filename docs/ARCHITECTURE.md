@@ -14,7 +14,8 @@ src/
   storage/         SQLite: schema and migrations, one module per concern, and the vault for secrets
   sources/         one client per external API: Binance, Bybit, OKX, Gate, BingX, Zerion, Lighter, Aster,
                    TonAPI, market data, Fear & Greed
-  services/        processes that combine them: collection, signals, categories, logos, exchanges, shares, views
+  services/        processes that combine them: collection, signals, categories, logos, exchanges, shares, views,
+                   the board
   auth/            password hashing, TOTP, attempt limiting, the setup QR code
   server/          HTTP: context, access control, static files, the collection schedule, routes by area
   cli/             console commands: check, collect, auth-reset, demo
@@ -487,11 +488,34 @@ Without a session, only this is served: the page at `/s/<token>`, its data at `/
 at `/s/<token>/logo/<kind>/<key>` for logos that link's rows name, and the files that page needs (its own script and
 stylesheet, the common ones, the logo and the font). A dead link answers 404 with a plain message.
 
+## Board
+
+The board is a list of the portfolios of everyone on the server, largest first, without names: the place, the
+net worth, how many wallets and how many exchanges. Everyone is on it until they leave (`on_board` in `users`,
+the switch in Settings or _Join the board_ in the view). Leaving works both ways: whoever is not on the board
+does not see it, only their own row.
+
+Each row links to `/board/<key>`, the dashboard page itself, served with `data-viewing` on `<body>`. The page
+then reads `/api/board/<key>/portfolio` and `/api/board/<key>/history` instead of `/api/portfolio` and
+`/api/history` (`apiBase` in `state.js`), and shows a line with the way back and the place. The answer is the
+owner's own view with every account renamed after its kind and numbered when there are several (`Binance`,
+`Solana wallet 2`), its id replaced by a negative number, and its address, errors and warnings left out.
+Settings, updating, adding accounts, sharing, notices, the Accounts tab and choosing categories are off. The
+open view is not remembered, so going back opens the list again.
+
+The key is 8 random characters kept in `users.board_key`, made the first time the board is built, so a link
+says nothing about who joined when. Ties in net worth are ordered by key. A key that is not on the board, or
+not visible to this person, answers 404 like a key that does not exist.
+
+The board opens at three portfolios. With two, each would know whose the other one is. Until then the answer
+holds only the person's own row, whose link shows how others see them. A person without accounts is not
+listed. The tab shows when anyone else is on the board.
+
 ## Security
 
 - **People.** Each person has a name, a password and an authenticator, and sees only their own accounts,
-  history, categories chosen by hand, hidden-amounts setting and shared links. The session decides whose data
-  a request reads: every query of accounts, snapshots, shares and categories takes the person's id, and an
+  history, categories chosen by hand, hidden-amounts setting and shared links. The board is the exception, and
+  shows the others only what Board above lists. The session decides whose data a request reads: every query of accounts, snapshots, shares and categories takes the person's id, and an
   account id or link token of someone else answers 404 as if it did not exist. Collection, signals, logos and
   looked-up categories are shared, since they are about markets rather than anyone's holdings; the logo list
   a page gets names only what that person holds. Names are compared without case or surrounding spaces.
@@ -648,16 +672,18 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
   screen being seen, not a security boundary: the API still returns amounts to the signed-in person. The share
   dialog starts with amounts off while they are hidden.
 
-- **Views.** Overview, Positions, Signals, DeFi and Accounts share one tab bar. The DeFi tab is left out while there
-  is no DeFi position worth a dollar, and the overview opens instead when it was the one open. The bar sticks to the
-  top and shows the net worth at its right end once the large figure scrolls away. The tabs never move: the figure
+- **Views.** Overview, Positions, Signals, DeFi, Accounts and Board share one tab bar. The DeFi tab is left out while
+  there is no DeFi position worth a dollar, and the overview opens instead when it was the one open. The bar sticks to
+  the top and shows the net worth at its right end once the large figure scrolls away. The tabs never move: the figure
   takes space only on the right, so a tab cannot slide from under the pointer when the bar sticks or unsticks. The bar
   is opaque, so nothing shows through it. A short view stays as short as its content: switching to it from deep in a
   long one may unstick the bar, which is harmless now that the tabs do not move. On a phone the tabs share the width
   of the bar, the net worth stays out of it, counts other than overheated assets and accounts in trouble are left out
-  and those two become a dot, so the tabs fit down to 320 pixels. The bar itself never scrolls, and nothing in it
-  reaches past its edge: a bar that could scroll even by a pixel let iOS drag the tabs up, down and sideways under a
-  swipe. Arrow keys move between tabs. Switching from deep in a long view opens the next one at its start. The history
+  and those two become a dot, and Board is a numbered list, so the tabs fit down to 320 pixels with both dots showing. Under
+  375 pixels the tabs are smaller and closer together. The bar itself never scrolls, and nothing in it reaches past
+  its edge: a bar that could scroll even by a pixel let iOS drag the tabs up, down and sideways under a swipe. Arrow
+  keys move between tabs. Tabs get their handlers whether hidden or not, since Board starts hidden. Switching from
+  deep in a long view opens the next one at its start. The history
   chart is resized when the overview is shown, because a chart drawn while hidden has no size. A tab's count is what
   its view lists: DeFi counts its cards, one per protocol and chain worth at least a dollar, from the same grouping
   that draws them.
@@ -703,7 +729,7 @@ and `PRAGMA user_version` records how many have run.
 
 | Table               | Holds                                                                                                          |
 | ------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `users`             | People: name, password hash, authenticator secret and last used step, admin, hidden amounts                    |
+| `users`             | People: name, password hash, authenticator secret and last step, admin, hidden amounts, on board, board key    |
 | `invites`           | Invite and reset tokens, hashed and sealed, who made them, whose sign-in a reset is for, and their expiry      |
 | `accounts`          | Each person's wallets and exchanges; an exchange is an account like any wallet                                 |
 | `snapshots`         | One row per collection run                                                                                     |
@@ -772,7 +798,8 @@ needs ports 80 and 443 reachable from the internet.
 `DEMO=1` and `config.example.json`. The data is deterministic: four accounts (an exchange, an EVM wallet with
 an Aave deposit and loan, a Solana wallet with Jito staking, a TON wallet), 90 days of snapshots every six
 hours from a seeded random walk ending at fixed prices, a few quantity changes so the history moves, and
-signals in all four zones. The addresses are test vectors or random bytes, not anyone's wallet.
+signals in all four zones. Four made-up people with portfolios of their own, from $4,000 to $144,000, fill the
+board, where the admin comes third. The addresses are test vectors or random bytes, not anyone's wallet.
 
 In demo mode the server never collects: no schedule, no collection on start, the update gate is closed with a
 reason, and adding or removing accounts, inviting or removing people, and collecting answer 403. Logos are still

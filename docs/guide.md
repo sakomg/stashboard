@@ -11,7 +11,7 @@ warning when it is out of date. With more than ten accounts, the smaller ones fo
 opens the Accounts view, but an account that is not read yet or out of date always keeps its chip. **Add
 wallet or exchange** is at the end of the chips.
 
-Below, five views:
+Below, five views, and a sixth when friends share the server:
 
 - **Overview**: allocation as a strip with a legend, grouped by category, asset, chain, account or kind, the
   largest positions, and the history chart.
@@ -20,6 +20,7 @@ Below, five views:
 - **Signals**: the heat of the portfolio and of each asset.
 - **DeFi**: positions in protocols, net of loans. The tab shows only when there are any.
 - **Accounts**: every wallet and exchange, with its status and warnings, to rename or remove.
+- **Board**: everyone's portfolio on this server, without names. See [Board](#board).
 
 **Settings** (top right) has privacy, shared links, update status, people for the admin, and the session.
 
@@ -92,6 +93,18 @@ off.
 Every update adds a point to the history. An account joins the history when it is first read, so accounts
 added one at a time show as steps in the chart.
 
+## Board
+
+When friends keep their portfolios on the same server, the Board tab lists everyone by net worth, largest
+first: the place, the amount and how many wallets and exchanges, without names. Yours is marked _you_. A row
+opens that portfolio in the usual dashboard, to look through Overview, Positions, Signals and DeFi. Accounts
+are named after their kind, such as _Binance_ or _Solana wallet 2_, and addresses are never shown. _Board_ at
+the top leads back.
+
+Everyone is on the board until they leave it with **Show me on the board** in Settings. Leaving works both
+ways: you no longer see the others either, only your own row, and _Join the board_ brings you back. The board
+opens once three people with accounts are on it, so nobody can tell whose the only other portfolio is.
+
 ## Free-tier limits
 
 The tightest limit is Zerion's free key: three requests a second, 2,000 a day, and a quarter of the day's
@@ -115,7 +128,8 @@ The admin can let friends keep their own portfolio on the same server: _Invite s
 Settings copies a link that works once, for 7 days. Until it is used, the copy button on its row copies it
 again. The friend opens it, picks a name and a password and adds
 an authenticator, and from then on signs in like anyone else. Each person sees only their own accounts,
-history, categories chosen by hand and shared links. Updates read everyone's accounts together, with the one
+history, categories chosen by hand and shared links, and the others' portfolios on the [board](#board)
+without names. Updates read everyone's accounts together, with the one
 Zerion key in `config.json`, so more wallets use the daily allowance faster. Whoever runs the server can read
 its database, so friends should trust them. Removing a person deletes everything they added.
 

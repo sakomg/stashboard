@@ -1,5 +1,6 @@
 import { h, icon, iconButton } from '/common/ui.js';
 import { api } from './api.js';
+import { setOnBoard } from './board.js';
 import { showBanner } from './feedback.js';
 import { ago } from './format.js';
 import { $, actions, state } from './state.js';
@@ -18,6 +19,7 @@ async function setHideAmounts(hide) {
 
 $('privacy').addEventListener('click', () => setHideAmounts(!state.hideAmounts));
 $('hide-amounts').addEventListener('change', (event) => setHideAmounts(event.target.checked));
+$('on-board').addEventListener('change', (event) => setOnBoard(event.target.checked));
 
 export const shareUrl = (token) => `${location.origin}/s/${token}`;
 
@@ -118,6 +120,8 @@ export function renderAccountPanel() {
   const z = data.zerion;
   const gate = data.update ?? { allowed: true };
   $('hide-amounts').checked = state.hideAmounts;
+  $('on-board').checked = state.board?.onBoard ?? false;
+  $('board-switch').hidden = !state.board?.others;
   const fact = (term, ...description) => h('div', {}, h('dt', {}, term), h('dd', {}, ...description));
   const every = (minutes) =>
     minutes < 120 ? `${minutes} min` : `${Math.floor(minutes / 60)} h${minutes % 60 ? ` ${minutes % 60} min` : ''}`;

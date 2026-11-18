@@ -1,9 +1,10 @@
 import type { FastifyInstance } from 'fastify';
+import { boardHistory, boardPortfolio, boardView } from '../../services/board.ts';
 import { CLIENTS, EXCHANGE_KINDS } from '../../services/exchanges.ts';
 import { historyView, portfolioView } from '../../services/view.ts';
 import { fearGreed } from '../../sources/feargreed.ts';
 import { zerionQuota } from '../../sources/zerion.ts';
-import { getUser, listAccounts, markHeatSeen, setHideAmounts } from '../../storage/index.ts';
+import { getUser, listAccounts, markHeatSeen, setHideAmounts, setOnBoard } from '../../storage/index.ts';
 import { progressFor, type Collection } from '../collection.ts';
 import type { Context } from '../context.ts';
 
@@ -16,27 +17,58 @@ export function registerDashboardRoutes(
   const progressOf = (userId: number) =>
     progressFor(collection.progress, new Set(listAccounts(ctx.db, userId).map((a) => a.id)));
 
-  app.get('/api/portfolio', async (request) => {
-    const me = getUser(ctx.db, request.userId);
+  const page = async (userId: number) => {
+    const me = getUser(ctx.db, userId);
     return {
-      ...portfolioView(ctx.db, request.userId, ctx.resolveFor(request.userId)),
       build,
       categories: ctx.categories,
-      progress: progressOf(request.userId),
-      zerion: zerionQuota(),
       fearGreed: await fearGreed(),
-      collecting: collection.running,
-      update: collection.gate(),
       demo: ctx.demo,
       heat: { weights: ctx.config.heat.weights, zones: ctx.config.heat.zones },
-      serverAddress: await ctx.address(),
-      ipRequired: Object.fromEntries(EXCHANGE_KINDS.map((kind) => [kind, CLIENTS[kind].ipRequired])),
       preferences: { hideAmounts: me?.hideAmounts ?? false },
       collectEveryMinutes: collection.everyMinutes,
       loginEnabled: ctx.auth.claimed,
       me: me && { name: me.name, admin: me.admin },
     };
+  };
+  const daysOf = (query: { days?: string }): number | null => {
+    const days = Number(query.days);
+    return Number.isFinite(days) && days > 0 ? days : null;
+  };
+  const NOT_ON_BOARD = 'This portfolio is not on the board';
+
+  app.get('/api/portfolio', async (request) => ({
+    ...portfolioView(ctx.db, request.userId, ctx.resolveFor(request.userId)),
+    ...(await page(request.userId)),
+    progress: progressOf(request.userId),
+    zerion: zerionQuota(),
+    collecting: collection.running,
+    update: collection.gate(),
+    serverAddress: await ctx.address(),
+    ipRequired: Object.fromEntries(EXCHANGE_KINDS.map((kind) => [kind, CLIENTS[kind].ipRequired])),
+  }));
+
+  app.get<{ Params: { key: string } }>('/api/board/:key/portfolio', async (request, reply) => {
+    const view = boardPortfolio(ctx.db, request.userId, request.params.key, ctx.resolveFor);
+    if (!view) return reply.code(404).send({ error: NOT_ON_BOARD });
+    return {
+      ...view,
+      ...(await page(request.userId)),
+      progress: null,
+      zerion: null,
+      collecting: false,
+      update: { allowed: false, reason: 'Someone else’s portfolio', availableAt: null },
+      serverAddress: null,
+      ipRequired: {},
+    };
   });
+
+  app.get<{ Params: { key: string }; Querystring: { days?: string } }>(
+    '/api/board/:key/history',
+    async (request, reply) =>
+      boardHistory(ctx.db, request.userId, request.params.key, ctx.resolveFor, daysOf(request.query)) ??
+      reply.code(404).send({ error: NOT_ON_BOARD }),
+  );
 
   app.get('/api/progress', async (request) => ({
     collecting: collection.running,
@@ -44,15 +76,9 @@ export function registerDashboardRoutes(
     update: collection.gate(),
   }));
 
-  app.get<{ Querystring: { days?: string } }>('/api/history', async (request) => {
-    const days = Number(request.query.days);
-    return historyView(
-      ctx.db,
-      request.userId,
-      ctx.resolveFor(request.userId),
-      Number.isFinite(days) && days > 0 ? days : null,
-    );
-  });
+  app.get<{ Querystring: { days?: string } }>('/api/history', async (request) =>
+    historyView(ctx.db, request.userId, ctx.resolveFor(request.userId), daysOf(request.query)),
+  );
 
   app.post('/api/collect', async (_request, reply) => {
     const gate = collection.gate();
@@ -61,11 +87,18 @@ export function registerDashboardRoutes(
     return { ok: true };
   });
 
-  app.put<{ Body: { hideAmounts?: unknown } }>('/api/preferences', async (request, reply) => {
-    const { hideAmounts } = request.body ?? {};
-    if (typeof hideAmounts !== 'boolean') return reply.code(400).send({ error: 'hideAmounts must be true or false' });
-    setHideAmounts(ctx.db, request.userId, hideAmounts);
-    return { hideAmounts };
+  app.get('/api/board', async (request) => boardView(ctx.db, request.userId, ctx.resolveFor));
+
+  app.put<{ Body: { hideAmounts?: unknown; onBoard?: unknown } }>('/api/preferences', async (request, reply) => {
+    const { hideAmounts, onBoard } = request.body ?? {};
+    const flag = (v: unknown): boolean => v === undefined || typeof v === 'boolean';
+    if (!flag(hideAmounts) || !flag(onBoard) || (hideAmounts === undefined && onBoard === undefined)) {
+      return reply.code(400).send({ error: 'hideAmounts and onBoard must be true or false' });
+    }
+    if (typeof hideAmounts === 'boolean') setHideAmounts(ctx.db, request.userId, hideAmounts);
+    if (typeof onBoard === 'boolean') setOnBoard(ctx.db, request.userId, onBoard);
+    const me = getUser(ctx.db, request.userId);
+    return { hideAmounts: me?.hideAmounts ?? false, onBoard: me?.onBoard ?? false };
   });
 
   app.post<{ Body: { assets?: unknown } }>('/api/heat/dismiss', async (request, reply) => {

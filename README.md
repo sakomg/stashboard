@@ -17,6 +17,7 @@ runs on your own server, needs only free API keys, and never asks for anything t
 - **History** of the whole portfolio, and changes over 24 hours, 7 and 30 days.
 - **Heat signals**: RSI, funding, distance from the 200-day average and open interest blended into one score
   per asset, with each reading explained and sourced, and a notice when a holding turns overheated or cold.
+- **Board** for friends on one server: everyone's portfolio by net worth, without names, to open and look through.
 - **Privacy**: hide every amount on every device in one click, and share an allocation picture or a
   time-limited link without amounts.
 - **Read-only by design**: wallets need a public address, exchanges a key that can only read, which is

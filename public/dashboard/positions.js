@@ -5,7 +5,7 @@ import { change, money, percent, price, units } from './format.js';
 import { heatBadge } from './heat.js';
 import { HELP } from './help.js';
 import { TYPES, chainLogo, chainName, isExchange, kindLogo, logo } from './logos.js';
-import { $, DUST_USD, firstRead, hasBalances, state } from './state.js';
+import { $, DUST_USD, firstRead, hasBalances, state, viewing } from './state.js';
 
 const COLUMNS = [
   ['key', 'Asset', '', (a) => a.key],
@@ -99,17 +99,19 @@ export function renderPositions() {
               a.key,
             ),
             h(
-              'button',
-              {
-                class: 'category optional',
-                type: 'button',
-                title: 'Change category',
-                'aria-label': `${a.key} is in ${a.category}. Change category`,
-                onclick: (e) => {
-                  e.stopPropagation();
-                  openCategory(a);
-                },
-              },
+              viewing ? 'span' : 'button',
+              viewing
+                ? { class: 'category optional' }
+                : {
+                    class: 'category optional',
+                    type: 'button',
+                    title: 'Change category',
+                    'aria-label': `${a.key} is in ${a.category}. Change category`,
+                    onclick: (e) => {
+                      e.stopPropagation();
+                      openCategory(a);
+                    },
+                  },
               h('span', { class: 'swatch small', style: { background: colorOf('category', a.category) } }),
               a.category,
             ),

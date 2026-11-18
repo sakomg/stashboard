@@ -9,6 +9,7 @@ interface User {
   name: string;
   admin: boolean;
   hideAmounts: boolean;
+  onBoard: boolean;
   createdAt: string;
 }
 
@@ -27,6 +28,8 @@ interface UserRow {
   name: string;
   admin: number;
   hide_amounts: number;
+  on_board: number;
+  board_key: string | null;
   created_at: string;
   password_hash: string | null;
   totp_secret: string | null;
@@ -46,6 +49,7 @@ const toUser = (r: UserRow): User => ({
   name: r.name,
   admin: r.admin === 1,
   hideAmounts: r.hide_amounts === 1,
+  onBoard: r.on_board === 1,
   createdAt: r.created_at,
 });
 
@@ -134,6 +138,29 @@ export function noteTotpStep(db: DatabaseSync, id: number, step: number): void {
 
 export function setHideAmounts(db: DatabaseSync, id: number, hide: boolean): void {
   db.prepare('UPDATE users SET hide_amounts = ? WHERE id = ?').run(hide ? 1 : 0, id);
+}
+
+export function setOnBoard(db: DatabaseSync, id: number, on: boolean): void {
+  db.prepare('UPDATE users SET on_board = ? WHERE id = ?').run(on ? 1 : 0, id);
+}
+
+interface BoardMember {
+  id: number;
+  key: string;
+  onBoard: boolean;
+}
+
+export function boardMembers(db: DatabaseSync): BoardMember[] {
+  const rows = db.prepare('SELECT * FROM users ORDER BY id').all() as unknown as UserRow[];
+  const assign = db.prepare('UPDATE users SET board_key = ? WHERE id = ?');
+  return rows.map((r) => {
+    let key = r.board_key;
+    if (!key) {
+      key = randomBytes(6).toString('base64url');
+      assign.run(key, r.id);
+    }
+    return { id: r.id, key, onBoard: r.on_board === 1 };
+  });
 }
 
 const tokenHash = (token: string): string => createHash('sha256').update(token).digest('hex');

@@ -5,6 +5,7 @@ import './views.js';
 import { h, skeleton } from '/common/ui.js';
 import { renderAccounts } from './accounts.js';
 import { api } from './api.js';
+import { renderBoard } from './board.js';
 import { renderDefi } from './defi.js';
 import { renderAddLogos } from './dialogs.js';
 import { showBanner, showInfo } from './feedback.js';
@@ -12,7 +13,7 @@ import { renderAllocation, renderHistory } from './overview.js';
 import { renderPositions } from './positions.js';
 import { renderAccountPanel } from './settings.js';
 import { renderSignals } from './signals.js';
-import { $, actions, firstRead, hasBalances, state } from './state.js';
+import { $, actions, apiBase, firstRead, hasBalances, state, viewing } from './state.js';
 import { renderSummary, renderUpdating } from './summary.js';
 import { renderCounts } from './views.js';
 
@@ -78,6 +79,7 @@ async function renderAll() {
   renderPositions();
   renderSignals();
   renderDefi();
+  renderBoard();
   if (state.data.holdings.length > 0) {
     renderAllocation();
     await renderHistory();
@@ -86,13 +88,14 @@ async function renderAll() {
 
 async function load() {
   try {
-    const data = await api('/api/portfolio');
+    const [data, board] = await Promise.all([api(`${apiBase}/portfolio`), viewing ? null : api('/api/board')]);
     state.build ??= data.build;
     if (data.build !== state.build) {
       location.reload();
       return;
     }
     state.data = data;
+    state.board = board;
     state.hideAmounts = data.preferences.hideAmounts;
     state.progress = data.progress ?? state.progress;
     state.logos = new Map(Object.entries(data.logos.available));
