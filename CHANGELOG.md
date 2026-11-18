@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- A holding that turns cold gets a notice too, like an overheated one: which assets, how much of the portfolio,
+  _Show in Signals_ for the cold zone and _Dismiss_. Only assets already held are considered. A rise into
+  neutral and back keeps it dismissed, and warming up before turning cold again brings it back.
 - An update reads one person's accounts at a time, largest first, the order of their chips, instead of jumping
   between everyone's accounts by balance. Pressing **Update now** while an update runs no longer joins it
   silently: the button stays disabled and the line under the net worth says when your accounts start.

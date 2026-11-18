@@ -99,16 +99,26 @@ main > .summary {
   box-shadow: inset 0 0 0 1px var(--line);
 }
 
-.notices .hot {
+.notices .hot,
+.notices .cold {
   flex-wrap: wrap;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--overheated) 55%, transparent);
+}
+
+.notices .cold {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--teal) 55%, transparent);
 }
 
 .notices .hot .icon {
   color: var(--overheated);
 }
 
-.notices .hot > span:first-of-type {
+.notices .cold .icon {
+  color: var(--teal);
+}
+
+.notices .hot > span:first-of-type,
+.notices .cold > span:first-of-type {
   flex: 1 1 260px;
 }
 

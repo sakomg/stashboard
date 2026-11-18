@@ -5,7 +5,8 @@ import {
   heatSeen,
   historySince,
   latestSignals,
-  overheatedSince,
+  extremeSince,
+  isExtreme,
   listSnapshots,
   priceChangesSince,
   snapshotAt,
@@ -35,12 +36,12 @@ export function portfolioView(db: DatabaseSync, userId: number, resolve: (symbol
   const priceThen = (p: typeof d1, key: string): number | undefined =>
     p?.assets.find((a) => a.key === key)?.price ?? undefined;
 
-  const episodes = overheatedSince(db);
+  const episodes = { overheated: extremeSince(db, 'overheated'), cold: extremeSince(db, 'cold') };
   const seen = heatSeen(db, userId);
   const signals = new Map(
     latestSignals(db).map((s) => {
-      const since = s.zone === 'overheated' ? (episodes.get(s.asset) ?? s.time) : null;
-      return [s.asset, { ...s, overheatedSince: since, dismissed: since !== null && seen.get(s.asset) === since }];
+      const since = isExtreme(s.zone) ? (episodes[s.zone].get(s.asset) ?? s.time) : null;
+      return [s.asset, { ...s, since, dismissed: since !== null && seen.get(s.asset) === since }];
     }),
   );
   const hints = exchangeHints(db);

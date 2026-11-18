@@ -53,6 +53,12 @@ portfolio they are. _Show in Signals_ opens the view with only the overheated as
 notice on every device you sign in on. An asset that dips into warm and comes back stays dismissed. One that
 cools to neutral or cold and then overheats again brings the notice back.
 
+The other end works the same way. When something you hold turns cold, a second notice says which assets and
+how much of the portfolio they are, with _Show in Signals_ for the cold ones and _Dismiss_. A rise into
+neutral and back keeps it dismissed, and warming up to warm or overheated before turning cold again brings it
+back. Only assets already in the portfolio get it. Like the score itself, it describes the market and is not
+advice.
+
 This describes market conditions. It is not advice to buy or sell.
 
 ## Assets and categories

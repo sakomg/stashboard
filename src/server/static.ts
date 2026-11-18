@@ -125,6 +125,7 @@ const ICONS = [
   'triangle-alert',
   'clock',
   'flame',
+  'snowflake',
   'wallet',
   'user-plus',
   'rotate-ccw-key',

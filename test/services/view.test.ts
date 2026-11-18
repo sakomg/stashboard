@@ -146,13 +146,13 @@ test('an overheated asset is new to each person until they dismiss it, and again
   const signal = (userId: number) => portfolioView(db, userId, resolve).assets.find((a) => a.key === 'ETH')!.signal!;
 
   read(0, 'neutral', 50);
-  assert.equal(signal(ADMIN_ID).overheatedSince, null);
+  assert.equal(signal(ADMIN_ID).since, null);
   assert.deepEqual(markHeatSeen(db, ADMIN_ID, ['ETH']), [], 'nothing to dismiss while it is not overheated');
 
   read(4, 'overheated', 82);
   read(8, 'warm', 78);
   read(12, 'overheated', 81);
-  assert.equal(signal(ADMIN_ID).overheatedSince, '2026-11-01T04:00:00.000Z', 'a dip into warm is the same episode');
+  assert.equal(signal(ADMIN_ID).since, '2026-11-01T04:00:00.000Z', 'a dip into warm is the same episode');
   assert.equal(signal(ADMIN_ID).dismissed, false);
 
   assert.deepEqual(markHeatSeen(db, ADMIN_ID, ['ETH', 'SOL']), ['ETH']);
@@ -165,6 +165,49 @@ test('an overheated asset is new to each person until they dismiss it, and again
 
   read(22, 'neutral', 55);
   read(23, 'overheated', 85);
-  assert.equal(signal(ADMIN_ID).overheatedSince, '2026-11-01T23:00:00.000Z');
+  assert.equal(signal(ADMIN_ID).since, '2026-11-01T23:00:00.000Z');
   assert.equal(signal(ADMIN_ID).dismissed, false, 'overheating again after cooling is news again');
+});
+
+test('a cold asset is news the same way, until it warms up, and neither episode hides the other', () => {
+  const db = openDb(mkdtempSync(join(tmpdir(), 'stashboard-test-')));
+  const mine = addWallet(db, ADMIN_ID, '0x52908400098527886E0F7030069857D2E4169EE7');
+  const snapshot = startSnapshot(db);
+  saveOutcome(db, snapshot, mine.id, { status: 'ok', holdings: [holding('ETH', 1, 2000)], warnings: [] });
+  finishSnapshot(db, snapshot);
+
+  const read = (hour: number, zone: Zone, score: number) =>
+    saveSignals(db, [
+      {
+        asset: 'ETH',
+        time: `2026-11-01T${String(hour).padStart(2, '0')}:00:00.000Z`,
+        pair: 'ETHUSDT',
+        score,
+        zone,
+        components: [],
+      },
+    ]);
+  const signal = () => portfolioView(db, ADMIN_ID, resolve).assets.find((a) => a.key === 'ETH')!.signal!;
+
+  read(0, 'neutral', 45);
+  read(2, 'cold', 22);
+  read(4, 'neutral', 33);
+  read(6, 'cold', 18);
+  assert.equal(signal().since, '2026-11-01T02:00:00.000Z', 'a rise into neutral is the same episode');
+  assert.equal(signal().dismissed, false);
+  assert.deepEqual(markHeatSeen(db, ADMIN_ID, ['ETH']), ['ETH']);
+  assert.equal(signal().dismissed, true);
+
+  read(8, 'warm', 62);
+  read(10, 'cold', 20);
+  assert.equal(signal().since, '2026-11-01T10:00:00.000Z');
+  assert.equal(signal().dismissed, false, 'cold again after warming up is news again');
+
+  assert.deepEqual(markHeatSeen(db, ADMIN_ID, ['ETH']), ['ETH']);
+  read(12, 'overheated', 85);
+  assert.equal(signal().since, '2026-11-01T12:00:00.000Z');
+  assert.equal(signal().dismissed, false, 'a dismissed cold spell does not hide overheating');
+  read(14, 'neutral', 50);
+  assert.equal(signal().since, null);
+  assert.deepEqual(markHeatSeen(db, ADMIN_ID, ['ETH']), [], 'nothing to dismiss in between');
 });
