@@ -46,11 +46,32 @@ test('an update reads one person at a time, each from the largest balance down, 
   saveOutcome(db, snapshot, bobs.id, { status: 'ok', holdings: [worth(7000)], warnings: [] });
   finishSnapshot(db, snapshot);
 
-  const read: number[] = [];
-  await runCollection(db, loadConfig('config.example.json'), (event) => {
+  const read: (number | number[])[] = [];
+  const snapshots = await runCollection(db, loadConfig('config.example.json'), (event) => {
     if (event.type === 'reading') read.push(event.accountId);
+    if (event.type === 'saved') read.push(event.accountIds);
   });
-  assert.deepEqual(read, [large.id, small.id, fresh.id, owing.id, kateLarge.id, kateSmall.id, bobs.id]);
+  assert.deepEqual(read, [
+    large.id,
+    small.id,
+    fresh.id,
+    owing.id,
+    [large.id, small.id, fresh.id, owing.id],
+    kateLarge.id,
+    kateSmall.id,
+    [kateLarge.id, kateSmall.id],
+    bobs.id,
+    [bobs.id],
+  ]);
+  const accountsIn = (id: number) =>
+    (db.prepare('SELECT account_id FROM snapshot_accounts WHERE snapshot_id = ?').all(id) as { account_id: number }[])
+      .map((r) => r.account_id)
+      .sort((a, b) => a - b);
+  assert.deepEqual(
+    snapshots.map(accountsIn),
+    [[small.id, owing.id, large.id, fresh.id], [kateLarge.id, kateSmall.id], [bobs.id]],
+    'each person is saved as soon as their accounts are read',
+  );
 });
 
 test('adding an account reads only that account, and a removed one is skipped without a snapshot', async () => {
@@ -67,16 +88,19 @@ test('adding an account reads only that account, and a removed one is skipped wi
     { only: [added.id] },
   );
   assert.deepEqual(read, [added.id]);
+  assert.equal(run.length, 1);
   assert.deepEqual(
     (
-      db.prepare('SELECT account_id FROM snapshot_accounts WHERE snapshot_id = ?').all(run) as { account_id: number }[]
+      db.prepare('SELECT account_id FROM snapshot_accounts WHERE snapshot_id = ?').all(run[0]!) as {
+        account_id: number;
+      }[]
     ).map((r) => r.account_id),
     [added.id],
   );
-  assert.equal(await runCollection(db, loadConfig('config.example.json'), () => {}, { only: [old.id + 100] }), null);
+  assert.deepEqual(await runCollection(db, loadConfig('config.example.json'), () => {}, { only: [old.id + 100] }), []);
 });
 
-test('positions from an earlier read take the price this run found for the same token', () => {
+test('positions from an earlier read take the price this run found for the same token, from anyone read before', () => {
   const holding = (symbol: string, value: number, readAt: string | null, type: Holding['type'] = 'wallet') => ({
     chain: 'arbitrum',
     protocol: null,
@@ -98,6 +122,8 @@ test('positions from an earlier read take the price this run found for the same 
     repriced.map((h) => h.value),
     [4000, 4000, -4000, 10],
   );
+  const later = repriceEarlierReads([holding('WETH', 3000, earlier)], new Map([['ETH', 2100]]));
+  assert.equal(later[0]!.value, 4200);
 });
 
 test('updates are refused while one runs, until the planned gap has passed, or when Zerion has nothing left', () => {

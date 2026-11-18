@@ -52,17 +52,24 @@ there are no cycles.
 
 ## Collection
 
-A run reads everyone's accounts into one snapshot, one person at a time in the order they joined, the admin
-first. Each person's accounts are read from the largest balance at the last read down, the order their page
+A run reads everyone's accounts, one person at a time in the order they joined, the admin first, and writes
+each person's as a snapshot of their own as soon as their accounts are read. Each person's accounts are read from the largest balance at the last read down, the order their page
 lists them in, so on each page the marks move along the list in one go. An account that fails is
 recorded as an error and the others go on; the failed one keeps showing its last good balances, marked out of
 date.
 
-Nothing is stored until every account has been read. Then holdings that come from an earlier answer of a
-source (see Zerion below) take this run's price for the same symbol, or for the token a `W`-wrapper wraps
-(WETH takes ETH's price), keeping their quantity. Only then is the snapshot written, so the page never sees a
-half-finished run. An account removed while the run read it, alone or with the person who held it, is left
-out.
+Nothing of a person is stored until all of their accounts have been read. Then holdings that come from an
+earlier answer of a source (see Zerion below) take the price this run found for the same symbol, in their
+accounts or anyone's read before, or for the token a `W`-wrapper wraps (WETH takes ETH's price), keeping
+their quantity. Only then is their snapshot written, so a page never sees half of a person's update. An
+account removed while the run read it, alone or with the person who held it, is left out, and a person with
+nothing left gets no snapshot.
+
+For that person the update is over then: `/api/progress` and `/api/portfolio` say `collecting: false` to
+them, the page loads their new balances, and an **Update now** they pressed answers, while the run goes on to
+the others. The button stays greyed out until the run ends, since another cannot start before. This holds for
+full updates only. When a new account is read on its own, its owner waits for the signals of its assets too, and
+a person with an account still queued to be read is not done.
 
 An EVM address is read three times: by Zerion for chains and protocols, and by Lighter and Aster for what
 sits on their exchanges. Zerion lists the deposit into Lighter on Ethereum too, as protocol `lighter`; that position is
@@ -71,7 +78,7 @@ not see. History read before this was noticed is cleaned the same way by a migra
 
 While a run is going, the collector reports each account as waiting, being read, waiting on a source, done
 or failed. The server keeps that state and serves it at `/api/progress`, to each person only for their own
-accounts; after the accounts it reports the signals phase. While none of a person's accounts has started,
+accounts, until their part is saved; after the accounts it reports the signals phase. While none of a person's accounts has started,
 `startsIn` estimates how long until the first one does: the accounts still ahead of it, times the average time
 an account has taken in this run (3 seconds until one has finished).
 
@@ -820,8 +827,8 @@ and `PRAGMA user_version` records how many have run.
 | `push_subscriptions` | Each device that gets notifications: its push service URL, its keys and whose it is                            |
 | `notified`           | Per person and topic, the start of the episode they were last notified of                                      |
 
-Snapshots are shared: one run holds every person's reads, and `snapshot_accounts` says whose account each
-read is. Migration 11 brought people in: the single owner and their hidden-amounts setting became person 1,
+A snapshot holds one person's reads in a run, or one account read on its own, and `snapshot_accounts` says
+which accounts. Runs before per-person snapshots hold everyone's reads in one. Migration 11 brought people in: the single owner and their hidden-amounts setting became person 1,
 the admin, named `admin`, and every account, session, link and hand-chosen category became theirs. An owner
 who had already signed up keeps the name `admin` and signs in with it; one who had not picks a name at setup. A migration that rebuilds a table runs with foreign keys off, as SQLite requires, and is
 checked with `PRAGMA foreign_key_check` before it commits.

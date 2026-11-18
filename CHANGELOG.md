@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- An update ends for you as soon as your own accounts are read. Your balances show at once and **Update now**
+  answers, instead of waiting until everyone else's accounts on the server are read too.
 - Notifications. **Notify me on this device** in Settings has a phone or a browser tell you when a holding
   turns overheated or cold, and when an account stops updating, once per episode and never with amounts.
   Your server sends them itself, encrypted for the device. On an iPhone they work once Stashboard is on the

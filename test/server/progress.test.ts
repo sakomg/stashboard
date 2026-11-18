@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { progressFor } from '../../src/server/collection.ts';
+import { partDone, progressFor } from '../../src/server/collection.ts';
 
 type State = 'waiting' | 'reading' | 'done' | 'failed';
 const START = Date.parse('2026-11-18T10:00:00Z');
-const run = (states: [number, State][], phase: 'accounts' | 'signals' = 'accounts') => ({
+const run = (states: [number, State][], phase: 'accounts' | 'signals' = 'accounts', saved: number[] = []) => ({
   phase,
   startedAt: START,
-  accounts: states.map(([id, state]) => ({ id, state, note: null })),
+  byPerson: true,
+  accounts: states.map(([id, state]) => ({ id, state, note: null, saved: saved.includes(id) })),
 });
 
 test('each person sees only their own accounts, and when they start while someone else is ahead', () => {
@@ -82,4 +83,22 @@ test('there is no estimate once their own accounts have started, before anyone e
   );
   assert.equal(progressFor(run([[1, 'reading']]), mine, at)!.startsIn, null, 'no accounts of theirs');
   assert.equal(progressFor(run([[5, 'done']], 'signals'), mine, at)!.startsIn, null);
+});
+
+test('a person is done once their own accounts are saved, unless one of theirs is still waiting to be read', () => {
+  const going = run(
+    [
+      [1, 'done'],
+      [2, 'done'],
+      [5, 'reading'],
+    ],
+    'accounts',
+    [1, 2],
+  );
+  assert.equal(partDone(going, new Set([1, 2]), new Set()), true);
+  assert.equal(partDone(going, new Set([5]), new Set()), false);
+  assert.equal(partDone(going, new Set([9]), new Set()), true, 'not part of this update');
+  assert.equal(partDone(going, new Set([1, 2, 3]), new Set([3])), false, 'an account they just added is queued');
+  assert.equal(partDone({ ...going, byPerson: false }, new Set([1, 2]), new Set()), false);
+  assert.equal(partDone(null, new Set([1]), new Set()), false);
 });

@@ -13,7 +13,8 @@ import type { Context } from './context.ts';
 interface Progress {
   phase: 'accounts' | 'signals';
   startedAt: number;
-  accounts: { id: number; state: 'waiting' | 'reading' | 'done' | 'failed'; note: string | null }[];
+  byPerson: boolean;
+  accounts: { id: number; state: 'waiting' | 'reading' | 'done' | 'failed'; note: string | null; saved: boolean }[];
 }
 
 const GUESS_PER_ACCOUNT_MS = 3000;
@@ -27,11 +28,17 @@ function startsIn({ phase, startedAt, accounts }: Progress, own: Set<number>, no
   return Math.round(ahead * (finished > 0 ? (now - startedAt) / finished : GUESS_PER_ACCOUNT_MS));
 }
 
+export function partDone(progress: Progress | null, own: Set<number>, pending: Set<number>): boolean {
+  if ([...own].some((id) => pending.has(id))) return false;
+  if (!progress?.byPerson) return false;
+  return progress.accounts.every((a) => !own.has(a.id) || a.saved);
+}
+
 export function progressFor(progress: Progress | null, own: Set<number>, now = Date.now()) {
   if (!progress) return null;
   return {
     phase: progress.phase,
-    accounts: progress.accounts.filter((a) => own.has(a.id)),
+    accounts: progress.accounts.filter((a) => own.has(a.id)).map(({ saved: _, ...a }) => a),
     startsIn: startsIn(progress, own, now),
   };
 }
@@ -40,6 +47,8 @@ export interface Collection {
   readonly running: boolean;
   readonly progress: Progress | null;
   readonly everyMinutes: number;
+  collecting(own: Set<number>): boolean;
+  settled(own: Set<number>): Promise<void>;
   collect(): Promise<void>;
   readAccount(accountId: number): Promise<void>;
   notifyOptions(): NotifyOptions;
@@ -56,6 +65,8 @@ export function createCollection(ctx: Context, log: FastifyBaseLogger): Collecti
   let progress: Progress | null = null;
   let queue: Promise<void> = Promise.resolve();
   let jobs = 0;
+  const pending = new Set<number>();
+  const waiters = new Set<{ own: Set<number>; resolve: () => void }>();
   let fullRun: Promise<void> | null = null;
   let timer: NodeJS.Timeout | undefined;
   let lastStartedAt =
@@ -68,21 +79,39 @@ export function createCollection(ctx: Context, log: FastifyBaseLogger): Collecti
     planUpdates(zerionQuota().dayLimit, listWallets(db, 'all', 'evm').length, listWallets(db, 'all', 'solana').length);
   const everyMs = (): number => Math.max(config.schedule.balancesMinutes, 5, plan().gapMinutes) * 60_000;
 
-  const track = (event: ProgressEvent): void => {
-    if (event.type === 'start') {
-      progress = {
-        phase: 'accounts',
-        startedAt: Date.now(),
-        accounts: event.accounts.map((a) => ({ id: a.id, state: 'waiting', note: null })),
-      };
-      return;
+  const collecting = (own: Set<number>): boolean => jobs > 0 && !partDone(progress, own, pending);
+
+  const wake = (): void => {
+    for (const waiter of waiters) {
+      if (collecting(waiter.own)) continue;
+      waiters.delete(waiter);
+      waiter.resolve();
     }
-    const entry = progress?.accounts.find((a) => a.id === event.accountId);
-    if (!entry) return;
-    if (event.type === 'reading') Object.assign(entry, { state: 'reading', note: null });
-    else if (event.type === 'waiting') entry.note = event.note;
-    else Object.assign(entry, { state: event.ok ? 'done' : 'failed', note: event.note ?? null });
   };
+
+  const track =
+    (byPerson: boolean) =>
+    (event: ProgressEvent): void => {
+      if (event.type === 'start') {
+        progress = {
+          phase: 'accounts',
+          startedAt: Date.now(),
+          byPerson,
+          accounts: event.accounts.map((a) => ({ id: a.id, state: 'waiting', note: null, saved: false })),
+        };
+        return;
+      }
+      if (event.type === 'saved') {
+        for (const entry of progress?.accounts ?? []) if (event.accountIds.includes(entry.id)) entry.saved = true;
+        wake();
+        return;
+      }
+      const entry = progress?.accounts.find((a) => a.id === event.accountId);
+      if (!entry) return;
+      if (event.type === 'reading') Object.assign(entry, { state: 'reading', note: null });
+      else if (event.type === 'waiting') entry.note = event.note;
+      else Object.assign(entry, { state: event.ok ? 'done' : 'failed', note: event.note ?? null });
+    };
 
   const refreshSignals = async (): Promise<void> => {
     if (Date.now() - Number(getSetting(db, SIGNALS_AT) ?? 0) < config.schedule.signalsMinutes * 60_000) return;
@@ -144,6 +173,7 @@ export function createCollection(ctx: Context, log: FastifyBaseLogger): Collecti
       .finally(() => {
         jobs--;
         progress = null;
+        wake();
       });
     queue = run;
     return run;
@@ -160,7 +190,7 @@ export function createCollection(ctx: Context, log: FastifyBaseLogger): Collecti
     fullRun ??= enqueue(async () => {
       lastStartedAt = Date.now();
       setSetting(db, LAST_FULL_RUN, String(lastStartedAt));
-      await runCollection(db, config, track, { defiEveryMs: plan().defiEveryMinutes * 60_000 });
+      await runCollection(db, config, track(true), { defiEveryMs: plan().defiEveryMinutes * 60_000 });
       rememberLimit();
       if (progress) progress.phase = 'signals';
       await refreshSignals();
@@ -174,15 +204,24 @@ export function createCollection(ctx: Context, log: FastifyBaseLogger): Collecti
     return fullRun;
   };
 
-  const readAccount = (accountId: number): Promise<void> =>
-    enqueue(async () => {
-      await runCollection(db, config, track, { only: [accountId], defiEveryMs: plan().defiEveryMinutes * 60_000 });
-      rememberLimit();
-      if (progress) progress.phase = 'signals';
-      await signalsFor(accountId);
+  const readAccount = (accountId: number): Promise<void> => {
+    pending.add(accountId);
+    return enqueue(async () => {
+      try {
+        await runCollection(db, config, track(false), {
+          only: [accountId],
+          defiEveryMs: plan().defiEveryMinutes * 60_000,
+        });
+        rememberLimit();
+        if (progress) progress.phase = 'signals';
+        await signalsFor(accountId);
+      } finally {
+        pending.delete(accountId);
+      }
       void refreshLogos();
       void refreshCategories();
     });
+  };
 
   return {
     get running() {
@@ -193,6 +232,10 @@ export function createCollection(ctx: Context, log: FastifyBaseLogger): Collecti
     },
     get everyMinutes() {
       return everyMs() / 60_000;
+    },
+    collecting,
+    settled(own) {
+      return collecting(own) ? new Promise((resolve) => waiters.add({ own, resolve })) : Promise.resolve();
     },
     collect,
     readAccount,
