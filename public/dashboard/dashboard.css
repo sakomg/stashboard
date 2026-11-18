@@ -641,7 +641,7 @@ tr[aria-expanded='true'] .chevron {
 
   .tabs button {
     gap: 5px;
-    padding: 14px 4px 13px;
+    padding: 14px 3px 13px;
     font-size: 14px;
   }
 
@@ -650,8 +650,8 @@ tr[aria-expanded='true'] .chevron {
   }
 
   .tabs button[aria-selected='true']::after {
-    left: 4px;
-    right: 4px;
+    left: 3px;
+    right: 3px;
   }
 
   .tabs button:last-child[aria-selected='true']::after {
@@ -1361,20 +1361,22 @@ body[data-state='reading'] #content {
   }
 }
 
-@media (max-width: 360px) {
-  .heat::before {
-    display: none;
-  }
-
+@media (max-width: 374px) {
   .tabs button {
-    gap: 4px;
-    padding-inline: 3px;
-    font-size: 12.5px;
+    gap: 3px;
+    padding-inline: 2px;
+    font-size: 12px;
   }
 
   .tabs button[aria-selected='true']::after {
-    left: 3px;
-    right: 3px;
+    left: 2px;
+    right: 2px;
+  }
+}
+
+@media (max-width: 360px) {
+  .heat::before {
+    display: none;
   }
 }
 
@@ -1383,5 +1385,130 @@ body[data-state='reading'] #content {
   body[data-state] #content,
   body[data-state] #welcome {
     animation: none;
+  }
+}
+
+.switch + .switch {
+  margin-top: 16px;
+}
+
+.board-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 24px;
+  max-width: none;
+}
+
+.empty + .board-list {
+  margin-top: 24px;
+}
+
+.board-list {
+  max-width: 640px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.board-list a {
+  display: grid;
+  grid-template-columns: 2ch 9.5em minmax(0, 1fr) auto 16px;
+  align-items: center;
+  gap: 16px;
+  padding: 13px 4px;
+  border-bottom: 1px solid var(--line);
+  color: inherit;
+  text-decoration: none;
+}
+
+.board-list a:hover {
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+}
+
+.board-list .worth {
+  font-weight: 600;
+  text-align: right;
+}
+
+.board-list .you-mark {
+  font-size: 13px;
+  color: var(--amber);
+}
+
+.board-list .icon {
+  color: var(--dim);
+}
+
+.viewing {
+  display: none;
+  align-items: center;
+  gap: 16px;
+  margin-top: 20px;
+  font-size: 14px;
+  color: var(--slate);
+}
+
+body[data-viewing] .viewing {
+  display: flex;
+}
+
+.viewing a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--bone);
+  text-decoration: none;
+}
+
+.viewing a:hover {
+  color: var(--amber);
+}
+
+body[data-viewing] #open-account,
+body[data-viewing] #collect,
+body[data-viewing] #open-share,
+body[data-viewing] #notices,
+body[data-viewing] .add-chip,
+body[data-viewing] .more-chip {
+  display: none;
+}
+
+.tabs .tab-icon {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .board-note .button {
+    width: 100%;
+  }
+
+  .board-list a {
+    grid-template-columns: 2ch auto minmax(0, 1fr) auto 16px;
+    gap: 12px;
+    font-size: 14px;
+  }
+
+  .tabs .tab-icon {
+    display: block;
+    width: 18px;
+    height: 18px;
+  }
+
+  .tabs .tab-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 374px) {
+  .tabs .tab-icon {
+    width: 16px;
+    height: 16px;
   }
 }

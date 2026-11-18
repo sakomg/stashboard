@@ -1,14 +1,15 @@
 import { defiGroups } from './defi.js';
 import { chart } from './overview.js';
-import { $, DUST_USD, busy, state } from './state.js';
+import { $, DUST_USD, busy, state, viewing } from './state.js';
 
-const VIEWS = ['overview', 'positions', 'signals', 'defi', 'accounts'];
-const tabs = () => [...document.querySelectorAll('[role="tab"]')].filter((tab) => !tab.hidden);
+const VIEWS = ['overview', 'positions', 'signals', 'defi', 'accounts', 'board'];
+const allTabs = () => [...document.querySelectorAll('[role="tab"]')];
+const tabs = () => allTabs().filter((tab) => !tab.hidden);
 
 function showView(id, focus = false) {
   for (const open of document.querySelectorAll('.popover:popover-open')) open.hidePopover();
   state.view = VIEWS.includes(id) ? id : 'overview';
-  for (const tab of tabs()) {
+  for (const tab of allTabs()) {
     const on = tab.dataset.view === state.view;
     tab.setAttribute('aria-selected', String(on));
     tab.tabIndex = on ? 0 : -1;
@@ -34,11 +35,17 @@ export function renderCounts() {
   if (defi === 0 && state.view === 'defi') showView('overview');
   const troubled = data.sources.filter((s) => s.stale || (s.status === null && !busy())).length;
   set('accounts', troubled ? `${troubled} !` : String(data.sources.length), troubled ? 'warn' : '');
+  document.querySelector('[data-view="accounts"]').hidden = Boolean(viewing);
+  const board = state.board;
+  set('board', board?.open ? String(board.rows.length) : '');
+  document.querySelector('[data-view="board"]').hidden = !board?.others;
+  if (tabs().every((tab) => tab.dataset.view !== state.view)) showView('overview');
 }
 
 const REMEMBERED = 'stashboard.view';
 
 const rememberedView = () => {
+  if (viewing) return null;
   try {
     return sessionStorage.getItem(REMEMBERED);
   } catch {
@@ -49,13 +56,13 @@ const rememberedView = () => {
 export function switchView(view, focus = false) {
   showView(view, focus);
   try {
-    sessionStorage.setItem(REMEMBERED, state.view);
+    if (!viewing) sessionStorage.setItem(REMEMBERED, state.view);
   } catch {}
   const top = $('content').getBoundingClientRect().top + window.scrollY;
   if (window.scrollY > top) window.scrollTo({ top, behavior: 'instant' });
 }
 
-for (const tab of tabs()) {
+for (const tab of allTabs()) {
   tab.addEventListener('click', () => switchView(tab.dataset.view));
   tab.addEventListener('keydown', (e) => {
     const list = tabs();

@@ -3,6 +3,9 @@ export const actions = { load: async () => {}, renderAll: async () => {}, watchP
 
 export const DUST_USD = 1;
 
+export const viewing = /^\/board\/([A-Za-z0-9_-]+)$/.exec(location.pathname)?.[1] ?? null;
+export const apiBase = viewing ? `/api/board/${viewing}` : '/api';
+
 export const state = {
   data: null,
   build: null,
@@ -20,6 +23,7 @@ export const state = {
   shareDimension: 'category',
   view: 'overview',
   progress: null,
+  board: null,
 };
 
 export const hasBalances = () => state.data.holdings.length > 0;

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- A board for friends on one server. The new Board tab lists everyone's portfolio by net worth, without names:
+  the place, the amount and how many wallets and exchanges. A row opens that portfolio in the usual dashboard,
+  to look through but not change, with accounts named after their kind and no addresses. Everyone is on it
+  until they turn off **Show me on the board** in Settings, and then they no longer see it either. It opens at
+  three portfolios.
+
 - A holding that turns cold gets a notice too, like an overheated one: which assets, how much of the portfolio,
   _Show in Signals_ for the cold zone and _Dismiss_. Only assets already held are considered. A rise into
   neutral and back keeps it dismissed, and warming up before turning cold again brings it back.

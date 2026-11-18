@@ -33,28 +33,29 @@ function base58(bytes: number[]): string {
 }
 const bytes = (count: number): number[] => Array.from({ length: count }, () => Math.floor(random() * 256));
 
-const exchange = Number(
-  db
-    .prepare(
-      "INSERT INTO accounts (user_id, kind, label, address, address_key) VALUES (?, 'binance', 'Binance', '', 'demo')",
-    )
-    .run(ADMIN_ID).lastInsertRowid,
-);
-db.prepare('INSERT INTO exchange_keys (account_id, key_hint, sealed) VALUES (?, ?, ?)').run(
-  exchange,
-  '…demo',
-  seal(vaultKey(dir), { apiKey: 'demo', apiSecret: 'demo' }),
-);
+const hex = (count: number): string =>
+  bytes(count)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+
+function addExchange(userId: number, kind: string, label: string): number {
+  const id = Number(
+    db
+      .prepare("INSERT INTO accounts (user_id, kind, label, address, address_key) VALUES (?, ?, ?, '', 'demo')")
+      .run(userId, kind, label).lastInsertRowid,
+  );
+  db.prepare('INSERT INTO exchange_keys (account_id, key_hint, sealed) VALUES (?, ?, ?)').run(
+    id,
+    '…demo',
+    seal(vaultKey(dir), { apiKey: 'demo', apiSecret: 'demo' }),
+  );
+  return id;
+}
+
+const exchange = addExchange(ADMIN_ID, 'binance', 'Binance');
 const ledger: Account = addWallet(db, ADMIN_ID, '0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359', 'Ledger');
 const phantom: Account = addWallet(db, ADMIN_ID, base58([1, ...bytes(31)]), 'Phantom');
-const tonkeeper: Account = addWallet(
-  db,
-  ADMIN_ID,
-  `0:${bytes(32)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')}`,
-  'Tonkeeper',
-);
+const tonkeeper: Account = addWallet(db, ADMIN_ID, `0:${hex(32)}`, 'Tonkeeper');
 
 const TODAY: Record<string, number> = {
   BTC: 65_400,
@@ -140,6 +141,50 @@ const POSITIONS: Position[] = [
   { account: tonkeeper.id, chain: 'ton', protocol: null, symbol: 'NOT', type: 'wallet', quantity: fixed(1_400_000) },
 ];
 
+const addPerson = (name: string): number =>
+  Number(db.prepare('INSERT INTO users (name, name_key) VALUES (?, ?)').run(name, name.toLowerCase()).lastInsertRowid);
+const held = (
+  account: number,
+  chain: string,
+  protocol: string | null,
+  type: HoldingType,
+  symbol: string,
+  quantity: number,
+): Position => ({ account, chain, protocol, symbol, type, quantity: fixed(quantity) });
+
+const mila = addPerson('Mila');
+const milaBybit = addExchange(mila, 'bybit', 'Bybit');
+const milaCold = addWallet(db, mila, `0x${hex(20)}`, 'Cold').id;
+const ben = addPerson('Ben');
+const benMain = addWallet(db, ben, base58([1, ...bytes(31)]), 'Main').id;
+const benStaking = addWallet(db, ben, base58([1, ...bytes(31)]), 'Staking').id;
+const benDegen = addWallet(db, ben, base58([1, ...bytes(31)]), 'Degen').id;
+const sora = addPerson('Sora');
+const soraTon = addWallet(db, sora, `0:${hex(32)}`, 'Tonkeeper').id;
+const soraOkx = addExchange(sora, 'okx', 'OKX');
+const kai = addPerson('Kai');
+const kaiBinance = addExchange(kai, 'binance', 'Binance');
+
+POSITIONS.push(
+  held(milaBybit, 'bybit', 'Unified', 'wallet', 'BTC', 1.45),
+  held(milaBybit, 'bybit', 'Unified', 'wallet', 'ETH', 6),
+  held(milaBybit, 'bybit', 'Earn', 'earn', 'USDT', 18_000),
+  held(milaCold, 'ethereum', null, 'wallet', 'ETH', 8.5),
+  held(milaCold, 'base', null, 'wallet', 'USDC', 4_200),
+  held(benMain, 'solana', null, 'wallet', 'SOL', 420),
+  held(benStaking, 'solana', 'Jito', 'staked', 'JitoSOL', 150),
+  held(benDegen, 'solana', null, 'wallet', 'JUP', 18_000),
+  held(benDegen, 'solana', null, 'wallet', 'BONK', 300_000_000),
+  held(benDegen, 'solana', null, 'wallet', 'USDC', 3_000),
+  held(soraTon, 'ton', null, 'wallet', 'GRAM', 6_500),
+  held(soraTon, 'ton', null, 'wallet', 'NOT', 9_000_000),
+  held(soraOkx, 'okx', 'Trading', 'wallet', 'USDT', 2_100),
+  held(soraOkx, 'okx', 'Trading', 'wallet', 'BTC', 0.015),
+  held(kaiBinance, 'binance', 'Earn', 'earn', 'USDT', 2_300),
+  held(kaiBinance, 'binance', 'Spot', 'wallet', 'NVDAB', 8),
+  held(kaiBinance, 'binance', 'Spot', 'wallet', 'BNB', 1),
+);
+
 const now = Date.now();
 const insertSnapshot = db.prepare('INSERT INTO snapshots (started_at, finished_at) VALUES (?, ?)');
 const insertOutcome = db.prepare(
@@ -149,7 +194,7 @@ const insertHolding = db.prepare(
   `INSERT INTO holdings (snapshot_id, account_id, chain, protocol, symbol, type, quantity, price, value_usd)
    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 );
-const accounts = [exchange, ledger.id, phantom.id, tonkeeper.id];
+const accounts = [...new Set(POSITIONS.map((p) => p.account))];
 db.exec('BEGIN');
 for (let step = 0; step <= STEPS; step++) {
   const at = new Date(now - (STEPS - step) * STEP_MS - 60 * 60_000).toISOString();

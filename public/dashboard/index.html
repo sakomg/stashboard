@@ -26,6 +26,13 @@
     <main>
       <p class="banner" id="banner" role="alert" hidden></p>
 
+      <nav class="viewing" aria-label="Board">
+        <a href="/"
+          ><svg class="icon" aria-hidden="true"><use href="#arrow-left"></use></svg>Board</a
+        >
+        <span id="viewing-place"></span>
+      </nav>
+
       <section class="summary" aria-labelledby="net-worth-label">
         <div class="worth">
           <div class="worth-label">
@@ -117,6 +124,10 @@
             </button>
             <button role="tab" type="button" id="tab-accounts" aria-controls="view-accounts" data-view="accounts">
               Accounts<span class="count" data-count="accounts"></span>
+            </button>
+            <button role="tab" type="button" id="tab-board" aria-controls="view-board" data-view="board" hidden>
+              <svg class="icon tab-icon" aria-hidden="true"><use href="#list-ordered"></use></svg
+              ><span class="tab-label">Board</span><span class="count" data-count="board"></span>
             </button>
           </div>
         </nav>
@@ -216,6 +227,11 @@
             <li class="sk-row"><span class="skeleton sk-line wide" aria-hidden="true"></span></li>
             <li class="sk-row"><span class="skeleton sk-line wide" aria-hidden="true"></span></li>
           </ul>
+        </div>
+
+        <div class="view" id="view-board" role="tabpanel" aria-labelledby="tab-board" tabindex="0" hidden>
+          <h2 class="sr-only">Board</h2>
+          <div id="board"><span class="skeleton sk-block" aria-hidden="true"></span></div>
         </div>
       </div>
     </main>
@@ -342,6 +358,14 @@
               <small>Amounts turn into dots on every device.</small>
             </span>
           </label>
+          <label class="switch" id="board-switch" hidden>
+            <input type="checkbox" id="on-board" role="switch" />
+            <span class="track" aria-hidden="true"></span>
+            <span>
+              <b>Show me on the board</b>
+              <small>Others see your portfolio without your name.</small>
+            </span>
+          </label>
         </section>
 
         <section aria-labelledby="links-title">
@@ -357,7 +381,7 @@
 
         <section aria-labelledby="people-title" id="people" hidden>
           <h3 id="people-title">People<span class="count" id="people-list-count"></span></h3>
-          <p class="muted">Each person sees only their own accounts.</p>
+          <p class="muted">Each person sees only their own accounts, and the board without names.</p>
           <ul class="links compact" id="people-list"></ul>
           <button class="link more" id="people-list-more" type="button" aria-controls="people-list" hidden></button>
           <ul class="links compact" id="invite-list" aria-label="Pending links"></ul>

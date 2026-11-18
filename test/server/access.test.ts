@@ -145,8 +145,13 @@ test('the demo refuses to change accounts or people, or collect', async () => {
 });
 
 type App = ReturnType<typeof server>['app'];
-const call = (app: App, method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, cookie?: string, payload?: object) =>
-  app.inject({ method, url, headers: cookie ? { cookie } : {}, ...(payload ? { payload } : {}) });
+const call = (
+  app: App,
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+  url: string,
+  cookie?: string,
+  payload?: object,
+) => app.inject({ method, url, headers: cookie ? { cookie } : {}, ...(payload ? { payload } : {}) });
 const sessionOf = (db: ReturnType<typeof openDb>, userId: number) =>
   `stashboard_session=${createSession(db, userId, 60_000)}`;
 const cookieFrom = (res: { headers: Record<string, unknown> }) =>
@@ -342,4 +347,24 @@ test('dismissing an overheated asset takes a list of asset names', async () => {
   assert.equal(done.statusCode, 200);
   assert.deepEqual(done.json(), { dismissed: [] });
   assert.equal((await call(app, 'POST', '/api/heat/dismiss', undefined, { assets: ['ETH'] })).statusCode, 401);
+});
+
+test('the board needs a session, and leaving it takes true or false', async () => {
+  const { app, db } = server({}, true);
+  assert.equal(await status(app, '/api/board'), '401');
+  assert.equal(await status(app, '/board/AAAAAAAA'), '302 /login');
+  assert.equal(await status(app, '/api/board/AAAAAAAA/portfolio'), '401');
+  const admin = sessionOf(db, ADMIN_ID);
+  const page = await call(app, 'GET', '/board/AAAAAAAA', admin);
+  assert.equal(page.statusCode, 200);
+  assert.match(page.body, /<body data-viewing /);
+  assert.equal((await call(app, 'GET', '/api/board/AAAAAAAA/portfolio', admin)).statusCode, 404);
+  assert.equal((await call(app, 'GET', '/api/board/AAAAAAAA/history', admin)).statusCode, 404);
+  assert.equal((await call(app, 'GET', '/api/board', admin)).json().onBoard, true);
+  for (const payload of [{}, { onBoard: 'no' }, { hideAmounts: 1 }]) {
+    assert.equal((await call(app, 'PUT', '/api/preferences', admin, payload)).statusCode, 400);
+  }
+  const left = await call(app, 'PUT', '/api/preferences', admin, { onBoard: false });
+  assert.deepEqual(left.json(), { hideAmounts: false, onBoard: false });
+  assert.equal((await call(app, 'GET', '/api/board', admin)).json().onBoard, false);
 });

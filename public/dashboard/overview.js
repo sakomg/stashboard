@@ -4,7 +4,7 @@ import { CATEGORY_ORDER, OTHER_COLOR, PALETTE, colorOf } from './colors.js';
 import { hideTip, showBanner, showTip } from './feedback.js';
 import { inTime, money, percent, usdRound } from './format.js';
 import { chainLogoSpec, chainName, isExchange, kindLogoSpec, logo } from './logos.js';
-import { $, state } from './state.js';
+import { $, apiBase, state } from './state.js';
 
 export const DIMENSIONS = [
   ['category', 'Category', (x) => x.category, null],
@@ -158,7 +158,7 @@ export async function renderHistory() {
     renderHistory().catch(showBanner);
   });
 
-  const points = await api(`/api/history${state.period ? `?days=${state.period}` : ''}`);
+  const points = await api(`${apiBase}/history${state.period ? `?days=${state.period}` : ''}`);
   const enough = points.length >= 2;
   $('history').hidden = !enough;
   $('history-empty').hidden = enough;

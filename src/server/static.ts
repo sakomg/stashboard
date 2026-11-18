@@ -129,6 +129,8 @@ const ICONS = [
   'wallet',
   'user-plus',
   'rotate-ccw-key',
+  'list-ordered',
+  'arrow-left',
 ];
 
 const LOGO_POLICY = "sandbox; default-src 'none'; style-src 'unsafe-inline'";
@@ -159,6 +161,11 @@ export function registerStatic(app: FastifyInstance, ctx: Context, files: Static
     reply.header('Content-Security-Policy', LOGO_POLICY);
     reply.type(logo.type).header('Cache-Control', 'private, max-age=604800');
     return readFileSync(logo.path);
+  });
+
+  app.get<{ Params: { key: string } }>('/board/:key', async (_request, reply) => {
+    reply.type(TYPES.html!).header('Cache-Control', 'no-cache');
+    return page(new URL('public/dashboard/index.html', ctx.root)).replace('<body ', '<body data-viewing ');
   });
 
   app.get<{ Params: { token: string } }>('/s/:token', async (_request, reply) => {

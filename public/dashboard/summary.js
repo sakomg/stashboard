@@ -7,7 +7,7 @@ import { HELP, SOURCES, fearGreedTone } from './help.js';
 import { kindLogo, kindLogoSpec } from './logos.js';
 import { groups } from './overview.js';
 import { renderSignals } from './signals.js';
-import { $, DUST_USD, actions, busy, firstRead, state } from './state.js';
+import { $, DUST_USD, actions, busy, firstRead, state, viewing } from './state.js';
 import { switchView } from './views.js';
 
 const CHIP_LIMIT = 10;
@@ -63,6 +63,10 @@ function periodFact(label, days, key) {
 
 export function renderSummary() {
   const { data } = state;
+  if (viewing) {
+    const { rank, portfolios, you } = data.board;
+    $('viewing-place').textContent = rank ? `${rank} of ${portfolios}${you ? ', you' : ''}` : 'You, as others see you';
+  }
   const [whole, cents] = usd(data.netWorth).split('.');
   $('net-worth').replaceChildren(
     ...(firstRead()

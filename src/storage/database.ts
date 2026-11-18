@@ -193,6 +193,9 @@ const MIGRATIONS = [
    );`,
   `ALTER TABLE price_changes ADD COLUMN d1 REAL;`,
   `ALTER TABLE invites ADD COLUMN for_user INTEGER REFERENCES users (id) ON DELETE CASCADE;`,
+  `ALTER TABLE users ADD COLUMN on_board INTEGER NOT NULL DEFAULT 1;
+   ALTER TABLE users ADD COLUMN board_key TEXT;
+   CREATE UNIQUE INDEX users_board_key ON users (board_key);`,
 ];
 
 export function migrate(db: DatabaseSync, target = MIGRATIONS.length): void {
