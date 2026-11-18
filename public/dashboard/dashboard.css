@@ -1405,13 +1405,14 @@ body[data-state='reading'] #content {
   margin-top: 24px;
 }
 
-.board-table {
-  width: auto;
-}
-
 .board-table th,
 .board-table td {
-  padding: 10px 14px;
+  padding: 12px 14px;
+}
+
+.board-table th:first-child,
+.board-table td:first-child {
+  width: 1%;
 }
 
 .board-table th:first-child,
@@ -1444,6 +1445,19 @@ body[data-state='reading'] #content {
   margin-left: 8px;
   font-size: 13px;
   color: var(--amber);
+}
+
+.holdings {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+}
+
+.holding {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .viewing {
@@ -1499,6 +1513,28 @@ body[data-viewing] .more-chip {
     padding-inline: 8px;
   }
 
+  .holdings {
+    flex-wrap: nowrap;
+    gap: 0;
+  }
+
+  .holding + .holding {
+    margin-left: -5px;
+  }
+
+  .holding .logo {
+    box-shadow: 0 0 0 2px var(--ink);
+  }
+
+  .holding > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
   .tabs .tab-icon {
     display: block;
     width: 18px;
@@ -1519,5 +1555,10 @@ body[data-viewing] .more-chip {
   .tabs .tab-icon {
     width: 16px;
     height: 16px;
+  }
+
+  .board-table th,
+  .board-table td {
+    padding-inline: 5px;
   }
 }

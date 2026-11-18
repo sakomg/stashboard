@@ -96,8 +96,8 @@ added one at a time show as steps in the chart.
 ## Board
 
 When friends keep their portfolios on the same server, the Board tab lists everyone by net worth, largest
-first: the place, a made-up name of a Grand Theft Auto character such as _Tommy Vercetti_, the amount and
-how many wallets and exchanges. The admin sees real names instead. Yours is marked _you_. The name opens that
+first: the place, a made-up name of a Grand Theft Auto character such as _Tommy Vercetti_, the five largest
+holdings with their logos, how many wallets and exchanges, and the amount. The admin sees real names instead. Yours is marked _you_. The name opens that
 portfolio in the usual dashboard, to look through Overview, Positions, Signals and DeFi. Accounts are named
 after their kind, such as _Binance_ or _Solana wallet 2_, and addresses are never shown. Nothing there can be
 changed. _Board_ at the top leads back.

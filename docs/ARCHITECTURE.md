@@ -491,7 +491,8 @@ stylesheet, the common ones, the logo and the font). A dead link answers 404 wit
 ## Board
 
 The board is a short table of the portfolios of everyone on the server, largest first: the place, a made-up
-name, the net worth and how many wallets and exchanges. Everyone is on it until they leave (`on_board` in `users`,
+name, the five largest holdings, how many wallets and exchanges, and the net worth. Loans are not holdings
+there. The answer carries the logos of those holdings, which the page adds to its own. Everyone is on it until they leave (`on_board` in `users`,
 the switch in Settings or _Join the board_ in the view). Leaving works both ways: whoever is not on the board
 does not see it, only their own row.
 
@@ -526,7 +527,7 @@ listed. The tab shows when anyone else is on the board.
   shows the others only what Board above lists. The session decides whose data a request reads: every query of accounts, snapshots, shares and categories takes the person's id, and an
   account id or link token of someone else answers 404 as if it did not exist. Collection, signals, logos and
   looked-up categories are shared, since they are about markets rather than anyone's holdings; the logo list
-  a page gets names only what that person holds. Names are compared without case or surrounding spaces.
+  a page gets names only what that person holds, and the board's largest holdings. Names are compared without case or surrounding spaces.
 - **The admin** is person 1. They exist from the first start, without a password, and the setup page gives
   them a name, password and authenticator. Only the admin invites, resets and removes people, and cannot be
   removed.

@@ -3,8 +3,8 @@
 ## Unreleased
 
 - A board for friends on one server. The new Board tab is a short table of everyone's portfolio by net worth:
-  the place, a made-up name of a Grand Theft Auto character (the real one for the admin), the amount and how
-  many wallets and exchanges. The name opens that portfolio in the usual dashboard, to look through but not
+  the place, a made-up name of a Grand Theft Auto character (the real one for the admin), the five largest
+  holdings with their logos, how many wallets and exchanges, and the amount. The name opens that portfolio in the usual dashboard, to look through but not
   change, with accounts named after their kind and no addresses. Everyone is on it until they turn off **Show me on the board** in Settings, and then they no longer
   see it either. It opens at three portfolios.
 

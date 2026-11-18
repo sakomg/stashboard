@@ -98,7 +98,7 @@ async function load() {
     state.board = board;
     state.hideAmounts = data.preferences.hideAmounts;
     state.progress = data.progress ?? state.progress;
-    state.logos = new Map(Object.entries(data.logos.available));
+    state.logos = new Map(Object.entries({ ...board?.logos, ...data.logos.available }));
     state.chainNames = data.logos.chains;
     $('banner').hidden = true;
 
