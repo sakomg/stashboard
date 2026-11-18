@@ -1,3 +1,4 @@
+import './backup.js';
 import './people.js';
 import './settings.js';
 import './share-dialog.js';

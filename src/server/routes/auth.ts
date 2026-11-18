@@ -15,13 +15,16 @@ import {
   checkName,
   claimAdmin,
   createSession,
+  databaseCopy,
   deleteSession,
   findUser,
+  getUser,
   inviteValid,
   joinWithInvite,
   noteTotpStep,
   resetFor,
   resetWithLink,
+  userCredentials,
 } from '../../storage/index.ts';
 import { SESSION_MS, sessionToken, setSessionCookie } from '../access.ts';
 import type { Context } from '../context.ts';
@@ -260,6 +263,32 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: Context): void {
     noteTotpStep(ctx.db, user.id, step);
     signIn(request, reply, user.id);
     return { ok: true };
+  });
+
+  app.post<{ Body: { password?: unknown; code?: unknown } }>('/api/backup', async (request, reply) => {
+    if (!getUser(ctx.db, request.userId)?.admin) {
+      return reply.code(403).send({ error: 'Only the admin can download a backup' });
+    }
+    if (ctx.auth.claimed) {
+      if (lockedOut(request, reply)) return reply;
+      const { password, code } = request.body ?? {};
+      const credentials = userCredentials(ctx.db, request.userId);
+      const passwordOk =
+        typeof password === 'string' && verifyPassword(password, credentials?.passwordHash ?? decoyHash());
+      const step = credentials && typeof code === 'string' ? matchTotp(credentials.totpSecret, code) : null;
+      if (!credentials || !passwordOk || step === null || step <= credentials.totpStep) {
+        failed(request, 'failed backup confirmation');
+        return reply.code(403).send({ error: 'Wrong password or code' });
+      }
+      noteTotpStep(ctx.db, request.userId, step);
+      perAddress.clear(request.ip);
+    }
+    app.log.warn({ ip: request.ip }, 'backup downloaded');
+    return reply
+      .header('content-type', 'application/vnd.sqlite3')
+      .header('content-disposition', `attachment; filename="stashboard-${new Date().toISOString().slice(0, 10)}.db"`)
+      .header('cache-control', 'no-store')
+      .send(databaseCopy(ctx.db));
   });
 
   app.post('/api/logout', async (request, reply) => {

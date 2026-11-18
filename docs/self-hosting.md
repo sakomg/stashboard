@@ -163,8 +163,10 @@ The database is migrated on start. The page reloads itself when it notices the n
 ## Backups
 
 Once a day the app copies the database to `backups/` inside its data volume and keeps the last 14. That covers
-a bad update or a damaged file, not a lost server, so copy the backups off the machine now and then, together
-with the key that encrypts exchange secrets:
+a bad update or a damaged file, not a lost server, so take a copy off the machine now and then. The admin can
+download a fresh one from the dashboard: **Download backup** under Backup in Settings, with your password and an
+authenticator code. Exchange keys in it are encrypted with `secret.key`, which never changes, so copy it off the
+server once. From the server itself, the backups and the key are:
 
 ```sh
 docker compose cp stashboard:/data/backups ./backups

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- The admin can download a backup from Settings: **Download backup** under Backup asks for the password and an
+  authenticator code and saves a fresh copy of the whole server's data. Backups no longer have to be copied off
+  the server by hand to survive losing it. Exchange keys in it open only with `secret.key`, which never changes.
 - Stashboard can sit on a phone's home screen. **Add to Home Screen** gives it the Stashboard icon instead of a
   picture of the page, and it opens without the browser bar. Coming back to the dashboard after a minute or more,
   in an app or a tab, loads the latest balances.

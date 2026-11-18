@@ -16,6 +16,8 @@ be used to move money, and so that the dashboard is safe to expose to the intern
 - **Nobody joins uninvited.** Other people join only through a one-time link the admin makes, and each sees
   only their own accounts, history and links. The board shows everyone's portfolio to the others under a
   made-up name, without account names or addresses, and anyone can leave it. Only the admin sees real names.
+- **Backups** can be downloaded by the admin alone, with their password and an authenticator code again. They
+  never contain the key that unlocks exchange secrets.
 - **Sessions** are random tokens in `HttpOnly`, `SameSite=Strict` cookies, stored only as hashes.
 - **The page** allows scripts only from its own origin, builds every element without `innerHTML`, and refuses
   requests that change something when they come from another site.
