@@ -131,6 +131,36 @@ test('while an update runs, asking for another is refused until it ends', async 
   }
 });
 
+test('an update ends for each person once their own accounts are saved, while others are still read', async () => {
+  const { app, db } = server({}, true);
+  const kate = addUser(db, { name: 'Kate', passwordHash: 'h', totpSecret: 'S', totpStep: 0 });
+  addWallet(db, ADMIN_ID, EVM, 'Mine');
+  addWallet(db, kate.id, `0:${'b'.repeat(64)}`, 'Kate TON');
+  const mine = `stashboard_session=${createSession(db, ADMIN_ID, 60_000)}`;
+  const theirs = `stashboard_session=${createSession(db, kate.id, 60_000)}`;
+  const noNetwork = globalThis.fetch;
+  let answer: (res: Response) => void = () => {};
+  globalThis.fetch = (() => new Promise<Response>((resolve) => (answer = resolve))) as typeof fetch;
+  const collecting = async (cookie: string) =>
+    (await app.inject({ method: 'GET', url: '/api/progress', headers: { cookie } })).json().collecting;
+  try {
+    const update = await app.inject({ method: 'POST', url: '/api/collect', headers: { cookie: mine }, payload: {} });
+    assert.equal(update.statusCode, 200, 'my update answers while Kate’s wallet is still being read');
+    assert.equal(await collecting(mine), false);
+    assert.equal(await collecting(theirs), true);
+    const portfolio = (await app.inject({ method: 'GET', url: '/api/portfolio', headers: { cookie: mine } })).json();
+    assert.equal(portfolio.collecting, false);
+    assert.equal(portfolio.sources[0].status, 'error', 'my wallet is saved: no Zerion key in this config');
+    answer(new Response('{}', { status: 500 }));
+    for (let tries = 0; await collecting(theirs); tries++) {
+      assert.ok(tries < 300, 'Kate’s part never ended');
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  } finally {
+    globalThis.fetch = noNetwork;
+  }
+});
+
 test('the demo refuses to change accounts or people, or collect', async () => {
   const { app } = server({ DEMO: '1', HOST: '127.0.0.1' });
   for (const [method, url] of [

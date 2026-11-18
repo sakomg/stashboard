@@ -15,8 +15,11 @@ export function registerDashboardRoutes(
   collection: Collection,
   build: string,
 ): void {
-  const progressOf = (userId: number) =>
-    progressFor(collection.progress, new Set(listAccounts(ctx.db, userId).map((a) => a.id)));
+  const ownAccounts = (userId: number): Set<number> => new Set(listAccounts(ctx.db, userId).map((a) => a.id));
+  const progressOf = (userId: number) => {
+    const own = ownAccounts(userId);
+    return collection.collecting(own) ? progressFor(collection.progress, own) : null;
+  };
 
   const page = async (userId: number) => {
     const me = getUser(ctx.db, userId);
@@ -44,7 +47,7 @@ export function registerDashboardRoutes(
     ...(await page(request.userId)),
     progress: progressOf(request.userId),
     zerion: zerionQuota(),
-    collecting: collection.running,
+    collecting: collection.collecting(ownAccounts(request.userId)),
     update: collection.gate(),
     serverAddress: await ctx.address(),
     ipRequired: Object.fromEntries(EXCHANGE_KINDS.map((kind) => [kind, CLIENTS[kind].ipRequired])),
@@ -73,7 +76,7 @@ export function registerDashboardRoutes(
   );
 
   app.get('/api/progress', async (request) => ({
-    collecting: collection.running,
+    collecting: collection.collecting(ownAccounts(request.userId)),
     progress: progressOf(request.userId),
     update: collection.gate(),
   }));
@@ -82,10 +85,11 @@ export function registerDashboardRoutes(
     historyView(ctx.db, request.userId, ctx.resolveFor(request.userId), daysOf(request.query)),
   );
 
-  app.post('/api/collect', async (_request, reply) => {
+  app.post('/api/collect', async (request, reply) => {
     const gate = collection.gate();
     if (!gate.allowed) return reply.code(429).send({ error: gate.reason, update: gate });
-    await collection.collect();
+    void collection.collect();
+    await collection.settled(ownAccounts(request.userId));
     return { ok: true };
   });
 

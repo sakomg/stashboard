@@ -304,10 +304,11 @@ test('an account removed while a run reads it is left out, and the run still sav
   }) as typeof fetch;
   try {
     const run = await runCollection(db, loadConfig('config.example.json'));
+    assert.equal(run.length, 1, 'the removed person gets no snapshot');
     assert.deepEqual(
       db
         .prepare('SELECT account_id, status FROM snapshot_accounts WHERE snapshot_id = ?')
-        .all(run)
+        .all(run[0]!)
         .map((r) => ({ ...r })),
       [{ account_id: mine.id, status: 'error' }],
     );

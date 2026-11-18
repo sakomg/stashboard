@@ -23,7 +23,8 @@ export type ProgressEvent =
   | { type: 'start'; accounts: Account[] }
   | { type: 'reading'; accountId: number }
   | { type: 'waiting'; accountId: number; note: string }
-  | { type: 'done'; accountId: number; ok: boolean; note?: string };
+  | { type: 'done'; accountId: number; ok: boolean; note?: string }
+  | { type: 'saved'; accountIds: number[] };
 
 type Notify = (event: ProgressEvent) => void;
 
@@ -73,12 +74,15 @@ async function collectEvm(
   };
 }
 
-export function repriceEarlierReads(holdings: Holding[]): Holding[] {
-  const prices = new Map<string, number>();
+function notePrices(holdings: Holding[], prices: Map<string, number>): Map<string, number> {
   for (const h of holdings) {
     if (!h.readAt && h.price && h.price > 0 && !prices.has(h.symbol.toUpperCase()))
       prices.set(h.symbol.toUpperCase(), h.price);
   }
+  return prices;
+}
+
+export function repriceEarlierReads(holdings: Holding[], prices = notePrices(holdings, new Map())): Holding[] {
   return holdings.map((h) => {
     if (!h.readAt) return h;
     const symbol = h.symbol.toUpperCase();
@@ -96,37 +100,23 @@ function largestFirst(states: AccountState[]): Account[] {
     .map((s) => s.account);
 }
 
-const personByPerson = (db: DatabaseSync): Account[] =>
-  listUsers(db).flatMap((user) => largestFirst(currentState(db, user.id)));
+const personByPerson = (db: DatabaseSync): Account[][] =>
+  listUsers(db).map((user) => largestFirst(currentState(db, user.id)));
 
-export async function runCollection(
-  db: DatabaseSync,
-  config: Config,
-  notify: Notify = () => {},
-  { only, defiEveryMs }: RunOptions = {},
-): Promise<number | null> {
-  const accounts = personByPerson(db).filter((a) => !only || only.includes(a.id));
-  if (only && accounts.length === 0) return null;
-  notify({ type: 'start', accounts });
-  const results: { account: Account; result?: CollectResult; error?: string }[] = [];
-  for (const account of accounts) {
-    notify({ type: 'reading', accountId: account.id });
-    try {
-      const result = await collectAccount(db, config, account, notify, defiEveryMs);
-      results.push({ account, result });
-      notify({ type: 'done', accountId: account.id, ok: true });
-    } catch (err) {
-      const error = errorText(err);
-      results.push({ account, error });
-      notify({ type: 'done', accountId: account.id, ok: false, note: error });
-    }
-  }
+interface Read {
+  account: Account;
+  result?: CollectResult;
+  error?: string;
+}
 
-  const repriced = repriceEarlierReads(results.flatMap((r) => r.result?.holdings ?? []));
+function savePerson(db: DatabaseSync, reads: Read[], prices: Map<string, number>): number | null {
+  const fresh = reads.flatMap((r) => r.result?.holdings ?? []);
+  const repriced = repriceEarlierReads(fresh, notePrices(fresh, prices));
   const present = new Set(listAccounts(db, 'all').map((a) => a.id));
+  if (!reads.some((r) => present.has(r.account.id))) return null;
   const snapshotId = startSnapshot(db);
   let next = 0;
-  for (const { account, result, error } of results) {
+  for (const { account, result, error } of reads) {
     const holdings = result ? repriced.slice(next, (next += result.holdings.length)) : [];
     if (!present.has(account.id)) continue;
     if (!result) {
@@ -138,6 +128,40 @@ export async function runCollection(
   }
   finishSnapshot(db, snapshotId);
   return snapshotId;
+}
+
+export async function runCollection(
+  db: DatabaseSync,
+  config: Config,
+  notify: Notify = () => {},
+  { only, defiEveryMs }: RunOptions = {},
+): Promise<number[]> {
+  const people = personByPerson(db)
+    .map((accounts) => accounts.filter((a) => !only || only.includes(a.id)))
+    .filter((accounts) => accounts.length > 0);
+  if (people.length === 0) return [];
+  notify({ type: 'start', accounts: people.flat() });
+  const prices = new Map<string, number>();
+  const snapshots: number[] = [];
+  for (const accounts of people) {
+    const reads: Read[] = [];
+    for (const account of accounts) {
+      notify({ type: 'reading', accountId: account.id });
+      try {
+        const result = await collectAccount(db, config, account, notify, defiEveryMs);
+        reads.push({ account, result });
+        notify({ type: 'done', accountId: account.id, ok: true });
+      } catch (err) {
+        const error = errorText(err);
+        reads.push({ account, error });
+        notify({ type: 'done', accountId: account.id, ok: false, note: error });
+      }
+    }
+    const snapshotId = savePerson(db, reads, prices);
+    if (snapshotId !== null) snapshots.push(snapshotId);
+    notify({ type: 'saved', accountIds: accounts.map((a) => a.id) });
+  }
+  return snapshots;
 }
 
 export interface UpdateGate {
