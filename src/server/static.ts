@@ -38,6 +38,8 @@ const TYPES: Record<string, string> = {
   js: 'text/javascript; charset=utf-8',
   css: 'text/css; charset=utf-8',
   svg: 'image/svg+xml',
+  png: 'image/png',
+  webmanifest: 'application/manifest+json',
   woff2: 'font/woff2',
 };
 
@@ -48,7 +50,7 @@ export function staticFiles(root: URL): StaticFile[] {
   for (const [area, access] of Object.entries(AREAS)) {
     const dir = new URL(`public/${area}/`, root);
     for (const name of readdirSync(dir, { recursive: true }) as string[]) {
-      if (!/\.(js|css|svg|woff2)$/.test(name)) continue;
+      if (!/\.(js|css|svg|png|webmanifest|woff2)$/.test(name)) continue;
       files.push({ path: `/${area}/${name}`, file: new URL(name, dir), type: typeOf(name), cache: false, access });
     }
   }

@@ -86,7 +86,10 @@ async function renderAll() {
   }
 }
 
+let loadedAt = 0;
+
 async function load() {
+  loadedAt = Date.now();
   try {
     const [data, board] = await Promise.all([api(`${apiBase}/portfolio`), viewing ? null : api('/api/board')]);
     state.build ??= data.build;
@@ -138,6 +141,9 @@ $('sign-out').addEventListener('click', async () => {
   location.replace('/login');
 });
 setInterval(load, 5 * 60 * 1000);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && Date.now() - loadedAt > 60_000) load();
+});
 
 Object.assign(actions, { load, renderAll, watchProgress });
 load();
