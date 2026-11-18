@@ -26,7 +26,7 @@ public/
   share/           the public page a shared link opens
 test/              mirrors src/, plus tests of the server over HTTP, the page modules and the layering
 docs/              this file, the self-hosting guide and the user guide
-assets/            the logo and the README screenshots
+assets/            the logo, the square icon the home-screen PNGs are drawn from, and the README screenshots
 ```
 
 Dependencies point down: `lib` ← `domain` ← `storage`, `sources` ← `services` ← `server`, `cli` ← `main`. `domain`
@@ -715,6 +715,13 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
   new tokens arrive after an update, so the page reloads its data 20 seconds later.
 - **Updates of the server.** `/api/portfolio` carries a stamp of the page's own files. A tab left open across
   a deploy sees the stamp change and reloads, instead of running old code against new answers.
+- **Home screen.** Every page but the shared one names `common/manifest.webmanifest` (standalone, starting at `/`), an
+  `apple-touch-icon` and a `theme-color` of the page background, so a phone adds Stashboard to its home screen as
+  an app with its own icon and no browser bar. The PNGs in `common/icons` are `assets/icon.svg` drawn at 180, 192
+  and 512 pixels: the logo's bars on a full square, kept inside the circle Android may cut a maskable icon to, since
+  iOS rounds the corners itself and refuses transparency. There is no service worker: nothing is cached or works
+  offline. An app on the home screen has no reload, so the page loads its data again when it is shown after more
+  than a minute away. That happens when the person opens it, not on a timer.
 - **Notices.** Problems are grouped by cause, one notice per cause rather than per account. Only allowance
   notes and failures are shown; routine warnings such as unpriced spam stay in the Accounts view. A chip
   gets a clock when some of its balances are older than two scheduled updates. Holdings worth a dollar or more

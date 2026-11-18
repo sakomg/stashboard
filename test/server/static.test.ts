@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import { loadConfig } from '../../src/lib/config.ts';
 import { createApp } from '../../src/server/app.ts';
 import { createContext } from '../../src/server/context.ts';
-import { openDb } from '../../src/storage/index.ts';
+import { claimAdmin, openDb } from '../../src/storage/index.ts';
 
 const pages = ['/', '/setup'];
 
@@ -47,4 +47,31 @@ test('every icon the pages name is in the sprite, and no id is used twice', asyn
     ids.filter((id, i) => ids.indexOf(id) !== i),
     [],
   );
+});
+
+test('the pages name a manifest and a home-screen icon, served before sign-in', async () => {
+  const html = await page('/');
+  assert.match(html, /<link rel="manifest" href="\/common\/manifest\.webmanifest" \/>/);
+  assert.match(html, /<link rel="apple-touch-icon" href="\/common\/icons\/apple-touch-icon\.png" \/>/);
+
+  const db = openDb(mkdtempSync(join(tmpdir(), 'stashboard-test-')));
+  claimAdmin(db, { name: 'admin', passwordHash: 'x', totpSecret: 'JBSWY3DPEHPK3PXP', totpStep: 0 });
+  const ctx = createContext({ config: loadConfig('config.example.json'), db, env: { HOST: '0.0.0.0' } });
+  const { app } = createApp(ctx);
+  const get = (url: string) => app.inject({ method: 'GET', url });
+  const manifest = await get('/common/manifest.webmanifest');
+  assert.equal(manifest.statusCode, 200);
+  assert.equal(manifest.headers['content-type'], 'application/manifest+json');
+  const { start_url, display, icons } = manifest.json() as {
+    start_url: string;
+    display: string;
+    icons: { src: string; sizes: string }[];
+  };
+  assert.equal(start_url, '/');
+  assert.equal(display, 'standalone');
+  for (const src of [...icons.map((i) => i.src), '/common/icons/apple-touch-icon.png']) {
+    const res = await get(src);
+    assert.equal(res.statusCode, 200, src);
+    assert.equal(res.headers['content-type'], 'image/png', src);
+  }
 });

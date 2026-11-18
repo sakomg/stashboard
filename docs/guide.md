@@ -75,6 +75,12 @@ An asset the file does not mention is looked up on CoinGecko by ticker, and the 
 category. When the lookup is wrong or finds nothing, click the category next to the asset in Positions and
 choose one. A category chosen by hand wins over the file and the lookup.
 
+## On a phone
+
+Open the dashboard in Safari or Chrome and choose **Add to Home Screen**. Stashboard opens from its own icon
+without the browser bar. On an iPhone it keeps its own sign-in, so it asks you to sign in once more. Each time
+you come back to it after a minute or more, it loads the latest balances.
+
 ## Privacy
 
 The eye next to the net worth, or **Hide amounts** in Settings, turns every dollar amount and quantity into

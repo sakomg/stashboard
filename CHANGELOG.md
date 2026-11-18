@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Stashboard can sit on a phone's home screen. **Add to Home Screen** gives it the Stashboard icon instead of a
+  picture of the page, and it opens without the browser bar. Coming back to the dashboard after a minute or more,
+  in an app or a tab, loads the latest balances.
 - An exchange takes a new API key without losing its history. When a Bybit or Gate key expires, or you make a
   new one, the key button of the exchange in Accounts opens the same dialog as adding one. The new key is checked
   to only read, and the exchange is read again straight away. Before, the only way was to remove the exchange,
