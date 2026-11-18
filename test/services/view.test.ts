@@ -122,6 +122,37 @@ test('24 hours, 7 and 30 days are estimated from prices only until history reach
   assert.equal(portfolioView(db, ADMIN_ID, resolve, later).estimates.d7, null);
 });
 
+test('a wallet added since does not count as growth, and history covers the portfolio once it holds half', () => {
+  const db = openDb(mkdtempSync(join(tmpdir(), 'stashboard-test-')));
+  const now = new Date('2026-11-18T12:00:00.000Z');
+  const at = (hours: number) => new Date(now.getTime() - hours * 60 * 60 * 1000).toISOString();
+  const read = (hours: number, outcomes: [number, Holding[]][]) => {
+    const snapshot = startSnapshot(db);
+    for (const [id, holdings] of outcomes) saveOutcome(db, snapshot, id, { status: 'ok', holdings, warnings: [] });
+    finishSnapshot(db, snapshot);
+    db.prepare('UPDATE snapshots SET started_at = ? WHERE id = ?').run(at(hours), snapshot);
+  };
+  const old = addWallet(db, ADMIN_ID, '0x52908400098527886E0F7030069857D2E4169EE7');
+  read(48, [[old.id, [holding('ETH', 1, 2000)]]]);
+  const added = addWallet(db, ADMIN_ID, '0x8617E340B3D01FA5F11F306F4090FD50E238070D');
+  read(2, [[added.id, [holding('USDC', 1000, 1)]]]);
+  read(1, [
+    [old.id, [holding('ETH', 1, 2200)]],
+    [added.id, [holding('USDC', 1000, 1)]],
+  ]);
+
+  const view = portfolioView(db, ADMIN_ID, resolve, now);
+  assert.equal(view.netWorth, 3200);
+  assert.ok(Math.abs(view.changes.d1! - 0.1) < 1e-12);
+  assert.equal(view.historySince, at(48));
+
+  const bigger = addWallet(db, ADMIN_ID, '0x2F62F2B4c5fcd7570a709DeC05D68EA19c82A9ec');
+  read(0.5, [[bigger.id, [holding('USDC', 5000, 1)]]]);
+  const later = portfolioView(db, ADMIN_ID, resolve, now);
+  assert.equal(later.changes.d1, null);
+  assert.equal(later.historySince, at(0.5));
+});
+
 test('an overheated asset is new to each person until they dismiss it, and again once it has cooled', () => {
   const db = openDb(mkdtempSync(join(tmpdir(), 'stashboard-test-')));
   const kate = addUser(db, { name: 'Kate', passwordHash: 'h', totpSecret: 'S', totpStep: 0 });

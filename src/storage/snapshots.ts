@@ -135,15 +135,16 @@ export function snapshotValues(db: DatabaseSync, userId: number): SnapshotValue[
     .all(userId) as unknown as SnapshotValue[];
 }
 
-export function historySince(db: DatabaseSync, userId: number): string | null {
-  const row = db
+export function firstReads(db: DatabaseSync, userId: number): Map<number, string> {
+  const rows = db
     .prepare(
-      `SELECT MIN(s.started_at) AS since
+      `SELECT sa.account_id AS accountId, MIN(s.started_at) AS since
          FROM snapshots s
          JOIN snapshot_accounts sa ON sa.snapshot_id = s.id
          JOIN accounts a ON a.id = sa.account_id
-        WHERE a.user_id = ?`,
+        WHERE a.user_id = ? AND sa.status = 'ok' AND s.finished_at IS NOT NULL
+        GROUP BY sa.account_id`,
     )
-    .get(userId) as { since: string | null };
-  return row.since;
+    .all(userId) as { accountId: number; since: string }[];
+  return new Map(rows.map((r) => [r.accountId, r.since]));
 }

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- A wallet or exchange you add no longer shows as growth. The 24-hour, 7-day and 30-day changes compare only
+  the accounts that were already there, so adding a $20,000 exchange to a $2,000 wallet yesterday no longer
+  reads as +1,000% today. While those accounts hold less than half of the portfolio, the change is the
+  estimate from prices, marked ≈, until history reaches far enough back.
+
 - A board for friends on one server. The new Board tab is a short table of everyone's portfolio by net worth:
   the place, a made-up name of a Grand Theft Auto character (the real one for the admin), the five largest
   holdings with their logos, how many wallets and exchanges, and the amount. The name opens that portfolio in the usual dashboard, to look through but not

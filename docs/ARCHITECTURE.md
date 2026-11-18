@@ -130,8 +130,14 @@ cents do not show up as a band or a legend entry.
 The history chart sums the value of every one of the person's accounts per category at every snapshot that
 read one of them, so it starts when they added their first account. An account that failed in a
 snapshot keeps its previous value there, so a source being down does not show as a drop in net worth. Long
-ranges are thinned evenly to 240 points, always keeping the most recent one. The 24-hour, 7-day and 30-day
-changes compare with the snapshot at or before that time and stay empty until history reaches that far.
+ranges are thinned evenly to 240 points, always keeping the most recent one.
+
+The 24-hour, 7-day and 30-day changes compare with the snapshot at or before that time, account by account:
+only accounts read by then count, at both ends, so a wallet or exchange added in between is not growth. When
+those accounts hold less than half of today's net worth (in absolute value, so a loan counts), the change from
+history is not given and the estimate below stands in. The page learns when history will cover enough from
+`historySince`: the first read of the account that brings the accounts first read by then to half of today's
+net worth, oldest first.
 
 ### Estimated changes
 
@@ -143,8 +149,7 @@ Assets without a Binance market, or worth under a dollar across all accounts, ar
 only the rest. A borrowed asset that got dearer counts against it. With less than half of the portfolio covered, or
 price changes older than two days (half a day for the 24-hour one), there is no estimate. The page shows an estimate
 with `≈` and a help button saying what it covers and when the change from history takes over. It leaves out deposits,
-withdrawals and trades, which the change from history includes, and an account added in the meantime, which the
-change from history counts as growth.
+withdrawals and trades, which the change from history includes.
 
 ## Sources
 
