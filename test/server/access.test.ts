@@ -13,8 +13,11 @@ import {
   addWallet,
   claimAdmin,
   createSession,
+  finishSnapshot,
   listAccounts,
   openDb,
+  saveOutcome,
+  startSnapshot,
 } from '../../src/storage/index.ts';
 
 process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'stashboard-test-'));
@@ -367,4 +370,68 @@ test('the board needs a session, and leaving it takes true or false', async () =
   const left = await call(app, 'PUT', '/api/preferences', admin, { onBoard: false });
   assert.deepEqual(left.json(), { hideAmounts: false, onBoard: false });
   assert.equal((await call(app, 'GET', '/api/board', admin)).json().onBoard, false);
+});
+
+test('looking through someone else’s board changes nothing of theirs', async () => {
+  const { app, db } = server({}, true);
+  const friend = (name: string) => addUser(db, { name, passwordHash: 'x', totpSecret: 'x', totpStep: 0 }).id;
+  const ids = [ADMIN_ID, friend('Kate'), friend('Bob')];
+  const addresses = [EVM, '0x8617E340B3D01FA5F11F306F4090FD50E238070D', '0xde709f2102306220921060314715629080e2fb77'];
+  const snapshot = startSnapshot(db);
+  const wallets = ids.map((id, i) => {
+    const wallet = addWallet(db, id, addresses[i]!, `Main ${i}`);
+    saveOutcome(db, snapshot, wallet.id, {
+      status: 'ok',
+      holdings: [
+        {
+          chain: 'ethereum',
+          protocol: null,
+          symbol: 'ETH',
+          quantity: 3 - i,
+          price: 2000,
+          value: (3 - i) * 2000,
+          type: 'wallet',
+        },
+      ],
+      warnings: [],
+    });
+    return wallet;
+  });
+  finishSnapshot(db, snapshot);
+  const admin = sessionOf(db, ADMIN_ID);
+  const kate = sessionOf(db, ids[1]!);
+
+  const board = (await call(app, 'GET', '/api/board', kate)).json();
+  const top = board.rows[0];
+  assert.equal(top.you, false);
+  const theirs = await call(app, 'GET', `/api/board/${top.key}/portfolio`, kate);
+  assert.equal(theirs.statusCode, 200);
+  const shown = theirs.json().sources[0];
+  assert.equal(shown.label, 'EVM wallet');
+
+  for (const id of [shown.id, wallets[0]!.id]) {
+    assert.equal((await call(app, 'PATCH', `/api/accounts/${id}`, kate, { label: 'Mine now' })).statusCode, 404);
+    assert.equal((await call(app, 'DELETE', `/api/accounts/${id}`, kate)).statusCode, 404);
+  }
+  for (const method of ['POST', 'PUT', 'PATCH', 'DELETE'] as const) {
+    for (const url of [`/api/board/${top.key}`, `/api/board/${top.key}/portfolio`, `/board/${top.key}`]) {
+      assert.equal((await call(app, method, url, kate, {})).statusCode, 404, `${method} ${url}`);
+    }
+  }
+  assert.equal((await call(app, 'PUT', '/api/assets/ETH/category', kate, { category: 'Memes' })).statusCode, 200);
+  assert.equal((await call(app, 'POST', '/api/heat/dismiss', kate, { assets: ['ETH'] })).statusCode, 200);
+  assert.equal((await call(app, 'PUT', '/api/preferences', kate, { onBoard: false })).statusCode, 200);
+
+  assert.deepEqual(
+    listAccounts(db, ADMIN_ID).map((a) => a.label),
+    ['Main 0'],
+  );
+  const own = (await call(app, 'GET', '/api/portfolio', admin)).json();
+  assert.equal(own.assets[0].category, 'ETH', 'a category chosen by someone else stays theirs');
+  assert.equal((await call(app, 'GET', '/api/board', admin)).json().onBoard, true);
+  assert.equal(
+    (await call(app, 'GET', `/api/board/${top.key}/portfolio`, kate)).statusCode,
+    404,
+    'having left, Kate no longer sees it',
+  );
 });

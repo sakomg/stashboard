@@ -96,10 +96,11 @@ added one at a time show as steps in the chart.
 ## Board
 
 When friends keep their portfolios on the same server, the Board tab lists everyone by net worth, largest
-first: the place, the amount and how many wallets and exchanges, without names. Yours is marked _you_. A row
-opens that portfolio in the usual dashboard, to look through Overview, Positions, Signals and DeFi. Accounts
-are named after their kind, such as _Binance_ or _Solana wallet 2_, and addresses are never shown. _Board_ at
-the top leads back.
+first: the place, a made-up name of a Grand Theft Auto character such as _Tommy Vercetti_, the amount and
+how many wallets and exchanges. The admin sees real names instead. Yours is marked _you_. The name opens that
+portfolio in the usual dashboard, to look through Overview, Positions, Signals and DeFi. Accounts are named
+after their kind, such as _Binance_ or _Solana wallet 2_, and addresses are never shown. Nothing there can be
+changed. _Board_ at the top leads back.
 
 Everyone is on the board until they leave it with **Show me on the board** in Settings. Leaving works both
 ways: you no longer see the others either, only your own row, and _Join the board_ brings you back. The board

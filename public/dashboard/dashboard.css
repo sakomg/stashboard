@@ -1401,44 +1401,49 @@ body[data-state='reading'] #content {
   max-width: none;
 }
 
-.empty + .board-list {
+.empty + .board-table {
   margin-top: 24px;
 }
 
-.board-list {
-  max-width: 640px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.board-table {
+  width: auto;
 }
 
-.board-list a {
-  display: grid;
-  grid-template-columns: 2ch 9.5em minmax(0, 1fr) auto 16px;
-  align-items: center;
-  gap: 16px;
-  padding: 13px 4px;
-  border-bottom: 1px solid var(--line);
-  color: inherit;
+.board-table th,
+.board-table td {
+  padding: 10px 14px;
+}
+
+.board-table th:first-child,
+.board-table td:first-child {
+  padding-left: 0;
+}
+
+.board-table th:last-child,
+.board-table td:last-child {
+  padding-right: 0;
+}
+
+.board-table .left {
+  text-align: left;
+}
+
+.board-table a {
+  font-weight: 600;
+  color: var(--bone);
   text-decoration: none;
 }
 
-.board-list a:hover {
-  background: color-mix(in srgb, var(--surface) 60%, transparent);
+.board-table a:hover {
+  color: var(--amber);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
-.board-list .worth {
-  font-weight: 600;
-  text-align: right;
-}
-
-.board-list .you-mark {
+.board-table .you-mark {
+  margin-left: 8px;
   font-size: 13px;
   color: var(--amber);
-}
-
-.board-list .icon {
-  color: var(--dim);
 }
 
 .viewing {
@@ -1452,6 +1457,11 @@ body[data-state='reading'] #content {
 
 body[data-viewing] .viewing {
   display: flex;
+}
+
+.viewing b {
+  font-weight: 600;
+  color: var(--bone);
 }
 
 .viewing a {
@@ -1484,10 +1494,9 @@ body[data-viewing] .more-chip {
     width: 100%;
   }
 
-  .board-list a {
-    grid-template-columns: 2ch auto minmax(0, 1fr) auto 16px;
-    gap: 12px;
-    font-size: 14px;
+  .board-table th,
+  .board-table td {
+    padding-inline: 8px;
   }
 
   .tabs .tab-icon {

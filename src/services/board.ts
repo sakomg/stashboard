@@ -12,6 +12,7 @@ type ResolveFor = (userId: number) => (symbol: string) => Asset;
 interface Entry {
   id: number;
   key: string;
+  name: string;
   onBoard: boolean;
   you: boolean;
   netWorth: number;
@@ -23,6 +24,7 @@ const cents = (n: number): number => Math.round(n * 100) / 100;
 
 function standings(db: DatabaseSync, userId: number, resolveFor: ResolveFor) {
   const members = boardMembers(db);
+  const admin = members.find((m) => m.id === userId)?.admin ?? false;
   const entries: Entry[] = [];
   for (const member of members) {
     if (!member.onBoard && member.id !== userId) continue;
@@ -30,14 +32,19 @@ function standings(db: DatabaseSync, userId: number, resolveFor: ResolveFor) {
     if (states.length === 0) continue;
     const exchanges = states.filter((s) => isExchange(s.account.kind)).length;
     entries.push({
-      ...member,
+      id: member.id,
+      key: member.key,
+      name: admin ? member.person : member.name,
+      onBoard: member.onBoard,
       you: member.id === userId,
       netWorth: cents(buildPortfolio(states, resolveFor(member.id)).netWorth),
       wallets: states.length - exchanges,
       exchanges,
     });
   }
-  const ranked = entries.filter((e) => e.onBoard).sort((a, b) => b.netWorth - a.netWorth || a.key.localeCompare(b.key));
+  const ranked = entries
+    .filter((e) => e.onBoard)
+    .sort((a, b) => b.netWorth - a.netWorth || a.name.localeCompare(b.name));
   const onBoard = members.find((m) => m.id === userId)?.onBoard ?? false;
   return {
     onBoard,
@@ -47,7 +54,14 @@ function standings(db: DatabaseSync, userId: number, resolveFor: ResolveFor) {
   };
 }
 
-const row = ({ key, you, netWorth, wallets, exchanges }: Entry) => ({ key, you, netWorth, wallets, exchanges });
+const row = ({ key, name, you, netWorth, wallets, exchanges }: Entry) => ({
+  key,
+  name,
+  you,
+  netWorth,
+  wallets,
+  exchanges,
+});
 
 export function boardView(db: DatabaseSync, userId: number, resolveFor: ResolveFor) {
   const { onBoard, open, ranked, own } = standings(db, userId, resolveFor);
@@ -89,7 +103,7 @@ export function boardPortfolio(db: DatabaseSync, userId: number, key: string, re
   );
   return {
     ...view,
-    board: { rank: found.rank, portfolios: found.portfolios, you: found.entry.you },
+    board: { name: found.entry.name, rank: found.rank, portfolios: found.portfolios, you: found.entry.you },
     assets: view.assets.map((a) => ({ ...a, signal: a.signal && { ...a.signal, dismissed: true } })),
     sources: view.sources.map((s) => ({ ...s, ...accounts.get(s.id)!, address: '', error: null, warnings: [] })),
     holdings: view.holdings.map(({ accountId, ...h }) => {

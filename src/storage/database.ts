@@ -196,6 +196,8 @@ const MIGRATIONS = [
   `ALTER TABLE users ADD COLUMN on_board INTEGER NOT NULL DEFAULT 1;
    ALTER TABLE users ADD COLUMN board_key TEXT;
    CREATE UNIQUE INDEX users_board_key ON users (board_key);`,
+  `ALTER TABLE users ADD COLUMN board_name TEXT;
+   CREATE UNIQUE INDEX users_board_name ON users (board_name);`,
 ];
 
 export function migrate(db: DatabaseSync, target = MIGRATIONS.length): void {
