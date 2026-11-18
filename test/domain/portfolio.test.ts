@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { priceChange } from '../../src/domain/indicators.ts';
-import { estimateChange } from '../../src/domain/portfolio.ts';
+import { coveredSince, estimateChange, historyChange } from '../../src/domain/portfolio.ts';
 
 const flat = (category: string) => category === 'Stablecoins';
 
@@ -57,4 +57,46 @@ test('assets without a price history are left out, and too little coverage gives
     estimateChange([], () => 0, flat),
     null,
   );
+});
+
+test('an account added in between is not growth: the change covers the accounts there at both times', () => {
+  assert.equal(
+    historyChange([
+      { now: 1500, then: 1000 },
+      { now: 400, then: null },
+    ]),
+    0.5,
+  );
+  assert.equal(historyChange([{ now: 1100, then: null }]), null);
+  assert.equal(historyChange([{ now: 0, then: 1000 }]), -1);
+});
+
+test('a change over accounts holding under half of the portfolio today is not given', () => {
+  assert.equal(
+    historyChange([
+      { now: 100, then: 90 },
+      { now: 5000, then: null },
+    ]),
+    null,
+  );
+  assert.equal(
+    historyChange([
+      { now: 3000, then: 2000 },
+      { now: -1000, then: null },
+      { now: 1000, then: null },
+    ]),
+    0.5,
+  );
+});
+
+test('history covers the portfolio from when accounts holding half of it today were first read', () => {
+  const accounts = [
+    { value: 100, since: '2026-11-01T00:00:00.000Z' },
+    { value: 5000, since: '2026-11-10T00:00:00.000Z' },
+    { value: 4000, since: '2026-11-05T00:00:00.000Z' },
+    { value: 0, since: null },
+  ];
+  assert.equal(coveredSince(accounts), '2026-11-10T00:00:00.000Z');
+  assert.equal(coveredSince(accounts.slice(0, 1)), '2026-11-01T00:00:00.000Z');
+  assert.equal(coveredSince([{ value: 0, since: null }]), null);
 });

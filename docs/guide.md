@@ -3,10 +3,11 @@
 ## The dashboard
 
 The top of the page is the net worth, the change over 24 hours, 7 and 30 days, the crypto Fear & Greed
-index, and the accounts as chips, largest first. Until the history reaches that far back, those changes
-are estimates marked **≈**: today's holdings at the prices of 24 hours, 7 or 30 days ago. Their help button says
-how much of the portfolio they cover. Where there is nothing to estimate yet, a dash stands in, and hovering it
-says when the change appears. A chip spins while its account is being read and shows a
+index, and the accounts as chips, largest first. A wallet or exchange added in between does not count as
+growth: a change compares only the accounts that were already there. Until the history reaches that far back
+for at least half of the portfolio, those changes are estimates marked **≈**: today's holdings at the prices
+of 24 hours, 7 or 30 days ago. Their help button says how much of the portfolio they cover. Where there is
+nothing to estimate yet, a dash stands in, and hovering it says when the change appears. A chip spins while its account is being read and shows a
 warning when it is out of date. With more than ten accounts, the smaller ones fold into a **more** chip that
 opens the Accounts view, but an account that is not read yet or out of date always keeps its chip. **Add
 wallet or exchange** is at the end of the chips.

@@ -2,8 +2,8 @@ import type { DatabaseSync } from 'node:sqlite';
 import type { Asset } from '../domain/assets.ts';
 import {
   currentState,
+  firstReads,
   heatSeen,
-  historySince,
   latestSignals,
   extremeSince,
   isExtreme,
@@ -16,11 +16,12 @@ import {
 import { EXCHANGE_KINDS, exchangeHints, isExchange } from './exchanges.ts';
 import { STABLECOINS_CATEGORY, STOCKS_CATEGORY } from '../domain/assets.ts';
 import { COINGECKO_EXCHANGES, logoIndex, type Wanted } from './logos.ts';
-import { buildPortfolio, estimateChange } from '../domain/portfolio.ts';
+import { buildPortfolio, coveredSince, estimateChange, historyChange } from '../domain/portfolio.ts';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ESTIMATE_MAX_AGE_MS = { d1: 12 * 60 * 60 * 1000, d7: 2 * DAY_MS, d30: 2 * DAY_MS };
 const short = (a: string): string => (a.length > 12 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a);
+const valueOf = (s: AccountState): number => s.holdings.reduce((sum, h) => sum + h.value, 0);
 const ratio = (now: number, then: number | undefined): number | null =>
   then === undefined || then === 0 ? null : now / then - 1;
 
@@ -30,11 +31,18 @@ export function portfolioView(db: DatabaseSync, userId: number, resolve: (symbol
 
   const past = (days: number) => {
     const snapshot = snapshotAt(db, new Date(now.getTime() - days * DAY_MS));
-    return snapshot ? buildPortfolio(currentState(db, userId, snapshot.id), resolve) : null;
+    return snapshot ? currentState(db, userId, snapshot.id) : null;
   };
-  const [d1, d7, d30] = [past(1), past(7), past(30)];
+  const [then1, then7, then30] = [past(1), past(7), past(30)];
+  const [d1, d7] = [then1, then7].map((then) => (then ? buildPortfolio(then, resolve) : null));
   const priceThen = (p: typeof d1, key: string): number | undefined =>
     p?.assets.find((a) => a.key === key)?.price ?? undefined;
+  const changeSince = (then: AccountState[] | null): number | null => {
+    if (!then) return null;
+    const read = new Map(then.filter((s) => s.collectedAt !== null).map((s) => [s.account.id, valueOf(s)]));
+    return historyChange(states.map((s) => ({ now: valueOf(s), then: read.get(s.account.id) ?? null })));
+  };
+  const reads = firstReads(db, userId);
 
   const episodes = { overheated: extremeSince(db, 'overheated'), cold: extremeSince(db, 'cold') };
   const seen = heatSeen(db, userId);
@@ -45,11 +53,7 @@ export function portfolioView(db: DatabaseSync, userId: number, resolve: (symbol
     }),
   );
   const hints = exchangeHints(db);
-  const changes = {
-    d1: ratio(portfolio.netWorth, d1?.netWorth),
-    d7: ratio(portfolio.netWorth, d7?.netWorth),
-    d30: ratio(portfolio.netWorth, d30?.netWorth),
-  };
+  const changes = { d1: changeSince(then1), d7: changeSince(then7), d30: changeSince(then30) };
   const moves = priceChangesSince(db, new Date(now.getTime() - ESTIMATE_MAX_AGE_MS.d7).toISOString());
   const estimate = (key: keyof typeof changes) =>
     changes[key] === null
@@ -65,7 +69,7 @@ export function portfolioView(db: DatabaseSync, userId: number, resolve: (symbol
 
   return {
     logos: logoIndex(db, new Set(wantedLogos(states, resolve).map((w) => `${w.kind}/${w.key}`))),
-    historySince: historySince(db, userId),
+    historySince: coveredSince(states.map((s) => ({ value: valueOf(s), since: reads.get(s.account.id) ?? null }))),
     updatedAt: states.reduce<string | null>(
       (max, s) => (s.collectedAt && (!max || s.collectedAt > max) ? s.collectedAt : max),
       null,
@@ -90,7 +94,7 @@ export function portfolioView(db: DatabaseSync, userId: number, resolve: (symbol
         error: s.lastError,
         collectedAt: s.collectedAt,
         warnings: s.warnings,
-        value: s.holdings.reduce((sum, h) => sum + h.value, 0),
+        value: valueOf(s),
         oldestRead: s.holdings.reduce<string | null>(
           (min, h) => (h.readAt && (!min || h.readAt < min) ? h.readAt : min),
           s.collectedAt,
