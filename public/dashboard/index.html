@@ -397,6 +397,15 @@
           <p class="form-error" id="people-error" role="alert" hidden></p>
         </section>
 
+        <section aria-labelledby="backup-title" id="backup" hidden>
+          <h3 id="backup-title">Backup</h3>
+          <p class="muted">Everyone's accounts and history in one file.</p>
+          <button class="button" id="backup-open" type="button">
+            <svg class="icon" aria-hidden="true"><use href="#download"></use></svg>Download backup
+          </button>
+          <p class="form-error" id="backup-error" role="alert" hidden></p>
+        </section>
+
         <section aria-labelledby="session-title">
           <h3 id="session-title">Session</h3>
           <div class="session-row">
@@ -408,6 +417,32 @@
           <p class="muted" id="session-text" hidden>Sign-in is off: this dashboard is open on this machine only.</p>
         </section>
       </div>
+    </dialog>
+
+    <dialog class="dialog" id="backup-dialog" aria-labelledby="backup-dialog-title">
+      <form id="backup-form" autocomplete="off" novalidate>
+        <header>
+          <h2 id="backup-dialog-title">Download backup</h2>
+          <button class="icon-button" type="button" data-close aria-label="Close" title="Close">
+            <svg class="icon" aria-hidden="true"><use href="#x"></use></svg>
+          </button>
+        </header>
+        <div class="fields">
+          <label>
+            <span>Password</span>
+            <input name="password" type="password" autocomplete="current-password" />
+          </label>
+          <label>
+            <span>Code from your authenticator app</span>
+            <input name="code" inputmode="numeric" autocomplete="one-time-code" />
+          </label>
+        </div>
+        <p class="form-error" id="backup-dialog-error" role="alert" hidden></p>
+        <footer>
+          <button class="button" type="button" data-close>Cancel</button>
+          <button class="button primary" type="submit">Download</button>
+        </footer>
+      </form>
     </dialog>
 
     <dialog class="dialog share-dialog" id="share-dialog" aria-labelledby="share-title">

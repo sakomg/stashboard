@@ -1,4 +1,5 @@
-import { mkdirSync, readdirSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 
@@ -26,4 +27,15 @@ export function backupDaily(
   db.exec(`VACUUM INTO '${file.replaceAll("'", "''")}'`);
   for (const old of existing.slice(0, Math.max(0, existing.length + 1 - keep))) rmSync(join(folder, old));
   return file;
+}
+
+export function databaseCopy(db: DatabaseSync): Buffer {
+  const folder = mkdtempSync(join(tmpdir(), 'stashboard-copy-'));
+  const file = join(folder, 'stashboard.db');
+  try {
+    db.exec(`VACUUM INTO '${file.replaceAll("'", "''")}'`);
+    return readFileSync(file);
+  } finally {
+    rmSync(folder, { recursive: true, force: true });
+  }
 }

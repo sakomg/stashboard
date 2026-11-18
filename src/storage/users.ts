@@ -65,6 +65,11 @@ export function getUser(db: DatabaseSync, id: number): User | null {
   return row ? toUser(row) : null;
 }
 
+export function userCredentials(db: DatabaseSync, id: number): Credentials | null {
+  const row = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as UserRow | undefined;
+  return row ? toCredentials(row) : null;
+}
+
 export function findUser(db: DatabaseSync, name: string): (User & { credentials: Credentials | null }) | null {
   const row = db.prepare('SELECT * FROM users WHERE name_key = ?').get(nameKey(name)) as UserRow | undefined;
   return row ? { ...toUser(row), credentials: toCredentials(row) } : null;

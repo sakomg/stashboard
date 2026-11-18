@@ -24,7 +24,8 @@ Below, five views, and a sixth when friends share the server:
   an exchange takes a new API key when the old one expired or was turned off, and keeps the exchange's history.
 - **Board**: everyone's portfolio on this server, without names. See [Board](#board).
 
-**Settings** (top right) has privacy, shared links, update status, people for the admin, and the session.
+**Settings** (top right) has privacy, shared links, update status, people and a backup for the admin, and the
+session.
 
 Balances update on their own, as often as Zerion's free allowance lets them (see
 [Free-tier limits](#free-tier-limits)). The button next to the update time asks for one now. While it is greyed

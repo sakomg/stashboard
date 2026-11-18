@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { test } from 'node:test';
-import { totpCode } from '../../src/auth/index.ts';
+import { hashPassword, totpCode } from '../../src/auth/index.ts';
 import { loadConfig } from '../../src/lib/config.ts';
 import { createApp } from '../../src/server/app.ts';
 import { createContext } from '../../src/server/context.ts';
@@ -316,6 +317,51 @@ test('the admin renames themselves, lists people and removes a friend with all t
   assert.equal((await call(app, 'DELETE', `/api/users/${friend.id}`, admin)).statusCode, 200);
   assert.equal((await call(app, 'GET', '/api/progress', kate)).statusCode, 401);
   assert.equal(listAccounts(db, 'all').length, 0);
+});
+
+test('the admin downloads a copy of the database with their password and a fresh code, and nobody else can', async () => {
+  const db = openDb(mkdtempSync(join(tmpdir(), 'stashboard-test-')));
+  const secret = 'JBSWY3DPEHPK3PXP';
+  claimAdmin(db, {
+    name: 'admin',
+    passwordHash: hashPassword('correct horse battery'),
+    totpSecret: secret,
+    totpStep: 0,
+  });
+  const friend = addUser(db, { name: 'Kate', passwordHash: 'h', totpSecret: 'S', totpStep: 0 });
+  addWallet(db, friend.id, EVM);
+  const ctx = createContext({ config: loadConfig('config.example.json'), db, env: { HOST: '0.0.0.0' } });
+  const { app } = createApp(ctx);
+  const step = Math.floor(Date.now() / 30_000);
+  const backup = (cookie: string, password: string, code: string) =>
+    call(app, 'POST', '/api/backup', cookie, { password, code });
+
+  assert.equal(
+    (await backup(sessionOf(db, friend.id), 'correct horse battery', totpCode(secret, step))).statusCode,
+    403,
+  );
+  const wrong = await backup(sessionOf(db, ADMIN_ID), 'wrong horse battery', totpCode(secret, step));
+  assert.deepEqual([wrong.statusCode, wrong.json()], [403, { error: 'Wrong password or code' }]);
+
+  const res = await backup(sessionOf(db, ADMIN_ID), 'correct horse battery', totpCode(secret, step));
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.headers['content-type'], 'application/vnd.sqlite3');
+  assert.match(String(res.headers['content-disposition']), /^attachment; filename="stashboard-\d{4}-\d{2}-\d{2}\.db"$/);
+  const file = join(mkdtempSync(join(tmpdir(), 'stashboard-test-')), 'copy.db');
+  writeFileSync(file, res.rawPayload);
+  const copy = new DatabaseSync(file, { readOnly: true });
+  assert.equal((copy.prepare('SELECT COUNT(*) AS n FROM accounts').get() as { n: number }).n, 1);
+  copy.close();
+
+  const again = await backup(sessionOf(db, ADMIN_ID), 'correct horse battery', totpCode(secret, step));
+  assert.equal(again.statusCode, 403, 'a code works once');
+});
+
+test('on this machine alone, without sign-in, the backup needs no password', async () => {
+  const { app } = server({ HOST: '127.0.0.1' });
+  const res = await call(app, 'POST', '/api/backup', undefined, {});
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.rawPayload.subarray(0, 15).toString(), 'SQLite format 3');
 });
 
 test('on this machine alone, without sign-in, the dashboard is the admin’s and nobody can be invited yet', async () => {

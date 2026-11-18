@@ -550,6 +550,13 @@ listed. The tab shows when anyone else is on the board.
   the setup page, and signing up needs the setup code printed in the server log, so a stranger who finds the
   address first cannot claim it. On localhost alone the dashboard is open as the admin's, unless
   `REQUIRE_LOGIN=1`, and nobody can be invited until the admin has signed up.
+- **Backup download.** A copy of the database holds every person's balances, history, password hash and
+  authenticator secret, which is more than any page shows, even the admin's. So `POST /api/backup` answers only
+  the admin, and asks for their password and a fresh authenticator code again, counted by the same attempt
+  limits as signing in, so a stolen session alone cannot take everything. A wrong password or code answers 403,
+  not 401, which would send the page to the sign-in. With sign-in off, on localhost alone, it asks for nothing,
+  since whoever is at that machine can read the file anyway. Exchange secrets in the copy stay sealed: the key
+  file is not sent, and is copied off the server by hand once (it never changes).
 - **Setup.** The setup code is 12 characters from a 32-character alphabet without look-alikes, about 60
   bits, printed with a `[setup-code]` marker that `deploy.sh` looks for. The password and authenticator
   secret chosen in the first step stay in memory until a code proves the authenticator works; nothing is
@@ -783,6 +790,11 @@ checked with `PRAGMA foreign_key_check` before it commits.
 
 Removing a wallet removes its history with it. Once a day, at start and then checked hourly, the database is
 copied with `VACUUM INTO`, which takes a consistent copy while it is in use; the newest 14 copies are kept.
+
+Those copies sit on the same machine, so they do not survive losing the server. The admin can take one away from
+Settings: `POST /api/backup` makes a fresh `VACUUM INTO` copy in a temporary folder, answers with it as
+`stashboard-<date>.db` and deletes the folder. The page asks for the file as a blob and saves it through a link.
+`secret.key` is never part of it (see Security).
 
 ## Install, deploy and CI
 
