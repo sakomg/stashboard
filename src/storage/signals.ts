@@ -31,20 +31,26 @@ export function latestSignals(db: DatabaseSync): SignalRow[] {
   return rows.map((r) => ({ ...r, components: JSON.parse(r.components) as SignalRow['components'] }));
 }
 
-export function overheatedSince(db: DatabaseSync): Map<string, string> {
+type Extreme = 'overheated' | 'cold';
+
+const ENDED_BY: Record<Extreme, [string, string]> = { overheated: ['cold', 'neutral'], cold: ['warm', 'overheated'] };
+
+export function extremeSince(db: DatabaseSync, zone: Extreme): Map<string, string> {
   const rows = db
     .prepare(
       `SELECT asset, MIN(time) AS since FROM signals s
-        WHERE zone = 'overheated'
+        WHERE zone = ?
           AND time > COALESCE(
-            (SELECT MAX(time) FROM signals c WHERE c.asset = s.asset AND c.zone IN ('cold', 'neutral')),
+            (SELECT MAX(time) FROM signals c WHERE c.asset = s.asset AND c.zone IN (?, ?)),
             ''
           )
         GROUP BY asset`,
     )
-    .all() as { asset: string; since: string }[];
+    .all(zone, ...ENDED_BY[zone]) as { asset: string; since: string }[];
   return new Map(rows.map((r) => [r.asset, r.since]));
 }
+
+export const isExtreme = (zone: string): zone is Extreme => zone === 'overheated' || zone === 'cold';
 
 export function heatSeen(db: DatabaseSync, userId: number): Map<string, string> {
   const rows = db.prepare('SELECT asset, since FROM heat_seen WHERE user_id = ?').all(userId) as {
@@ -55,15 +61,15 @@ export function heatSeen(db: DatabaseSync, userId: number): Map<string, string> 
 }
 
 export function markHeatSeen(db: DatabaseSync, userId: number, assets: string[]): string[] {
-  const hot = new Map(
-    latestSignals(db)
-      .filter((s) => s.zone === 'overheated')
-      .map((s) => [s.asset, s]),
-  );
-  const since = overheatedSince(db);
+  const since = { overheated: extremeSince(db, 'overheated'), cold: extremeSince(db, 'cold') };
+  const episodes = new Map<string, string>();
+  for (const s of latestSignals(db)) {
+    const start = isExtreme(s.zone) ? since[s.zone].get(s.asset) : undefined;
+    if (start) episodes.set(s.asset, start);
+  }
   const upsert = db.prepare('INSERT OR REPLACE INTO heat_seen (user_id, asset, since) VALUES (?, ?, ?)');
-  const marked = assets.filter((a) => hot.has(a) && since.has(a));
-  for (const asset of marked) upsert.run(userId, asset, since.get(asset)!);
+  const marked = assets.filter((a) => episodes.has(a));
+  for (const asset of marked) upsert.run(userId, asset, episodes.get(asset)!);
   return marked;
 }
 

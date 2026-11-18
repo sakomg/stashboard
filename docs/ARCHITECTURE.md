@@ -423,10 +423,13 @@ The thresholds and weights are in the [user guide](guide.md#heat-score). In addi
   (see History).
 - An asset's overheated episode starts at its first overheated reading after it was last neutral or cold, so a
   score hovering around the overheated line, warm one run and overheated the next, stays one episode instead of
-  notifying on every run. `/api/portfolio` gives each overheated asset the start of its episode
-  (`overheatedSince`) and whether this person dismissed that episode. Dismissing (`POST /api/heat/dismiss`
-  with asset names) records the episode start per person in `heat_seen`, so the notice stays gone on every
-  device until a new episode begins. Only assets overheated at that moment are recorded.
+  notifying on every run. A cold episode mirrors it: it starts at the first cold reading after the asset was
+  last warm or overheated, so a rise into neutral and back stays one episode. `/api/portfolio` gives each
+  overheated or cold asset the start of its episode (`since`) and whether this person dismissed that episode.
+  Dismissing (`POST /api/heat/dismiss` with asset names) records the episode start per person in `heat_seen`,
+  so the notice stays gone on every device until a new episode begins. Only assets overheated or cold at that
+  moment are recorded. One row per asset is enough: an asset is in one episode at a time, and a dismissed cold
+  spell has another start than the overheating that follows it.
 
 ## Logos
 
@@ -670,7 +673,9 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
   gets a clock when some of its balances are older than two scheduled updates. Holdings worth a dollar or more
   that turned overheated and were not dismissed share one notice, largest first, with their share of the
   portfolio. It links to Signals filtered to the overheated zone and can be dismissed. The tab's _N hot_
-  count stays either way, since it says what the view lists.
+  count stays either way, since it says what the view lists. Holdings that turned cold get a notice of their
+  own after it, with a snowflake in the cold zone's teal, linking to the cold zone. Only assets the person
+  holds are scored for it, so it never suggests anything new. The tab counts only overheated assets.
 - **Colour.** Eight categorical hues validated for the dark surface are used in a fixed order, and a ninth
   group is "Other". Colour follows the group, not its rank, so a category keeps its hue whatever its size.
   The allocation strip folds groups under 0.5% into "Other". Bands in the history chart get a

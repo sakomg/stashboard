@@ -255,9 +255,8 @@ function renderNotices() {
     if (s.stale) add(`error\n${s.error}`, s, s.error ?? '');
     for (const w of s.warnings) if (/allowance|rate limiting|left out/i.test(w)) add(`warn\n${w}`, s, w);
   }
-  const heat = heatNotice();
   $('notices').replaceChildren(
-    ...(heat ? [heat] : []),
+    ...['overheated', 'cold'].map(heatNotice).filter(Boolean),
     ...[...groups].map(([key, { text, sources }]) => {
       const names = joinNames(sources.map((s) => s.label));
       const error = key.startsWith('error');
@@ -285,10 +284,15 @@ function renderNotices() {
   );
 }
 
-const newlyOverheated = () =>
+const newlyIn = (zone) =>
   state.data.assets
-    .filter((a) => a.signal?.zone === 'overheated' && !a.signal.dismissed && Math.abs(a.value) >= DUST_USD)
+    .filter((a) => a.signal?.zone === zone && !a.signal.dismissed && Math.abs(a.value) >= DUST_USD)
     .sort((a, b) => b.share - a.share);
+
+const EXTREMES = {
+  overheated: { word: 'overheated', tone: 'hot' },
+  cold: { word: 'cold', tone: 'cold' },
+};
 
 async function dismissHeat(assets) {
   for (const a of assets) a.signal.dismissed = true;
@@ -300,18 +304,19 @@ async function dismissHeat(assets) {
   }
 }
 
-function heatNotice() {
-  const hot = newlyOverheated();
-  if (hot.length === 0) return null;
-  const share = hot.reduce((s, a) => s + Math.max(0, a.share), 0);
+function heatNotice(zone) {
+  const assets = newlyIn(zone);
+  if (assets.length === 0) return null;
+  const { word, tone } = EXTREMES[zone];
+  const share = assets.reduce((s, a) => s + Math.max(0, a.share), 0);
   const portion = share > 0 ? `, ${percent(share)} of the portfolio` : '';
   const text =
-    hot.length === 1 ? ` is overheated (${hot[0].signal.score.toFixed(0)})${portion}.` : ` are overheated${portion}.`;
+    assets.length === 1 ? ` is ${word} (${assets[0].signal.score.toFixed(0)})${portion}.` : ` are ${word}${portion}.`;
   return h(
     'li',
-    { class: 'hot' },
-    icon('flame'),
-    h('span', {}, h('b', {}, joinNames(hot.map((a) => a.key))), text),
+    { class: tone },
+    icon(zone === 'cold' ? 'snowflake' : 'flame'),
+    h('span', {}, h('b', {}, joinNames(assets.map((a) => a.key))), text),
     h(
       'span',
       { class: 'notice-actions' },
@@ -321,14 +326,14 @@ function heatNotice() {
           class: 'link',
           type: 'button',
           onclick: () => {
-            state.signalZone = 'overheated';
+            state.signalZone = zone;
             renderSignals();
             switchView('signals');
           },
         },
         'Show in Signals',
       ),
-      h('button', { class: 'link', type: 'button', onclick: () => dismissHeat(hot) }, 'Dismiss'),
+      h('button', { class: 'link', type: 'button', onclick: () => dismissHeat(assets) }, 'Dismiss'),
     ),
   );
 }
