@@ -21,6 +21,9 @@ be used to move money, and so that the dashboard is safe to expose to the intern
 - **Sessions** are random tokens in `HttpOnly`, `SameSite=Strict` cookies, stored only as hashes.
 - **The page** allows scripts only from its own origin, builds every element without `innerHTML`, and refuses
   requests that change something when they come from another site.
+- **Notifications** are sent by your server straight to the browser's push service, encrypted so that only the
+  device can read them, and only to the push services of browsers. They carry asset and account names, never
+  amounts.
 - **Logos and market data** are fetched by the server, so the browser never tells a third party what the
   portfolio holds.
 - **Shared links** open a frozen snapshot without amounts unless whoever made them adds them, expire after at

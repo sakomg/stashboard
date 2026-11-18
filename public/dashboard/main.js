@@ -11,6 +11,7 @@ import { renderDefi } from './defi.js';
 import { renderAddLogos } from './dialogs.js';
 import { showBanner, showInfo } from './feedback.js';
 import { renderAllocation, renderHistory } from './overview.js';
+import { forgetDevice } from './notifications.js';
 import { renderPositions } from './positions.js';
 import { renderAccountPanel } from './settings.js';
 import { renderSignals } from './signals.js';
@@ -138,6 +139,7 @@ async function update() {
 
 $('collect').addEventListener('click', update);
 $('sign-out').addEventListener('click', async () => {
+  await forgetDevice().catch(() => null);
   await api('/api/logout', { method: 'POST', body: '{}' });
   location.replace('/login');
 });

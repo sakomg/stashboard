@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Notifications. **Notify me on this device** in Settings has a phone or a browser tell you when a holding
+  turns overheated or cold, and when an account stops updating, once per episode and never with amounts.
+  Your server sends them itself, encrypted for the device. On an iPhone they work once Stashboard is on the
+  Home Screen.
 - The admin can download a backup from Settings: **Download backup** under Backup asks for the password and an
   authenticator code and saves a fresh copy of the whole server's data. Backups no longer have to be copied off
   the server by hand to survive losing it. Exchange keys in it open only with `secret.key`, which never changes.

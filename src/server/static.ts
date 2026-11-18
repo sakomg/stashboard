@@ -82,6 +82,13 @@ export function staticFiles(root: URL): StaticFile[] {
       access: AREAS.common!,
     },
     {
+      path: '/sw.js',
+      file: new URL('public/sw.js', root),
+      type: TYPES.js!,
+      cache: false,
+      access: AREAS.common!,
+    },
+    {
       path: '/logo.svg',
       file: new URL('assets/logo.svg', root),
       type: TYPES.svg!,

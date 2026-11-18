@@ -3,6 +3,7 @@ import { fetchMissingCategories, loadLearned } from '../services/categories.ts';
 import { planUpdates, type UpdatePlan } from '../domain/updates.ts';
 import { runCollection, updateGate, type ProgressEvent, type UpdateGate } from '../services/collector.ts';
 import { fetchMissingLogos, noteLogos } from '../services/logos.ts';
+import { notifyPeople, pushSubject, type NotifyOptions } from '../services/notify.ts';
 import { runSignals } from '../services/signals.ts';
 import { wantedLogos } from '../services/view.ts';
 import { fetchChains, seedZerionDayLimit, zerionDayUsedUp, zerionQuota } from '../sources/zerion.ts';
@@ -41,6 +42,7 @@ export interface Collection {
   readonly everyMinutes: number;
   collect(): Promise<void>;
   readAccount(accountId: number): Promise<void>;
+  notifyOptions(): NotifyOptions;
   gate(): UpdateGate;
   start(): void;
 }
@@ -114,6 +116,20 @@ export function createCollection(ctx: Context, log: FastifyBaseLogger): Collecti
     }
   };
 
+  const notifyOptions = (): NotifyOptions => ({
+    resolveFor: ctx.resolveFor,
+    subject: pushSubject(config.domain),
+    staleAfterMs: 2 * everyMs(),
+  });
+
+  const notify = async (): Promise<void> => {
+    try {
+      await notifyPeople(db, notifyOptions(), (err) => log.warn(err));
+    } catch (err) {
+      log.warn(err);
+    }
+  };
+
   const rememberLimit = (): void => {
     const { dayLimit } = zerionQuota();
     if (dayLimit !== null && String(dayLimit) !== getSetting(db, ZERION_DAY_LIMIT))
@@ -148,6 +164,7 @@ export function createCollection(ctx: Context, log: FastifyBaseLogger): Collecti
       rememberLimit();
       if (progress) progress.phase = 'signals';
       await refreshSignals();
+      void notify();
       void refreshLogos();
       void refreshCategories();
     }).finally(() => {
@@ -179,6 +196,7 @@ export function createCollection(ctx: Context, log: FastifyBaseLogger): Collecti
     },
     collect,
     readAccount,
+    notifyOptions,
     gate() {
       if (ctx.demo) return { allowed: false, reason: 'Demo data. Updates are off', availableAt: null };
       return updateGate({

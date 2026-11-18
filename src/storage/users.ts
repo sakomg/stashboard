@@ -277,6 +277,7 @@ export function resetWithLink(db: DatabaseSync, token: string, credentials: Cred
       .get(tokenHash(token), new Date(now).toISOString()) as { for_user: number } | undefined;
     if (!spent) throw new Error('This reset link has expired or was already used. Ask for a new one.');
     db.prepare('DELETE FROM sessions WHERE user_id = ?').run(spent.for_user);
+    db.prepare('DELETE FROM push_subscriptions WHERE user_id = ?').run(spent.for_user);
     db.prepare('UPDATE users SET password_hash = ?, totp_secret = ?, totp_step = ? WHERE id = ?').run(
       credentials.passwordHash,
       credentials.totpSecret,
