@@ -5,5 +5,6 @@ export * from './signals.ts';
 export * from './sessions.ts';
 export * from './settings.ts';
 export * from './backups.ts';
+export * from './push.ts';
 export * from './users.ts';
 export * from './vault.ts';

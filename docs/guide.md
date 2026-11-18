@@ -82,6 +82,15 @@ Open the dashboard in Safari or Chrome and choose **Add to Home Screen**. Stashb
 without the browser bar. On an iPhone it keeps its own sign-in, so it asks you to sign in once more. Each time
 you come back to it after a minute or more, it loads the latest balances.
 
+## Notifications
+
+**Notify me on this device** in Settings has the phone or browser tell you when a holding turns overheated or
+cold, and when an account stops updating, without opening the dashboard. Each is told once: a holding that
+dips and comes back is not news, one that cools down and overheats again is. A notice you dismissed on the page
+is not sent. Notifications name assets and accounts, never amounts. On an iPhone, add Stashboard to the Home
+Screen first and turn them on there. Turn them on on each device you want them on. Signing out turns them off
+for that device.
+
 ## Privacy
 
 The eye next to the net worth, or **Hide amounts** in Settings, turns every dollar amount and quantity into

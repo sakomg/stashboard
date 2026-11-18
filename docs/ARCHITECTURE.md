@@ -10,12 +10,12 @@ src/
   main.ts          entry point: builds the server, starts the schedule and backups, listens
   lib/             config loading and JSON over HTTP with safe error text
   domain/          pure logic, no I/O: addresses, exchange balances and prices, asset rules, portfolio maths,
-                   heat score, indicators, types
+                   heat score, indicators, notification texts, types
   storage/         SQLite: schema and migrations, one module per concern, and the vault for secrets
   sources/         one client per external API: Binance, Bybit, OKX, Gate, BingX, Zerion, Lighter, Aster,
-                   TonAPI, market data, Fear & Greed
+                   TonAPI, market data, Fear & Greed, Web Push
   services/        processes that combine them: collection, signals, categories, logos, exchanges, shares, views,
-                   the board
+                   the board, notifications
   auth/            password hashing, TOTP, attempt limiting, the setup QR code
   server/          HTTP: context, access control, static files, the collection schedule, routes by area
   cli/             console commands: check, collect, auth-reset, demo
@@ -24,6 +24,7 @@ public/
   dashboard/       the dashboard: index.html, main.js and one module per part of the page, its styles
   login/ setup/    the sign-in and first-run pages
   share/           the public page a shared link opens
+  sw.js            the service worker that shows notifications, served from the root
 test/              mirrors src/, plus tests of the server over HTTP, the page modules and the layering
 docs/              this file, the self-hosting guide and the user guide
 assets/            the logo, the square icon the home-screen PNGs are drawn from, and the README screenshots
@@ -532,6 +533,41 @@ The board opens at three portfolios. With two, each would know whose the other o
 holds only the person's own row, whose link shows how others see them. A person without accounts is not
 listed. The tab shows when anyone else is on the board.
 
+## Notifications
+
+A person can have a phone or a browser told when something on their dashboard needs a look, without the page
+open. It is Web Push, sent by the server itself: no third-party service and no new dependency.
+
+- **What is sent.** After every full update, for each person with a device subscribed, the server builds their
+  dashboard and collects what the notices on the page would show: holdings worth a dollar or more that turned
+  overheated or cold and were not dismissed, and accounts out of date for longer than two scheduled updates (one
+  failed read is often a source's hiccup). Each item has a topic and the start of its episode: `overheated:BONK`
+  with the time the episode started, the same as on the page, or `account:12` with its last good read. An item
+  is sent when its topic is new or its start has changed, and the pair is kept in `notified`, so an episode is
+  told once, a dip into warm and back is not news, and an account that recovers and fails again is. All of one
+  kind go in one message, overheated, cold and accounts, each with a `tag` so a newer one replaces the older on
+  the device. Turning notifications on records what is already true, so the first update after does not repeat
+  the notices on the page. The texts are the page's: names, heat, share of the portfolio, the account's error,
+  never an amount.
+- **Protocol.** `sources/webpush.ts` encrypts the message as RFC 8291 says (`aes128gcm`, an ECDH key per message,
+  one record), checked by a test against the RFC's own example byte for byte, and signs a VAPID JWT (RFC 8292,
+  ES256) for the push service's origin, valid 12 hours, with `https://<domain>` as the contact. The server's
+  VAPID key pair is made on first use and kept in `settings` sealed with `secret.key`. If it cannot be unsealed,
+  after a restore without the key, a new pair is made and every subscription is dropped, since they belong to the
+  old one. A push service answering 404 or 410 means the device let go of the subscription, and it is deleted.
+- **Which services.** A subscription names the URL its browser's push service gave it, and the server will post to
+  it, so it is accepted only over HTTPS on the push services of browsers: `fcm.googleapis.com` (Chrome, Edge on
+  Android, Brave, Opera), `push.apple.com` (Safari), `push.services.mozilla.com` (Firefox) and
+  `notify.windows.com` (Edge). Anything else could point the server at itself or its network. A device is
+  welcomed with one message when it subscribes, and if that fails nothing is kept.
+- **The page.** Settings has _Notify me on this device_. Turning it on asks the browser's permission, registers
+  `/sw.js` and subscribes with the server's public key, which `/api/portfolio` carries as `pushKey`. A subscription
+  made for an older key is replaced. The service worker only shows a message and, when it is tapped, focuses an
+  open dashboard or opens one: it has no fetch handler and caches nothing. It is served from the root so its
+  scope is the whole site. Safari on an iPhone offers Web Push only to a site on the home screen, so there the
+  switch says to add it first. Signing out unsubscribes the device, and a reset sign-in drops every device of
+  that person. A browser that never answers the subscription is given 20 seconds.
+
 ## Security
 
 - **People.** Each person has a name, a password and an authenticator, and sees only their own accounts,
@@ -762,25 +798,27 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
 One SQLite file, `DATA_DIR/stashboard.db`. Each migration in `src/storage/database.ts` upgrades the schema by one version,
 and `PRAGMA user_version` records how many have run.
 
-| Table               | Holds                                                                                                          |
-| ------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `users`             | People: name, password hash, TOTP secret and last step, admin, hidden amounts, on board, board key and name    |
-| `invites`           | Invite and reset tokens, hashed and sealed, who made them, whose sign-in a reset is for, and their expiry      |
-| `accounts`          | Each person's wallets and exchanges; an exchange is an account like any wallet                                 |
-| `snapshots`         | One row per collection run                                                                                     |
-| `snapshot_accounts` | Each account's result in a run: ok with warnings and reported total, or error                                  |
-| `holdings`          | Positions per account and run; `read_at` when it comes from an earlier answer                                  |
-| `signals`           | Market readings and heat score per asset, with the Binance market used                                         |
-| `price_changes`     | Each asset's latest price change over 24 hours, 7 and 30 days, from the signals run                            |
-| `heat_seen`         | Per person and asset, the start of the overheated episode they dismissed                                       |
-| `sessions`          | Hashes of session tokens, whose they are, and their expiry                                                     |
-| `settings`          | When the last update and signals run started, Zerion's daily allowance, and when its chain list was fetched    |
-| `logos`             | Where each logo comes from, its stored file, and when it was last tried                                        |
-| `asset_categories`  | Categories looked up, with the coin's tags                                                                     |
-| `user_categories`   | Categories each person chose by hand                                                                           |
-| `exchange_keys`     | Per exchange account: the last four characters of its API key, and the sealed key, secret, passphrase and host |
-| `shares`            | Shared links: token, whose, when made, when they expire, and the frozen snapshot                               |
-| `zerion_cache`      | The last Zerion answer per wallet and kind of read                                                             |
+| Table                | Holds                                                                                                          |
+| -------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `users`              | People: name, password hash, TOTP secret and last step, admin, hidden amounts, on board, board key and name    |
+| `invites`            | Invite and reset tokens, hashed and sealed, who made them, whose sign-in a reset is for, and their expiry      |
+| `accounts`           | Each person's wallets and exchanges; an exchange is an account like any wallet                                 |
+| `snapshots`          | One row per collection run                                                                                     |
+| `snapshot_accounts`  | Each account's result in a run: ok with warnings and reported total, or error                                  |
+| `holdings`           | Positions per account and run; `read_at` when it comes from an earlier answer                                  |
+| `signals`            | Market readings and heat score per asset, with the Binance market used                                         |
+| `price_changes`      | Each asset's latest price change over 24 hours, 7 and 30 days, from the signals run                            |
+| `heat_seen`          | Per person and asset, the start of the overheated episode they dismissed                                       |
+| `sessions`           | Hashes of session tokens, whose they are, and their expiry                                                     |
+| `settings`           | Last update and signals run, Zerion's daily allowance, when the chain list was fetched, the sealed VAPID keys  |
+| `logos`              | Where each logo comes from, its stored file, and when it was last tried                                        |
+| `asset_categories`   | Categories looked up, with the coin's tags                                                                     |
+| `user_categories`    | Categories each person chose by hand                                                                           |
+| `exchange_keys`      | Per exchange account: the last four characters of its API key, and the sealed key, secret, passphrase and host |
+| `shares`             | Shared links: token, whose, when made, when they expire, and the frozen snapshot                               |
+| `zerion_cache`       | The last Zerion answer per wallet and kind of read                                                             |
+| `push_subscriptions` | Each device that gets notifications: its push service URL, its keys and whose it is                            |
+| `notified`           | Per person and topic, the start of the episode they were last notified of                                      |
 
 Snapshots are shared: one run holds every person's reads, and `snapshot_accounts` says whose account each
 read is. Migration 11 brought people in: the single owner and their hidden-amounts setting became person 1,

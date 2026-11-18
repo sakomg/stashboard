@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { boardHistory, boardPortfolio, boardView } from '../../services/board.ts';
 import { CLIENTS, EXCHANGE_KINDS } from '../../services/exchanges.ts';
+import { vapidKeys } from '../../services/notify.ts';
 import { historyView, portfolioView } from '../../services/view.ts';
 import { fearGreed } from '../../sources/feargreed.ts';
 import { zerionQuota } from '../../sources/zerion.ts';
@@ -29,6 +30,7 @@ export function registerDashboardRoutes(
       collectEveryMinutes: collection.everyMinutes,
       loginEnabled: ctx.auth.claimed,
       me: me && { name: me.name, admin: me.admin },
+      pushKey: vapidKeys(ctx.db).publicKey,
     };
   };
   const daysOf = (query: { days?: string }): number | null => {

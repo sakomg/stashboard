@@ -198,6 +198,19 @@ const MIGRATIONS = [
    CREATE UNIQUE INDEX users_board_key ON users (board_key);`,
   `ALTER TABLE users ADD COLUMN board_name TEXT;
    CREATE UNIQUE INDEX users_board_name ON users (board_name);`,
+  `CREATE TABLE push_subscriptions (
+     endpoint   TEXT PRIMARY KEY,
+     user_id    INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+     p256dh     TEXT NOT NULL,
+     auth       TEXT NOT NULL,
+     created_at TEXT NOT NULL
+   );
+   CREATE TABLE notified (
+     user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+     topic   TEXT NOT NULL,
+     since   TEXT NOT NULL,
+     PRIMARY KEY (user_id, topic)
+   );`,
 ];
 
 export function migrate(db: DatabaseSync, target = MIGRATIONS.length): void {
