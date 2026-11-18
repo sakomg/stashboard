@@ -3,9 +3,11 @@ import type { Asset } from '../domain/assets.ts';
 import { buildPortfolio } from '../domain/portfolio.ts';
 import { boardMembers, currentState } from '../storage/index.ts';
 import { EXCHANGES, isExchange } from './exchanges.ts';
+import { logoIndex } from './logos.ts';
 import { historyView, portfolioView } from './view.ts';
 
 export const BOARD_MINIMUM = 3;
+const LARGEST = 5;
 
 type ResolveFor = (userId: number) => (symbol: string) => Asset;
 
@@ -18,6 +20,7 @@ interface Entry {
   netWorth: number;
   wallets: number;
   exchanges: number;
+  holdings: string[];
 }
 
 const cents = (n: number): number => Math.round(n * 100) / 100;
@@ -31,15 +34,20 @@ function standings(db: DatabaseSync, userId: number, resolveFor: ResolveFor) {
     const states = currentState(db, member.id);
     if (states.length === 0) continue;
     const exchanges = states.filter((s) => isExchange(s.account.kind)).length;
+    const portfolio = buildPortfolio(states, resolveFor(member.id));
     entries.push({
       id: member.id,
       key: member.key,
       name: admin ? member.person : member.name,
       onBoard: member.onBoard,
       you: member.id === userId,
-      netWorth: cents(buildPortfolio(states, resolveFor(member.id)).netWorth),
+      netWorth: cents(portfolio.netWorth),
       wallets: states.length - exchanges,
       exchanges,
+      holdings: portfolio.assets
+        .filter((a) => a.value > 0)
+        .slice(0, LARGEST)
+        .map((a) => a.key),
     });
   }
   const ranked = entries
@@ -54,24 +62,27 @@ function standings(db: DatabaseSync, userId: number, resolveFor: ResolveFor) {
   };
 }
 
-const row = ({ key, name, you, netWorth, wallets, exchanges }: Entry) => ({
+const row = ({ key, name, you, netWorth, wallets, exchanges, holdings }: Entry) => ({
   key,
   name,
   you,
   netWorth,
   wallets,
   exchanges,
+  holdings,
 });
 
 export function boardView(db: DatabaseSync, userId: number, resolveFor: ResolveFor) {
   const { onBoard, open, ranked, own } = standings(db, userId, resolveFor);
+  const rows = (open ? ranked : own ? [own] : []).map(row);
   return {
     onBoard,
     open,
     portfolios: ranked.length,
     others: ranked.filter((e) => !e.you).length,
     minimum: BOARD_MINIMUM,
-    rows: (open ? ranked : own ? [own] : []).map(row),
+    rows,
+    logos: logoIndex(db, new Set(rows.flatMap((r) => r.holdings.map((key) => `token/${key}`)))).available,
   };
 }
 

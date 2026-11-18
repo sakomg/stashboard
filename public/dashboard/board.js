@@ -2,6 +2,7 @@ import { h } from '/common/ui.js';
 import { api } from './api.js';
 import { showBanner } from './feedback.js';
 import { money } from './format.js';
+import { logo } from './logos.js';
 import { $, actions, state } from './state.js';
 
 const counted = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -31,8 +32,9 @@ const table = (rows, ranked) =>
         {},
         h('th', { scope: 'col' }, '#'),
         h('th', { scope: 'col', class: 'left' }, 'Name'),
+        h('th', { scope: 'col', class: 'left' }, 'Top holdings'),
+        h('th', { scope: 'col', class: 'left optional' }, 'Accounts'),
         h('th', { scope: 'col' }, 'Net worth'),
-        h('th', { scope: 'col', class: 'left' }, 'Accounts'),
       ),
     ),
     h(
@@ -49,8 +51,19 @@ const table = (rows, ranked) =>
             h('a', { href: `/board/${row.key}` }, row.name),
             row.you && h('span', { class: 'you-mark' }, 'you'),
           ),
+          h(
+            'td',
+            { class: 'left' },
+            h(
+              'span',
+              { class: 'holdings' },
+              ...row.holdings.map((key) =>
+                h('span', { class: 'holding', title: key }, logo('token', key), h('span', {}, key)),
+              ),
+            ),
+          ),
+          h('td', { class: 'left muted optional' }, accountsText(row)),
           h('td', { class: 'num' }, money(row.netWorth)),
-          h('td', { class: 'left muted' }, accountsText(row)),
         ),
       ),
     ),

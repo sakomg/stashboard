@@ -70,6 +70,7 @@ test('the board ranks everyone by net worth, and each row is a key, not a person
   const keys = board.rows.map((r) => r.key);
   assert.equal(new Set(keys).size, 4);
   for (const key of keys) assert.match(key, /^[A-Za-z0-9_-]{8}$/);
+  for (const row of board.rows) assert.deepEqual(row.holdings, ['ETH', 'USDC', 'PEPE']);
   const names = board.rows.map((r) => r.name);
   assert.equal(new Set(names).size, 4);
   for (const name of names) assert.match(name, /^\S(.*\S)?$/);
@@ -108,6 +109,37 @@ test('a portfolio on the board opens as the dashboard, without account names or 
   }
   assert.equal(boardHistory(db, ids[1]!, top.key, resolveFor, null)?.at(-1)?.total, 8100.5);
   assert.equal(boardPortfolio(db, ids[1]!, 'nonsense', resolveFor), null);
+});
+
+test('a row lists the five largest holdings, without loans, and the board brings their logos', () => {
+  const { db, ids } = seeded(BOARD_MINIMUM);
+  const snapshot = startSnapshot(db);
+  const more = addWallet(db, ids[0]!, ADDRESSES[3]!, 'More');
+  saveOutcome(db, snapshot, more.id, {
+    status: 'ok',
+    holdings: [holding('BTC', 1, 90000), holding('SOL', 10, 150), holding('LINK', 10, 15), holding('UNI', 10, 8)],
+    warnings: [],
+  });
+  const loan = addWallet(db, ids[1]!, `0x${'1'.repeat(40)}`, 'Loan');
+  saveOutcome(db, snapshot, loan.id, {
+    status: 'ok',
+    holdings: [{ ...holding('DAI', -50, 1), type: 'borrow' }],
+    warnings: [],
+  });
+  finishSnapshot(db, snapshot);
+  const logo = db.prepare("INSERT INTO logos (kind, key, file, media_type) VALUES ('token', ?, ?, 'image/png')");
+  for (const key of ['BTC', 'UNI', 'PEPE', 'DOGE']) logo.run(key, `${key}.png`);
+
+  const board = boardView(db, ids[1]!, resolveFor);
+  assert.deepEqual(
+    board.rows.map((r) => r.holdings),
+    [
+      ['BTC', 'ETH', 'SOL', 'LINK', 'USDC'],
+      ['ETH', 'USDC', 'PEPE'],
+      ['ETH', 'USDC', 'PEPE'],
+    ],
+  );
+  assert.deepEqual(Object.keys(board.logos).sort(), ['token/BTC', 'token/PEPE']);
 });
 
 test(`the board opens at ${BOARD_MINIMUM} portfolios, and people without accounts are not on it`, () => {
