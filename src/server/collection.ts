@@ -11,7 +11,28 @@ import type { Context } from './context.ts';
 
 interface Progress {
   phase: 'accounts' | 'signals';
+  startedAt: number;
   accounts: { id: number; state: 'waiting' | 'reading' | 'done' | 'failed'; note: string | null }[];
+}
+
+const GUESS_PER_ACCOUNT_MS = 3000;
+
+function startsIn({ phase, startedAt, accounts }: Progress, own: Set<number>, now: number): number | null {
+  const first = accounts.findIndex((a) => own.has(a.id));
+  if (phase !== 'accounts' || first < 0) return null;
+  if (accounts.some((a) => own.has(a.id) && a.state !== 'waiting')) return null;
+  const ahead = accounts.slice(0, first).filter((a) => a.state === 'waiting' || a.state === 'reading').length;
+  const finished = accounts.filter((a) => a.state === 'done' || a.state === 'failed').length;
+  return Math.round(ahead * (finished > 0 ? (now - startedAt) / finished : GUESS_PER_ACCOUNT_MS));
+}
+
+export function progressFor(progress: Progress | null, own: Set<number>, now = Date.now()) {
+  if (!progress) return null;
+  return {
+    phase: progress.phase,
+    accounts: progress.accounts.filter((a) => own.has(a.id)),
+    startsIn: startsIn(progress, own, now),
+  };
 }
 
 export interface Collection {
@@ -49,6 +70,7 @@ export function createCollection(ctx: Context, log: FastifyBaseLogger): Collecti
     if (event.type === 'start') {
       progress = {
         phase: 'accounts',
+        startedAt: Date.now(),
         accounts: event.accounts.map((a) => ({ id: a.id, state: 'waiting', note: null })),
       };
       return;

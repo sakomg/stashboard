@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- An update reads one person's accounts at a time, largest first, the order of their chips, instead of jumping
+  between everyone's accounts by balance. Pressing **Update now** while an update runs no longer joins it
+  silently: the button stays disabled and the line under the net worth says when your accounts start.
 - TON wallets no longer fail with "tonapi.io → HTTP 429" when there are many of them. Requests to TonAPI are
   spaced under its free tier's one a second, the GRAM price is asked once per update instead of once per
   wallet, and a refused request is tried again after a pause shown on the wallet's chip.

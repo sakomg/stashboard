@@ -4,7 +4,7 @@ import { historyView, portfolioView } from '../../services/view.ts';
 import { fearGreed } from '../../sources/feargreed.ts';
 import { zerionQuota } from '../../sources/zerion.ts';
 import { getUser, listAccounts, markHeatSeen, setHideAmounts } from '../../storage/index.ts';
-import type { Collection } from '../collection.ts';
+import { progressFor, type Collection } from '../collection.ts';
 import type { Context } from '../context.ts';
 
 export function registerDashboardRoutes(
@@ -13,12 +13,8 @@ export function registerDashboardRoutes(
   collection: Collection,
   build: string,
 ): void {
-  const progressOf = (userId: number): Collection['progress'] => {
-    const { progress } = collection;
-    if (!progress) return null;
-    const own = new Set(listAccounts(ctx.db, userId).map((a) => a.id));
-    return { ...progress, accounts: progress.accounts.filter((a) => own.has(a.id)) };
-  };
+  const progressOf = (userId: number) =>
+    progressFor(collection.progress, new Set(listAccounts(ctx.db, userId).map((a) => a.id)));
 
   app.get('/api/portfolio', async (request) => {
     const me = getUser(ctx.db, request.userId);
@@ -60,7 +56,7 @@ export function registerDashboardRoutes(
 
   app.post('/api/collect', async (_request, reply) => {
     const gate = collection.gate();
-    if (!gate.allowed && !collection.running) return reply.code(429).send({ error: gate.reason, update: gate });
+    if (!gate.allowed) return reply.code(429).send({ error: gate.reason, update: gate });
     await collection.collect();
     return { ok: true };
   });

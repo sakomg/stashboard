@@ -104,6 +104,12 @@ export const inMinutes = (at) => {
   const minutes = Math.max(1, Math.ceil((at - Date.now()) / 60_000));
   return minutes < 90 ? `${minutes} min` : `${Math.ceil(minutes / 60)} h`;
 };
+const startsIn = (ms) =>
+  ms < 10_000
+    ? 'Update starts in a few seconds'
+    : ms < 60_000
+      ? `Update starts in about ${Math.ceil(ms / 10_000) * 10} s`
+      : `Update starts in about ${Math.ceil(ms / 60_000)} min`;
 const labelOf = (id) => state.data?.sources.find((s) => s.id === id)?.label ?? 'an account';
 
 export function renderUpdating() {
@@ -127,9 +133,11 @@ export function renderUpdating() {
   else if (progress) {
     const done = progress.accounts.filter((a) => a.state === 'done' || a.state === 'failed').length;
     const current = progress.accounts.find((a) => a.state === 'reading');
-    line = current
-      ? `${current.note ? `${labelOf(current.id)}: ${current.note}` : `Reading ${labelOf(current.id)}`} · ${done} of ${progress.accounts.length}`
-      : `Updating · ${done} of ${progress.accounts.length}`;
+    if (current) {
+      line = `${current.note ? `${labelOf(current.id)}: ${current.note}` : `Reading ${labelOf(current.id)}`} · ${done} of ${progress.accounts.length}`;
+    } else if (progress.startsIn !== null && progress.startsIn !== undefined) {
+      line = startsIn(progress.startsIn);
+    } else line = `Updating · ${done} of ${progress.accounts.length}`;
   } else if (busy()) line = 'Updating…';
   else {
     line = data.updatedAt ? `Updated ${ago(data.updatedAt)}` : 'Not updated yet';
