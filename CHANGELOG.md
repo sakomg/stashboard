@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The line under _Add your first account_ is as wide as the cards below it, so on a computer it fits on one line.
 - The admin can reset a friend's sign-in. The key next to their name under People copies a reset link that
   works once, for 7 days. On it the friend chooses a new password and adds the authenticator again, and keeps
   their name, accounts and history. Before, the only way was to remove them and invite them again.
