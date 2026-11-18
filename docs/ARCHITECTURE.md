@@ -351,6 +351,12 @@ Aster deposits, so nothing of Zerion's is dropped for it.
 Anyone can send any jetton to any wallet, so only whitelisted jettons count; the rest is mostly spam. TonAPI
 answers without a key at a much lower rate, which is not enough for scheduled collection.
 
+A wallet costs two requests, its balance and its jettons. The GRAM price is asked only for a wallet that holds
+GRAM, and is reused for five minutes, so one run asks it once. Requests are at least 1.1 seconds apart, under
+the free tier's one a second, so a run with many TON wallets takes about two seconds per wallet instead of
+being refused. A 429 is retried after 2, 5 and 10 seconds, with the wait shown on the wallet's chip, and after
+that the wallet fails with a plain message: without a key it suggests one.
+
 The native coin was renamed from TON to GRAM in 2026. Exchanges list it as GRAM and halted their TON markets
 (Binance's `TONUSDT` stands still at its last price), while TonAPI still calls its rate TON. So the coin is read
 as GRAM, and `assets.json` makes TON an alias of GRAM, which also merges history read before. The network keeps
