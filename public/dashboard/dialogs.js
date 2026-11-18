@@ -197,13 +197,37 @@ export function renderAddLogos() {
 
 addForm.address.addEventListener('input', showDetected);
 
+let replacing = null;
+
+function setReplacing(account) {
+  replacing = account;
+  $('add-kind').hidden = Boolean(account);
+  $('exchange-field').hidden = Boolean(account);
+  $('label-field').hidden = Boolean(account);
+  $('replace-text').hidden = !account;
+  $('add-title').textContent = account ? `New key for ${account.label}` : 'Add wallet or exchange';
+  if (!account) return;
+  $('replace-text').textContent = `Use a key of the same ${EXCHANGES[account.kind]} account. Its history stays.`;
+  $('add-submit').textContent = 'Replace key';
+}
+
 export function openAdd(kind = 'wallet') {
   addForm.reset();
   buildExchangeChoice();
   setExchange(exchangeChoice.value);
   showDetected();
+  setReplacing(null);
   $('add-dialog').showModal();
   setAddKind(kind);
+}
+
+export function openReplaceKey(account) {
+  addForm.reset();
+  buildExchangeChoice(account.kind);
+  setExchange(account.kind);
+  $('add-dialog').showModal();
+  setAddKind('exchange');
+  setReplacing(account);
 }
 
 for (const trigger of document.querySelectorAll('[data-open-add]')) {
@@ -233,16 +257,14 @@ addForm.addEventListener('submit', async (event) => {
       });
       return;
     }
-    const result = await api('/api/exchanges', {
-      method: 'POST',
-      body: JSON.stringify({
-        exchange,
-        apiKey: addForm.apiKey.value.trim(),
-        apiSecret: addForm.apiSecret.value.trim(),
-        ...(NEEDS_PASSPHRASE.has(exchange) ? { passphrase: addForm.passphrase.value } : {}),
-        label,
-      }),
-    });
+    const keys = {
+      apiKey: addForm.apiKey.value.trim(),
+      apiSecret: addForm.apiSecret.value.trim(),
+      ...(NEEDS_PASSPHRASE.has(exchange) ? { passphrase: addForm.passphrase.value } : {}),
+    };
+    const result = replacing
+      ? await api(`/api/accounts/${replacing.id}/key`, { method: 'PUT', body: JSON.stringify(keys) })
+      : await api('/api/exchanges', { method: 'POST', body: JSON.stringify({ exchange, ...keys, label }) });
     warning = result.warning;
   });
   addForm.apiSecret.value = '';

@@ -9,7 +9,7 @@ export const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
 const CONTENT_POLICY =
   "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
 const DEMO_LOCKED =
-  /^(POST \/api\/(wallets|exchanges|collect|invites|users\/)|DELETE \/api\/(accounts|users|invites)\/|PATCH \/api\/me$)/;
+  /^(POST \/api\/(wallets|exchanges|collect|invites|users\/)|DELETE \/api\/(accounts|users|invites)\/|PUT \/api\/accounts\/|PATCH \/api\/me$)/;
 const PUBLIC_ROUTES = [/^\/s\/[A-Za-z0-9_-]+(\/logo\/[a-z]+\/[^/]+)?$/, /^\/api\/shared\/[A-Za-z0-9_-]+$/];
 
 declare module 'fastify' {

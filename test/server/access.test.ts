@@ -139,6 +139,7 @@ test('the demo refuses to change accounts or people, or collect', async () => {
     ['POST', '/api/invites'],
     ['POST', '/api/users/2/reset'],
     ['DELETE', '/api/accounts/1'],
+    ['PUT', '/api/accounts/1/key'],
     ['DELETE', '/api/users/2'],
     ['PATCH', '/api/me'],
   ] as const) {

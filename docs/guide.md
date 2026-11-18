@@ -20,7 +20,8 @@ Below, five views, and a sixth when friends share the server:
   asset to see every account, chain and protocol it is held in. Click its category to change it.
 - **Signals**: the heat of the portfolio and of each asset.
 - **DeFi**: positions in protocols, net of loans. The tab shows only when there are any.
-- **Accounts**: every wallet and exchange, with its status and warnings, to rename or remove.
+- **Accounts**: every wallet and exchange, with its status and warnings, to rename or remove. The key button of
+  an exchange takes a new API key when the old one expired or was turned off, and keeps the exchange's history.
 - **Board**: everyone's portfolio on this server, without names. See [Board](#board).
 
 **Settings** (top right) has privacy, shared links, update status, people for the admin, and the session.

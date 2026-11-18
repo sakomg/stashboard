@@ -115,6 +115,22 @@ export function addExchange(
   }
 }
 
+export function replaceExchangeKeys(db: DatabaseSync, userId: number, accountId: number, keys: ExchangeKeys): boolean {
+  db.exec('BEGIN');
+  try {
+    const changed = db
+      .prepare('UPDATE accounts SET address_key = ? WHERE id = ? AND user_id = ?')
+      .run(fingerprint(keys.apiKey), accountId, userId).changes;
+    if (changed > 0) storeKeys(db, accountId, keys);
+    db.exec('COMMIT');
+    return changed > 0;
+  } catch (err) {
+    db.exec('ROLLBACK');
+    if (err instanceof Error && /UNIQUE/.test(err.message)) throw new Error('This API key is already added');
+    throw err;
+  }
+}
+
 function storeKeys(db: DatabaseSync, accountId: number, keys: ExchangeKeys): void {
   db.prepare('INSERT OR REPLACE INTO exchange_keys (account_id, key_hint, sealed) VALUES (?, ?, ?)').run(
     accountId,

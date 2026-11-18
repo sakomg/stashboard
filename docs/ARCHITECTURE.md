@@ -177,6 +177,13 @@ Several accounts on one exchange can be added; the same key twice cannot. Removi
 its history and its stored key. The page only ever sees the last four characters of a key. The key, the secret,
 the passphrase and the API host the key belongs to are sealed together.
 
+A key that expired, or was turned off on the exchange, is replaced from the Accounts view instead
+(`PUT /api/accounts/:id/key`): the new key goes through the same checks as an added one, takes the old one's
+place with its own host, and the account is read on its own straight away, like a new one. The account keeps its
+id, so its history stays. No exchange is asked which account a key belongs to, so the dialog asks for a key of the
+same account, and a key of another one would join its history to this one's. A key that another of the person's
+accounts already uses is refused.
+
 Every wallet of an exchange is read separately, and a wallet the account never opened, or the key may not read,
 answers with an error that must not hide the wallets that work: it becomes a warning. The main trading wallet
 is the exception, since without it the account says nothing useful, and its failure fails the account. A
