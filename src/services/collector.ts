@@ -3,6 +3,7 @@ import { errorText } from '../lib/errors.ts';
 import type { Config } from '../lib/config.ts';
 import {
   currentState,
+  listUsers,
   finishSnapshot,
   listAccounts,
   saveOutcome,
@@ -95,13 +96,16 @@ function largestFirst(states: AccountState[]): Account[] {
     .map((s) => s.account);
 }
 
+const personByPerson = (db: DatabaseSync): Account[] =>
+  listUsers(db).flatMap((user) => largestFirst(currentState(db, user.id)));
+
 export async function runCollection(
   db: DatabaseSync,
   config: Config,
   notify: Notify = () => {},
   { only, defiEveryMs }: RunOptions = {},
 ): Promise<number | null> {
-  const accounts = largestFirst(currentState(db, 'all')).filter((a) => !only || only.includes(a.id));
+  const accounts = personByPerson(db).filter((a) => !only || only.includes(a.id));
   if (only && accounts.length === 0) return null;
   notify({ type: 'start', accounts });
   const results: { account: Account; result?: CollectResult; error?: string }[] = [];

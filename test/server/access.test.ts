@@ -98,6 +98,35 @@ test('every answer carries the security headers', async () => {
   assert.equal(res.headers['referrer-policy'], 'no-referrer');
 });
 
+test('while an update runs, asking for another is refused until it ends', async () => {
+  const { app, db } = server({}, true);
+  addWallet(db, ADMIN_ID, `0:${'a'.repeat(64)}`, 'TON');
+  const cookie = `stashboard_session=${createSession(db, ADMIN_ID, 60_000)}`;
+  const noNetwork = globalThis.fetch;
+  let answer: (res: Response) => void = () => {};
+  globalThis.fetch = (() => new Promise<Response>((resolve) => (answer = resolve))) as typeof fetch;
+  try {
+    const first = Promise.resolve(
+      app.inject({ method: 'POST', url: '/api/collect', headers: { cookie }, payload: {} }),
+    );
+    const running = async () =>
+      (await app.inject({ method: 'GET', url: '/api/progress', headers: { cookie } })).json().collecting;
+    for (let tries = 0; !(await running()); tries++) {
+      assert.ok(tries < 100, 'the update never started');
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    const second = await app.inject({ method: 'POST', url: '/api/collect', headers: { cookie }, payload: {} });
+    assert.equal(second.statusCode, 429);
+    assert.equal(second.json().error, 'An update is running');
+    answer(new Response('{}', { status: 500 }));
+    assert.equal((await first).statusCode, 200);
+    const progress = (await app.inject({ method: 'GET', url: '/api/progress', headers: { cookie } })).json();
+    assert.equal(progress.collecting, false);
+  } finally {
+    globalThis.fetch = noNetwork;
+  }
+});
+
 test('the demo refuses to change accounts or people, or collect', async () => {
   const { app } = server({ DEMO: '1', HOST: '127.0.0.1' });
   for (const [method, url] of [

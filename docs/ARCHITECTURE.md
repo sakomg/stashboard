@@ -50,8 +50,9 @@ there are no cycles.
 
 ## Collection
 
-A run reads the accounts of every person one after another, into one snapshot, from the largest balance at
-the last read down, the order the page lists them in, so the marks on the page move along the list. An account that fails is
+A run reads everyone's accounts into one snapshot, one person at a time in the order they joined, the admin
+first. Each person's accounts are read from the largest balance at the last read down, the order their page
+lists them in, so on each page the marks move along the list in one go. An account that fails is
 recorded as an error and the others go on; the failed one keeps showing its last good balances, marked out of
 date.
 
@@ -68,7 +69,9 @@ not see. History read before this was noticed is cleaned the same way by a migra
 
 While a run is going, the collector reports each account as waiting, being read, waiting on a source, done
 or failed. The server keeps that state and serves it at `/api/progress`, to each person only for their own
-accounts; after the accounts it reports the signals phase.
+accounts; after the accounts it reports the signals phase. While none of a person's accounts has started,
+`startsIn` estimates how long until the first one does: the accounts still ahead of it, times the average time
+an account has taken in this run (3 seconds until one has finished).
 
 After the balances, signals are recomputed when the last full run of them (`signals_at` in `settings`) is older
 than `schedule.signalsMinutes`. Logos and
@@ -104,7 +107,9 @@ An update asked for on the page is refused while one runs, until the gap above h
 started, and, when there are EVM or Solana wallets, while Zerion's daily allowance is used up. The server
 answers 429 with the reason and when updates are possible again. `/api/portfolio` and `/api/progress` carry
 the same answer, so the page disables its update button, says why on hover (and under the net worth when the
-wait is long), and enables it again by itself when the time comes.
+wait is long), and enables it again by itself when the time comes. A page open since before a run started
+learns of it only when its button is pressed: the 429 makes it follow the running update, its button stays
+disabled, and the line says when this person's accounts start.
 
 ### Adding an account
 
@@ -654,7 +659,8 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
   its view lists: DeFi counts its cards, one per protocol and chain worth at least a dollar, from the same grouping
   that draws them.
 - **Progress.** While an update runs, the page asks `/api/progress` every second and shows each account's state on its
-  chip and the account being read under the net worth. A chip is drawn again only when what it shows changes, so the
+  chip and the account being read under the net worth. Until the first of their own accounts is read, the line
+  says when it starts ("Update starts in about 40 s"). A chip is drawn again only when what it shows changes, so the
   spinning icon of the account being read keeps turning instead of starting over every second. Logos and categories of
   new tokens arrive after an update, so the page reloads its data 20 seconds later.
 - **Updates of the server.** `/api/portfolio` carries a stamp of the page's own files. A tab left open across
