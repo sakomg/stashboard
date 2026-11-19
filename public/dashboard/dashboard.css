@@ -790,28 +790,28 @@ tr[aria-expanded='true'] .chevron {
   height: 14px;
 }
 
-.session-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+.top-actions .button {
+  height: 40px;
 }
 
-.session-row:has(.name-form) #sign-out {
-  display: none;
-}
-
-.session-row:has(> :not([hidden])) {
-  margin-bottom: 6px;
+#sign-out {
+  width: 40px;
+  padding: 0;
 }
 
 .me {
   display: flex;
-  flex: 1;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   min-width: 0;
   min-height: 36px;
+  margin-bottom: 12px;
+  font-size: 13.5px;
+}
+
+.session-text {
+  margin: 0 0 16px;
+  font-size: 13.5px;
 }
 
 .me-name {
@@ -866,6 +866,10 @@ tr[aria-expanded='true'] .chevron {
   display: grid;
   grid-template-columns: 110px minmax(0, 1fr);
   gap: 12px;
+}
+
+.panel-facts:not(:empty) {
+  margin-bottom: 14px;
 }
 
 .panel-facts dt {
@@ -1491,6 +1495,7 @@ body[data-viewing] .viewing {
 }
 
 body[data-viewing] #open-account,
+body[data-viewing] #sign-out,
 body[data-viewing] #collect,
 body[data-viewing] #open-share,
 body[data-viewing] #notices,

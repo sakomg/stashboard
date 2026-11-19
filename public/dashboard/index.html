@@ -23,6 +23,9 @@
         <button class="button" id="open-account" type="button">
           <svg class="icon" aria-hidden="true"><use href="#settings"></use></svg>Settings
         </button>
+        <button class="button" id="sign-out" type="button" aria-label="Sign out" title="Sign out" hidden>
+          <svg class="icon" aria-hidden="true"><use href="#log-out"></use></svg>
+        </button>
       </div>
     </header>
 
@@ -351,18 +354,14 @@
             <svg class="icon" aria-hidden="true"><use href="#x"></use></svg>
           </button>
         </header>
+        <div class="me" id="me" hidden></div>
+        <p class="muted session-text" id="session-text" hidden>
+          Sign-in is off: this dashboard is open on this machine only.
+        </p>
 
-        <section aria-labelledby="privacy-title">
+        <section aria-labelledby="privacy-title" id="privacy-settings" hidden>
           <h3 id="privacy-title">Privacy</h3>
           <label class="switch">
-            <input type="checkbox" id="hide-amounts" role="switch" />
-            <span class="track" aria-hidden="true"></span>
-            <span>
-              <b>Hide amounts</b>
-              <small>Amounts turn into dots on every device.</small>
-            </span>
-          </label>
-          <label class="switch" id="board-switch" hidden>
             <input type="checkbox" id="on-board" role="switch" />
             <span class="track" aria-hidden="true"></span>
             <span>
@@ -385,15 +384,10 @@
           <p class="form-error" id="notify-error" role="alert" hidden></p>
         </section>
 
-        <section aria-labelledby="links-title">
+        <section aria-labelledby="links-title" id="shared-links" hidden>
           <h3 id="links-title">Shared links<span class="count" id="share-links-count"></span></h3>
           <ul class="links" id="share-links"></ul>
           <button class="link more" id="share-links-more" type="button" aria-controls="share-links" hidden></button>
-        </section>
-
-        <section aria-labelledby="updates-title">
-          <h3 id="updates-title">Updates</h3>
-          <dl class="panel-facts" id="update-facts"></dl>
         </section>
 
         <section aria-labelledby="people-title" id="people" hidden>
@@ -410,24 +404,14 @@
           <p class="form-error" id="people-error" role="alert" hidden></p>
         </section>
 
-        <section aria-labelledby="backup-title" id="backup" hidden>
-          <h3 id="backup-title">Backup</h3>
-          <p class="muted">Everyone's accounts and history in one file.</p>
+        <section aria-labelledby="server-title" id="server" hidden>
+          <h3 id="server-title">Server</h3>
+          <dl class="panel-facts" id="server-facts"></dl>
+          <p class="muted">A backup has everyone's accounts and history in one file.</p>
           <button class="button" id="backup-open" type="button">
             <svg class="icon" aria-hidden="true"><use href="#download"></use></svg>Download backup
           </button>
           <p class="form-error" id="backup-error" role="alert" hidden></p>
-        </section>
-
-        <section aria-labelledby="session-title">
-          <h3 id="session-title">Session</h3>
-          <div class="session-row">
-            <div class="me" id="me" hidden></div>
-            <button class="button" id="sign-out" type="button" hidden>
-              <svg class="icon" aria-hidden="true"><use href="#log-out"></use></svg>Sign out
-            </button>
-          </div>
-          <p class="muted" id="session-text" hidden>Sign-in is off: this dashboard is open on this machine only.</p>
         </section>
       </div>
     </dialog>

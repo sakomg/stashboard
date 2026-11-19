@@ -24,8 +24,8 @@ Below, five views, and a sixth when friends share the server:
   an exchange takes a new API key when the old one expired or was turned off, and keeps the exchange's history.
 - **Board**: everyone's portfolio on this server, without names. See [Board](#board).
 
-**Settings** (top right) has privacy, shared links, update status, people and a backup for the admin, and the
-session.
+**Settings** (top right) has the name you sign in with, whether you are on the board, notifications and your
+shared links, and for the admin the people, the update schedule and a backup. The door next to it signs out.
 
 Balances update on their own, as often as Zerion's free allowance lets them (see
 [Free-tier limits](#free-tier-limits)). The button next to the update time asks for one now. While it is greyed
@@ -93,8 +93,7 @@ for that device.
 
 ## Privacy
 
-The eye next to the net worth, or **Hide amounts** in Settings, turns every dollar amount and quantity into
-dots on every device. Shares, changes and prices stay. It is meant for screens other people can see.
+The eye next to the net worth turns every dollar amount and quantity into dots on every device. Shares, changes and prices stay. It is meant for screens other people can see.
 
 Logos are downloaded by your server and served from it, so your browser never tells a third party which
 tokens you hold.
@@ -137,8 +136,8 @@ the dashboard says how old it is.
 ## Signing in
 
 The first account is created on the first visit with the setup code the server prints: a name, a password and
-an authenticator app. Its owner is the admin. Anyone can change the name they sign in with: the pencil next to it under
-Session in Settings. Five wrong attempts from one address lock it out for 15 minutes,
+an authenticator app. Its owner is the admin. Anyone can change the name they sign in with: the pencil next to it at the top
+of Settings. Five wrong attempts from one address lock it out for 15 minutes,
 and each authenticator code works once. To reset it, see [troubleshooting](self-hosting.md#troubleshooting).
 
 ## Friends
