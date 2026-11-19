@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- A Binance account without futures or margin no longer reports them as unreadable on every update. Wallets
+  Binance itself lists as empty are skipped. Futures with money in them that a key cannot see now say why: the
+  key was made before the futures account was opened, and a new one has to replace it.
 - An update ends for you as soon as your own accounts are read. Your balances show at once and **Update now**
   answers, instead of waiting until everyone else's accounts on the server are read too.
 - Notifications. **Notify me on this device** in Settings has a phone or a browser tell you when a holding
