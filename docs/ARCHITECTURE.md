@@ -217,6 +217,12 @@ asset, or, if Earn could not be read, when the token has no market of its own.
 Futures are counted at margin balance: wallet balance plus unrealised PnL, per collateral asset. The cross-check
 is `/sapi/v1/asset/wallet/balance` in USDT.
 
+That list of wallets is read before Cross Margin and the two futures wallets, and one it shows at zero is not
+asked for. An account that never opened futures would otherwise warn on every update, since Binance answers
+-2015 there, the same code as for a wrong key. A wallet missing from the list is asked for, and so is every one
+when the list cannot be read. Futures also answer -2015 to a key made before the futures account was opened,
+while the same key reads Spot, so for futures with money in them that answer becomes a warning to make a new key.
+
 ### Bybit
 
 Bybit runs separate sites for some countries (Turkey, Kazakhstan, Georgia, UAE, Indonesia), each with its own

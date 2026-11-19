@@ -14,6 +14,8 @@ import type { CollectResult } from '../domain/types.ts';
 const SPOT = 'https://api.binance.com';
 const USD_M = 'https://fapi.binance.com';
 const COIN_M = 'https://dapi.binance.com';
+const FUTURES_HIDDEN =
+  'Binance does not show futures to this key. A key made before the futures account was opened never sees them. Make a new read-only key and replace this one in Accounts.';
 
 async function binanceSigned<T>(
   keys: ExchangeKeys,
@@ -76,11 +78,13 @@ export async function collectBinance(keys: ExchangeKeys): Promise<CollectResult>
     }));
   };
   const futures = (wallet: string, base: string, path: string) => async (): Promise<Balance[]> => {
-    const acc = await binanceSigned<{ assets: { asset: string; walletBalance: string; unrealizedProfit: string }[] }>(
-      keys,
-      path,
-      { base },
-    );
+    let acc: { assets: { asset: string; walletBalance: string; unrealizedProfit: string }[] };
+    try {
+      acc = await binanceSigned(keys, path, { base });
+    } catch (err) {
+      if (err instanceof HttpError && /"code":-2015\b/.test(err.body)) throw new Error(FUTURES_HIDDEN);
+      throw err;
+    }
     return acc.assets.map((a) => ({
       wallet,
       type: 'futures',
@@ -118,29 +122,34 @@ export async function collectBinance(keys: ExchangeKeys): Promise<CollectResult>
     balances.push({ wallet: 'Spot', type: 'wallet', asset: b.asset, quantity });
   }
 
+  let reportedTotal: number | undefined;
+  let reported = new Map<string, number>();
+  try {
+    const wallets = await binanceSigned<{ walletName: string; balance: string }[]>(
+      keys,
+      '/sapi/v1/asset/wallet/balance',
+      { params: { quoteAsset: 'USDT' } },
+    );
+    reportedTotal = wallets.reduce((s, w) => s + Number(w.balance), 0);
+    reported = new Map(wallets.map((w) => [w.walletName, Number(w.balance)]));
+  } catch (err) {
+    warnings.push(`total valuation could not be read: ${errorText(err)}`);
+  }
+
+  const optional: [string, () => Promise<Balance[]>][] = [
+    ['Cross Margin', margin],
+    ['USDⓈ-M Futures', futures('USDⓈ-M Futures', USD_M, '/fapi/v3/account')],
+    ['COIN-M Futures', futures('COIN-M Futures', COIN_M, '/dapi/v1/account')],
+  ];
   balances.push(
     ...(await readWallets(
-      [
-        ['Cross Margin', margin],
-        ['USDⓈ-M Futures', futures('USDⓈ-M Futures', USD_M, '/fapi/v3/account')],
-        ['COIN-M Futures', futures('COIN-M Futures', COIN_M, '/dapi/v1/account')],
-      ],
+      optional.filter(([wallet]) => reported.get(wallet) !== 0),
       warnings,
     )),
   );
 
   const priced = toHoldings('binance', balances, tickers);
   warnings.push(...priced.warnings);
-
-  let reportedTotal: number | undefined;
-  try {
-    const wallets = await binanceSigned<{ balance: string }[]>(keys, '/sapi/v1/asset/wallet/balance', {
-      params: { quoteAsset: 'USDT' },
-    });
-    reportedTotal = wallets.reduce((s, w) => s + Number(w.balance), 0);
-  } catch (err) {
-    warnings.push(`total valuation could not be read: ${errorText(err)}`);
-  }
 
   return { holdings: priced.holdings, warnings, reportedTotal };
 }
