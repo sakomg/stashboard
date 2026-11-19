@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Settings is shorter. Sign out is the door next to Settings in the header, and the name you sign in with sits at
+  the top of the panel. Hide amounts, the last update and whether Update now works are gone from it, since the
+  eye by the net worth, the summary and the button already show them. Shared links appear once there is one. The
+  admin finds the update schedule, the Zerion requests and the backup together under Server.
 - A Binance account without futures or margin no longer reports them as unreadable on every update. Wallets
   Binance itself lists as empty are skipped. Futures with money in them that a key cannot see now say why: the
   key was made before the futures account was opened, and a new one has to replace it.

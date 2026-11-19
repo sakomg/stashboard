@@ -715,7 +715,7 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
   line, marks the field `aria-invalid` with a red border and focuses it, and typing in the field clears the
   mark. The server checks everything again. A test in `test/web/modules.test.ts` fails when a page brings a
   browser check back.
-- **Header.** The header holds only Settings. Adding a wallet or an exchange starts from the dashed chip at the
+- **Header.** The header holds only Settings and, when sign-in is on, a sign-out button next to it. Adding a wallet or an exchange starts from the dashed chip at the
   end of the account chips, next to what it adds to, so it is not mistaken for
   adding a user.
 - **Adding an account** shows what each choice covers before anything is typed: Wallet carries the ETH, SOL and
@@ -730,10 +730,12 @@ No build step: plain HTML, CSS and ES modules. ECharts and the font are served f
   account, worth nothing until read, would otherwise vanish the moment it is added. On a phone the chips are
   tiles in two equal columns with the amount at the right edge, so ten accounts take five even rows instead of
   ragged lines, and _Add wallet or exchange_ spans both columns.
-- **Settings panel.** The Settings button in the header opens a panel from the right with the privacy switch,
-  the shared links (copy, open, turn off), the update schedule and whether an update is possible now, for
-  the admin the Zerion requests left today and the people (invite, reset, remove, pending links), and the session
-  with who is signed in and sign-out. A new invite or reset link is copied at once, and a pending one can be
+- **Settings panel.** The Settings button in the header opens a panel from the right with who is signed in, the
+  board switch, notifications, the shared links (copy, open, turn off), and for the admin the people (invite,
+  reset, remove, pending links) and Server: the update schedule, the Zerion requests left today and the backup.
+  It holds nothing the dashboard already shows: hiding amounts is the eye by the net worth, and the last update
+  and whether Update now works are on the summary and the button. A section with nothing in it is left out, so
+  the board switch shows once someone else is on the server and Shared links once there is one. A new invite or reset link is copied at once, and a pending one can be
   copied again from its row, which for a reset names the person. The lists that grow with use (shared links, people, pending invites) carry their count in
   the heading and show the first few rows, three links, four people, two invites, with _Show all_ for the
   rest. A list one row longer than that shows the row instead of a button that would reveal just one. They

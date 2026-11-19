@@ -51,6 +51,5 @@ form.addEventListener('submit', async (event) => {
 });
 
 $('open-account').addEventListener('click', () => {
-  $('backup').hidden = !state.data?.me?.admin;
   setError('backup-error', null);
 });

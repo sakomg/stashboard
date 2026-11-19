@@ -105,7 +105,7 @@ export function renderSummary() {
 
 let gateTimer;
 
-export const inMinutes = (at) => {
+const inMinutes = (at) => {
   const minutes = Math.max(1, Math.ceil((at - Date.now()) / 60_000));
   return minutes < 90 ? `${minutes} min` : `${Math.ceil(minutes / 60)} h`;
 };

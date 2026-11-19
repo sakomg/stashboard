@@ -2,13 +2,10 @@ import { h, icon, iconButton } from '/common/ui.js';
 import { api } from './api.js';
 import { setOnBoard } from './board.js';
 import { showBanner } from './feedback.js';
-import { ago } from './format.js';
 import { $, actions, state } from './state.js';
-import { inMinutes } from './summary.js';
 
 async function setHideAmounts(hide) {
   state.hideAmounts = hide;
-  $('hide-amounts').checked = hide;
   await actions.renderAll();
   try {
     await api('/api/preferences', { method: 'PUT', body: JSON.stringify({ hideAmounts: hide }) });
@@ -18,7 +15,6 @@ async function setHideAmounts(hide) {
 }
 
 $('privacy').addEventListener('click', () => setHideAmounts(!state.hideAmounts));
-$('hide-amounts').addEventListener('change', (event) => setHideAmounts(event.target.checked));
 $('on-board').addEventListener('change', (event) => setOnBoard(event.target.checked));
 
 export const shareUrl = (token) => `${location.origin}/s/${token}`;
@@ -53,13 +49,11 @@ async function renderShareLinks() {
   try {
     links = await api('/api/shares');
   } catch (err) {
+    $('shared-links').hidden = false;
     fillList(list, [h('li', { class: 'muted' }, err.message)], 3, 0);
     return;
   }
-  if (links.length === 0) {
-    fillList(list, [h('li', { class: 'muted' }, 'No shared links. Create one with Share in Allocation.')], 3, 0);
-    return;
-  }
+  $('shared-links').hidden = links.length === 0;
   fillList(
     list,
     links.map((link) =>
@@ -118,30 +112,17 @@ async function renderShareLinks() {
 export function renderAccountPanel() {
   const { data } = state;
   const z = data.zerion;
-  const gate = data.update ?? { allowed: true };
-  $('hide-amounts').checked = state.hideAmounts;
   $('on-board').checked = state.board?.onBoard ?? false;
-  $('board-switch').hidden = !state.board?.others;
-  const fact = (term, ...description) => h('div', {}, h('dt', {}, term), h('dd', {}, ...description));
+  $('privacy-settings').hidden = !state.board?.others;
+  $('session-text').hidden = data.loginEnabled;
+  $('server').hidden = !data.me?.admin;
+  const fact = (term, description) => h('div', {}, h('dt', {}, term), h('dd', {}, description));
   const every = (minutes) =>
     minutes < 120 ? `${minutes} min` : `${Math.floor(minutes / 60)} h${minutes % 60 ? ` ${minutes % 60} min` : ''}`;
-  $('update-facts').replaceChildren(
-    ...[
-      fact('On its own', `Every ${every(data.collectEveryMinutes)}`),
-      fact('Last update', data.updatedAt ? ago(data.updatedAt) : 'Not yet'),
-      fact(
-        'Update now',
-        gate.allowed
-          ? 'Available'
-          : `${gate.reason}${gate.availableAt ? `. Available again in ${inMinutes(gate.availableAt)}` : ''}`,
-      ),
-      data.me?.admin &&
-        z?.dayLimit != null &&
-        fact('Zerion', `${z.dayRemaining ?? '?'} of ${z.dayLimit} requests left today`),
-    ].filter(Boolean),
+  $('server-facts').replaceChildren(
+    fact('Updates', `Every ${every(data.collectEveryMinutes)}`),
+    ...(z?.dayLimit != null ? [fact('Zerion', `${z.dayRemaining ?? '?'} of ${z.dayLimit} requests left today`)] : []),
   );
-  $('session-text').hidden = data.loginEnabled;
-  $('sign-out').hidden = !data.loginEnabled;
 }
 
 $('open-account').addEventListener('click', () => {

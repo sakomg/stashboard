@@ -101,6 +101,7 @@ async function load() {
     }
     state.data = data;
     state.board = board;
+    $('sign-out').hidden = !data.loginEnabled;
     state.hideAmounts = data.preferences.hideAmounts;
     state.progress = data.progress ?? state.progress;
     state.logos = new Map(Object.entries({ ...board?.logos, ...data.logos.available }));

@@ -149,6 +149,7 @@ function renderMe() {
   if (box.hidden) return;
   if (!editingName) {
     box.replaceChildren(
+      h('span', { class: 'muted' }, 'Signed in as'),
       h('b', { class: 'me-name' }, me.name),
       iconButton(
         'pencil',

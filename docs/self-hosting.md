@@ -69,7 +69,7 @@ From then on every page needs a sign-in. Sessions last 30 days. You are the admi
 can invite friends, each with their own accounts, reset their sign-in and remove them.
 
 A server set up before people came in keeps its account as the admin's, with the name `admin`: sign in with
-that name, the same password and the same authenticator, then change the name under Session in Settings.
+that name, the same password and the same authenticator, then change the name at the top of Settings.
 
 ## 5. Add your accounts
 
@@ -164,7 +164,7 @@ The database is migrated on start. The page reloads itself when it notices the n
 
 Once a day the app copies the database to `backups/` inside its data volume and keeps the last 14. That covers
 a bad update or a damaged file, not a lost server, so take a copy off the machine now and then. The admin can
-download a fresh one from the dashboard: **Download backup** under Backup in Settings, with your password and an
+download a fresh one from the dashboard: **Download backup** under Server in Settings, with your password and an
 authenticator code. Exchange keys in it are encrypted with `secret.key`, which never changes, so copy it off the
 server once. From the server itself, the backups and the key are:
 
