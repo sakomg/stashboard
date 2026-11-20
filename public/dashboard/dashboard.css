@@ -456,6 +456,10 @@ th[aria-sort] button {
   accent-color: var(--amber);
 }
 
+.choices .swatch {
+  margin: 0;
+}
+
 .asset .category {
   color: var(--slate);
   font-size: 13px;
