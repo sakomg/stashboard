@@ -4,13 +4,14 @@ import { receiptUnderlying } from '../domain/assets.ts';
 import { getJsonWithHeaders, HttpError } from '../lib/http.ts';
 import { LIGHTER_PROTOCOL } from './lighter.ts';
 import { MIN_DEFI_MINUTES, MIN_GAP_MINUTES } from '../domain/updates.ts';
-import type { CollectResult, Holding, HoldingType, LogoHint } from '../domain/types.ts';
+import type { CollectResult, ContractHint, Holding, HoldingType, LogoHint } from '../domain/types.ts';
 
 export interface ZerionPosition {
   chain: string;
   type: string;
   protocol: string | null;
   symbol: string;
+  address?: string | null;
   quantity: number;
   price: number | null;
   icon: string | null;
@@ -27,7 +28,11 @@ interface ApiPage {
       quantity: { float: number };
       price?: number | null;
       value?: number | null;
-      fungible_info?: { symbol?: string; icon?: { url?: string } | null };
+      fungible_info?: {
+        symbol?: string;
+        icon?: { url?: string } | null;
+        implementations?: { chain_id?: string; address?: string | null }[];
+      };
       application_metadata?: { icon?: { url?: string } | null } | null;
     };
     relationships?: { chain?: { data?: { id?: string } } };
@@ -149,11 +154,13 @@ async function fetchPositions(
   while (url) {
     const page: ApiPage = await zerionGet<ApiPage>(url, apiKey, { defi: filter === 'only_complex', onWait });
     for (const { attributes: a, relationships } of page.data) {
+      const chain = relationships?.chain?.data?.id ?? 'unknown';
       out.push({
-        chain: relationships?.chain?.data?.id ?? 'unknown',
+        chain,
         type: a.position_type,
         protocol: a.protocol ?? null,
         symbol: a.fungible_info?.symbol ?? '?',
+        address: a.fungible_info?.implementations?.find((i) => i.chain_id === chain)?.address ?? null,
         icon: a.fungible_info?.icon?.url ?? null,
         protocolIcon: a.application_metadata?.icon?.url ?? null,
         quantity: a.quantity.float,
@@ -267,6 +274,7 @@ export async function collectZerion(
 
   const holdings: Holding[] = [];
   const logos: LogoHint[] = [];
+  const contracts: ContractHint[] = [];
   let unpriced = 0;
   for (const p of positions) {
     if (!p.value) {
@@ -275,6 +283,7 @@ export async function collectZerion(
     }
     const type = TYPES[p.type] ?? 'wallet';
     if (p.icon) logos.push({ kind: 'token', key: p.symbol, url: p.icon });
+    if (p.address) contracts.push({ symbol: p.symbol, chain: p.chain, address: p.address });
     if (p.protocol && p.protocolIcon) logos.push({ kind: 'protocol', key: p.protocol, url: p.protocolIcon });
     holdings.push({
       chain: p.chain,
@@ -288,7 +297,7 @@ export async function collectZerion(
     });
   }
   if (unpriced > 0) warnings.push(`${unpriced} tokens without a price skipped`);
-  return { holdings, logos, warnings };
+  return { holdings, logos, contracts, warnings };
 }
 
 export async function fetchChains(apiKey: string): Promise<LogoHint[]> {

@@ -4,7 +4,7 @@ import { planUpdates, type UpdatePlan } from '../domain/updates.ts';
 import { runCollection, updateGate, type ProgressEvent, type UpdateGate } from '../services/collector.ts';
 import { fetchMissingLogos, noteLogos } from '../services/logos.ts';
 import { notifyPeople, pushSubject, type NotifyOptions } from '../services/notify.ts';
-import { runSignals } from '../services/signals.ts';
+import { refreshPriceHistories, runSignals } from '../services/signals.ts';
 import { wantedLogos } from '../services/view.ts';
 import { fetchChains, seedZerionDayLimit, zerionDayUsedUp, zerionQuota } from '../sources/zerion.ts';
 import { currentState, getSetting, listSnapshots, listWallets, setSetting } from '../storage/index.ts';
@@ -132,6 +132,14 @@ export function createCollection(ctx: Context, log: FastifyBaseLogger): Collecti
     }
   };
 
+  const refreshHistories = async (): Promise<void> => {
+    try {
+      await refreshPriceHistories(db, config, ctx.resolve, everyMs());
+    } catch (err) {
+      log.warn(err);
+    }
+  };
+
   const refreshLogos = async (): Promise<void> => {
     try {
       const chainsAt = Number(getSetting(db, 'zerion_chains_at') ?? 0);
@@ -196,7 +204,7 @@ export function createCollection(ctx: Context, log: FastifyBaseLogger): Collecti
       await refreshSignals();
       void notify();
       void refreshLogos();
-      void refreshCategories();
+      void refreshCategories().then(refreshHistories);
     }).finally(() => {
       fullRun = null;
       arm();

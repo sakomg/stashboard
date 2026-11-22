@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { heatScore, type Readings } from '../../src/domain/heat.ts';
-import { rsi, sma } from '../../src/domain/indicators.ts';
+import { rsi, sma, weeklyCloses } from '../../src/domain/indicators.ts';
 
 const heat = {
   weights: { rsiDaily: 30, rsiWeekly: 25, funding: 20, ma200: 15, oiGrowth: 10 },
@@ -22,6 +22,20 @@ test("RSI matches Wilder's published example", () => {
 test('moving average needs a full window', () => {
   assert.equal(sma([1, 2, 3, 4], 2), 3.5);
   assert.equal(sma([1], 2), null);
+});
+
+test('weekly closes are the last daily price of each week, Monday to Monday in UTC', () => {
+  const at = (day: number, hour = 0) => Date.UTC(2026, 10, day, hour);
+  assert.deepEqual(
+    weeklyCloses([
+      [at(15), 1],
+      [at(16), 2],
+      [at(17), 3],
+      [at(23), 4],
+      [at(23, 8), 5],
+    ]),
+    [2, 4, 5],
+  );
 });
 
 test('neutral readings score 50 and every reading at its threshold scores 80', () => {

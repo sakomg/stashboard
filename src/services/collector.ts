@@ -6,6 +6,7 @@ import {
   listUsers,
   finishSnapshot,
   listAccounts,
+  noteContracts,
   saveOutcome,
   startSnapshot,
   type Account,
@@ -71,6 +72,7 @@ async function collectEvm(
     holdings: [...indexed.holdings, ...venues.flatMap((v) => v.holdings)],
     warnings: [...indexed.warnings, ...venues.flatMap((v) => v.warnings)],
     logos: [...(indexed.logos ?? []), ...venues.flatMap((v) => v.logos ?? [])],
+    contracts: indexed.contracts ?? [],
   };
 }
 
@@ -125,6 +127,7 @@ function savePerson(db: DatabaseSync, reads: Read[], prices: Map<string, number>
     }
     saveOutcome(db, snapshotId, account.id, { status: 'ok', ...result, holdings });
     if (result.logos) noteLogos(db, result.logos);
+    if (result.contracts) noteContracts(db, result.contracts);
   }
   finishSnapshot(db, snapshotId);
   return snapshotId;

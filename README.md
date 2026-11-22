@@ -99,7 +99,7 @@ All screenshots use the demo data.
 | Lighter and Lighter on Robinhood Chain                  | Lighter public API | None                    |
 | Aster: futures collateral with PnL, spot, staked ASTER  | Aster public RPC   | None, privacy mode off  |
 | TON: GRAM (formerly TON) and jettons                    | TonAPI             | Free key, optional      |
-| Fallback prices, logos and categories                   | CoinGecko          | Free demo key, optional |
+| Heat for tokens off Binance, logos and categories       | CoinGecko          | Free demo key, optional |
 | RSI, funding, open interest                             | Binance public API | None                    |
 | Fear & Greed                                            | alternative.me     | None                    |
 

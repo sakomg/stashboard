@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Tokens Binance does not list get a heat score too. A token in a wallet is scored from CoinGecko's daily prices
+  of its contract, so a meme that shares its ticker with another coin is not mixed up with it. The score has RSI
+  and the 200-day average, without the futures readings, and shows once there are about 15 weeks of prices. A new
+  token gets its heat within a day, as prices are fetched a few tokens at a time through the day. The 7-day and
+  30-day estimates cover these tokens too.
 - Settings is shorter. Sign out is the door next to Settings in the header, and the name you sign in with sits at
   the top of the panel. Hide amounts, the last update and whether Update now works are gone from it, since the
   eye by the net worth, the summary and the button already show them. Shared links appear once there is one. The

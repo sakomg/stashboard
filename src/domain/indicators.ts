@@ -25,6 +25,23 @@ export function sma(values: number[], period: number): number | null {
   return sum / period;
 }
 
+export type PricePoint = [time: number, price: number];
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const FIRST_MONDAY = Date.UTC(1970, 0, 5);
+
+export function weeklyCloses(points: PricePoint[]): number[] {
+  const weeks: number[] = [];
+  let current: number | null = null;
+  for (const [time, price] of points) {
+    const week = Math.floor((time - 1 - FIRST_MONDAY) / WEEK_MS);
+    if (week === current) weeks[weeks.length - 1] = price;
+    else weeks.push(price);
+    current = week;
+  }
+  return weeks;
+}
+
 export function priceChange(closes: number[], days: number): number | null {
   const last = closes.at(-1);
   const then = closes.length > days ? closes.at(-1 - days) : undefined;

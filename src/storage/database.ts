@@ -211,6 +211,17 @@ const MIGRATIONS = [
      since   TEXT NOT NULL,
      PRIMARY KEY (user_id, topic)
    );`,
+  `CREATE TABLE token_contracts (
+     symbol  TEXT NOT NULL,
+     chain   TEXT NOT NULL,
+     address TEXT NOT NULL,
+     PRIMARY KEY (symbol, chain)
+   );
+   CREATE TABLE price_histories (
+     asset      TEXT PRIMARY KEY,
+     points     TEXT,
+     fetched_at TEXT NOT NULL
+   );`,
 ];
 
 export function migrate(db: DatabaseSync, target = MIGRATIONS.length): void {

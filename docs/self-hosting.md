@@ -90,7 +90,7 @@ All of them are free.
 | --------- | --------------------------------------------- | -------------------------------------------------------------------- |
 | Zerion    | EVM and Solana wallets                        | [developers.zerion.io](https://developers.zerion.io)                 |
 | TonAPI    | TON wallets. Works without a key, much slower | [tonconsole.com](https://tonconsole.com)                             |
-| CoinGecko | Fallback prices, logos, categories. Optional  | Demo key at [coingecko.com/en/api](https://www.coingecko.com/en/api) |
+| CoinGecko | Heat off Binance, logos, categories. Optional | Demo key at [coingecko.com/en/api](https://www.coingecko.com/en/api) |
 
 The keys live in `config.json` on the server, which git ignores. To change one, edit the file and run
 `./install.sh` again.
