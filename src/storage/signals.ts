@@ -1,5 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import type { Heat } from '../domain/heat.ts';
+import type { PricePoint } from '../domain/indicators.ts';
+import type { ContractHint } from '../domain/types.ts';
 
 export interface SignalRow extends Heat {
   asset: string;
@@ -91,6 +93,45 @@ export function savePriceChanges(db: DatabaseSync, rows: PriceChange[]): void {
     db.exec('ROLLBACK');
     throw err;
   }
+}
+
+export function noteContracts(db: DatabaseSync, hints: ContractHint[]): void {
+  const upsert = db.prepare('INSERT OR REPLACE INTO token_contracts (symbol, chain, address) VALUES (?, ?, ?)');
+  for (const h of hints) upsert.run(h.symbol, h.chain, h.address);
+}
+
+export function tokenContracts(db: DatabaseSync): Map<string, string> {
+  const rows = db.prepare('SELECT symbol, chain, address FROM token_contracts').all() as unknown as ContractHint[];
+  return new Map(rows.map((r) => [contractKey(r.chain, r.symbol), r.address]));
+}
+
+export const contractKey = (chain: string, symbol: string): string => `${chain}\n${symbol}`;
+
+interface PriceHistory {
+  points: PricePoint[] | null;
+  fetchedAt: string;
+}
+
+export function priceHistories(db: DatabaseSync): Map<string, PriceHistory> {
+  const rows = db.prepare('SELECT asset, points, fetched_at FROM price_histories').all() as {
+    asset: string;
+    points: string | null;
+    fetched_at: string;
+  }[];
+  return new Map(
+    rows.map((r) => [
+      r.asset,
+      { points: r.points === null ? null : (JSON.parse(r.points) as PricePoint[]), fetchedAt: r.fetched_at },
+    ]),
+  );
+}
+
+export function savePriceHistory(db: DatabaseSync, asset: string, points: PricePoint[] | null, at: string): void {
+  db.prepare('INSERT OR REPLACE INTO price_histories (asset, points, fetched_at) VALUES (?, ?, ?)').run(
+    asset,
+    points === null ? null : JSON.stringify(points),
+    at,
+  );
 }
 
 export function priceChangesSince(db: DatabaseSync, since: string): Map<string, PriceChange> {

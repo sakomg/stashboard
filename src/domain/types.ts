@@ -24,10 +24,17 @@ export interface LogoHint {
   name?: string;
 }
 
+export interface ContractHint {
+  symbol: string;
+  chain: string;
+  address: string;
+}
+
 export interface CollectResult {
   holdings: Holding[];
   warnings: string[];
   logos?: LogoHint[];
+  contracts?: ContractHint[];
   reportedTotal?: number;
 }
 

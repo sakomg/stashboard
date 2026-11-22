@@ -53,7 +53,13 @@ const ADDRESS = '0x52908400098527886E0F7030069857D2E4169EE7';
 const realFetch = globalThis.fetch;
 let calls: string[] = [];
 
-function apiPosition(symbol: string, type: string, value: number, protocol: string | null = null) {
+function apiPosition(
+  symbol: string,
+  type: string,
+  value: number,
+  protocol: string | null = null,
+  implementations: { chain_id: string; address: string | null }[] = [],
+) {
   return {
     attributes: {
       position_type: type,
@@ -61,7 +67,7 @@ function apiPosition(symbol: string, type: string, value: number, protocol: stri
       quantity: { float: 1 },
       price: value,
       value,
-      fungible_info: { symbol },
+      fungible_info: { symbol, implementations },
     },
     relationships: { chain: { data: { id: 'arbitrum' } } },
   };
@@ -73,6 +79,7 @@ function fakeZerion({
   remaining = 200,
   limit = 300,
   defi = [apiPosition('WETH', 'deposit', 2000, 'Aave V3')],
+  wallet = [apiPosition('ETH', 'wallet', 1000)],
 } = {}) {
   globalThis.fetch = (async (url: string | URL) => {
     const filter = new URL(url).searchParams.get('filter[positions]') ?? 'chains';
@@ -84,7 +91,7 @@ function fakeZerion({
       'ratelimit-org-day-remaining': String(remaining),
       'ratelimit-org-day-reset': '3600',
     };
-    const data = filter === 'only_complex' ? defi : [apiPosition('ETH', 'wallet', 1000)];
+    const data = filter === 'only_complex' ? defi : wallet;
     const body = status === 200 ? { data } : { errors: [{ title: 'Too many requests' }] };
     return new Response(JSON.stringify(body), { status, headers });
   }) as typeof fetch;
@@ -104,6 +111,21 @@ beforeEach(() => {
 });
 afterEach(() => {
   globalThis.fetch = realFetch;
+});
+
+test('a token names its contract on the chain it is held on', async () => {
+  fakeZerion({
+    wallet: [
+      apiPosition('ETH', 'wallet', 1000, null, [{ chain_id: 'arbitrum', address: null }]),
+      apiPosition('ANSEM', 'wallet', 50, null, [
+        { chain_id: 'base', address: '0xbase' },
+        { chain_id: 'arbitrum', address: '0xarbitrum' },
+      ]),
+      apiPosition('DUST', 'wallet', 0, null, [{ chain_id: 'arbitrum', address: '0xdust' }]),
+    ],
+  });
+  const { contracts } = await collectZerion(freshDb(), 'key', ADDRESS, 'evm');
+  assert.deepEqual(contracts, [{ symbol: 'ANSEM', chain: 'arbitrum', address: '0xarbitrum' }]);
 });
 
 test('an EVM wallet is read as tokens and DeFi positions, then reused instead of asked again', async () => {

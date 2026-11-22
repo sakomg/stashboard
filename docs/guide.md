@@ -33,8 +33,9 @@ out, hovering it says why and when it comes back.
 
 ## Heat score
 
-Every asset with a Binance market gets a heat score from 0 (cold) to 100 (overheated). It blends five
-readings, each scored 50 at its neutral value and 80 at its overheated threshold:
+Every asset with a Binance market gets a heat score from 0 (cold) to 100 (overheated), and so does a token in
+a wallet that Binance does not list, from CoinGecko's daily prices. It blends five readings, each scored 50 at
+its neutral value and 80 at its overheated threshold:
 
 | Reading                                 | Weight | Neutral | Overheated |
 | --------------------------------------- | ------ | ------- | ---------- |
@@ -46,7 +47,9 @@ readings, each scored 50 at its neutral value and 80 at its overheated threshold
 
 Under 30 is cold, 30 to 60 neutral, 60 to 80 warm, 80 and above overheated. A reading that does not exist for
 an asset (no perpetual contract, a short price history) hands its weight to the others; tokenized stocks use
-RSI and the average only. Weights, thresholds and zones are set under `heat` in `config.json`.
+RSI and the average only. Tokens scored from CoinGecko have no futures readings either, and get a score once
+there is a weekly RSI, about 15 weeks after they started trading. A new one gets its heat within a day. Weights,
+thresholds and zones are set under `heat` in `config.json`.
 
 The Signals view says how much of the portfolio sits in each zone, and lists every scored asset with its
 readings. A reading that is overheated or cold on its own is coloured. Every reading has a help button with an

@@ -47,7 +47,7 @@ function periodFact(label, days, key) {
       label,
       help({
         title: `Estimated ${days === 1 ? '24-hour' : `${days}-day`} change`,
-        text: `History does not reach ${span} back yet, so this is today's holdings priced ${span} ago. It covers ${Math.round(estimate.coverage * 100)}% of the portfolio: assets with a Binance market, and stablecoins at $1. Deposits, withdrawals and trades in between are not in it. The change from history takes over ${historyDue(days)}.`,
+        text: `History does not reach ${span} back yet, so this is today's holdings priced ${span} ago. It covers ${Math.round(estimate.coverage * 100)}% of the portfolio: assets with a Binance market${days === 1 ? '' : ', tokens CoinGecko has prices for'}, and stablecoins at $1. Deposits, withdrawals and trades in between are not in it. The change from history takes over ${historyDue(days)}.`,
         source: days === 1 ? SOURCES.dayTicker : SOURCES.dailyPrices,
       }),
     ),

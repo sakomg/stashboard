@@ -151,13 +151,14 @@ net worth, oldest first.
 
 Until history reaches 24 hours, 7 or 30 days back, those changes are estimated from prices instead: today's holdings
 valued at the prices of that long ago. Each signals run records, per asset it reads candles for, the change of the
-daily close over 7 and over 30 days (`price_changes`), from the same Binance candles the heat score uses, and the
-rolling 24-hour change from Binance's 24-hour ticker of the same market, one request more. Stablecoins count as flat.
-Assets without a Binance market, or worth under a dollar across all accounts, are left out, and the estimate covers
-only the rest. A borrowed asset that got dearer counts against it. With less than half of the portfolio covered, or
-price changes older than two days (half a day for the 24-hour one), there is no estimate. The page shows an estimate
-with `≈` and a help button saying what it covers and when the change from history takes over. It leaves out deposits,
-withdrawals and trades, which the change from history includes.
+daily close over 7 and over 30 days (`price_changes`), from the same Binance candles or CoinGecko closes the heat
+score uses, and for a Binance market the rolling 24-hour change from Binance's 24-hour ticker of the same market,
+one request more. Stablecoins count as flat. Assets with neither, or worth under a dollar across all accounts, are
+left out, as are CoinGecko tokens from the 24-hour estimate, and the estimate covers only the rest. A borrowed asset
+that got dearer counts against it. With less than half of the portfolio covered, or price changes older than two
+days (half a day for the 24-hour one), there is no estimate. The page shows an estimate with `≈` and a help button
+saying what it covers and when the change from history takes over. It leaves out deposits, withdrawals and trades,
+which the change from history includes.
 
 ## Sources
 
@@ -446,6 +447,20 @@ The thresholds and weights are in the [user guide](guide.md#heat-score). In addi
 - Rising open interest counts as leverage piling in only while the price rises too; otherwise it reads as
   neutral.
 - Stablecoins and assets under a dollar are not scored. One asset failing does not stop the rest.
+- A token without a Binance market is scored from CoinGecko's daily prices of its contract. Zerion names the
+  contract of each token on the chain it is held on (`token_contracts`), and the contract of the largest holding
+  is asked first, so a ticker shared by unrelated coins does not mix them up. Chains are mapped to CoinGecko's
+  platforms by a fixed list; a token on another chain, or held only on an exchange, has no score.
+- Those prices are fetched apart from the signals run, after each update, a few tokens at a time so that all of
+  them are fetched once over a day: the batch is the number of such tokens times the update interval, divided by
+  a day. A token never fetched goes first, then the one fetched longest ago, once its history is a day old. A
+  history is a year of closes at midnight UTC (`price_histories`), each the close of the day before. The signals
+  run adds the asset's latest price as today's close and makes weekly closes from the last close before each
+  Monday, so it asks CoinGecko nothing. Until the history is fetched again, a day since its last close is folded
+  into today's. A coin CoinGecko does not know is asked again a day later; a 429 stops
+  the batch. The batch waits for the category lookup so the two never ask CoinGecko at once.
+- A token scored from CoinGecko has RSI and the 200-day average only, and needs two of them, so a score from a
+  daily RSI alone is never shown. Its 24-hour change is left out of the estimate below.
 - The same daily candles give each asset's price change over 7 and 30 days, kept for the estimated changes
   (see History).
 - An asset's overheated episode starts at its first overheated reading after it was last neutral or cold, so a
@@ -821,8 +836,10 @@ and `PRAGMA user_version` records how many have run.
 | `snapshots`          | One row per collection run                                                                                     |
 | `snapshot_accounts`  | Each account's result in a run: ok with warnings and reported total, or error                                  |
 | `holdings`           | Positions per account and run; `read_at` when it comes from an earlier answer                                  |
-| `signals`            | Market readings and heat score per asset, with the Binance market used                                         |
+| `signals`            | Market readings and heat score per asset, with the Binance market used or CoinGecko                            |
 | `price_changes`      | Each asset's latest price change over 24 hours, 7 and 30 days, from the signals run                            |
+| `price_histories`    | A year of daily closes from CoinGecko per token without a Binance market, and when they were fetched           |
+| `token_contracts`    | The contract of each token on each chain, as Zerion names it                                                   |
 | `heat_seen`          | Per person and asset, the start of the overheated episode they dismissed                                       |
 | `sessions`           | Hashes of session tokens, whose they are, and their expiry                                                     |
 | `settings`           | Last update and signals run, Zerion's daily allowance, when the chain list was fetched, the sealed VAPID keys  |
